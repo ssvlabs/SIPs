@@ -12,3 +12,4 @@ All major protocol decisions should be written in an SIP form.
 ## Categories
 - [Core](./sips/core/TABLE_OF_CONTENTS.md)
 - [Networking](./sips/networking/TABLE_OF_CONTENTS.md)
+- [Contracts](./sips/contracts/TABLE_OF_CONTENTS.md)
