@@ -19,7 +19,9 @@ The main requirement from each node is to have enough peers
 in all the subnets of its interest. 
 Peers balancing is a procedure where we tag the best peers we are connected to, 
 then disconnecting from the peers that were not tagged. 
-It ensures that our connections are distributed across all the subnets of our interest.
+This solution ensures (over time) that: 
+- our connections are replaced 
+- our connections are distributed across all the subnets of our interest.
 
 ## Peers Balancing
 
@@ -37,7 +39,7 @@ and on the internal state of connected peers (provided by libp2p's `Host` and `P
       3. subnet w/ overflow of peers - `-1`
    2. calculate peers scores according to their subnets, 
    by a counting the subnets scores and giving bonus score for peers with multiple shared subnets.
-   3. pubsub scoring will be taken into account once implemented
+   3. **TBD** pubsub scoring will be taken into account (once added)
 3. trim untagged peers
 
 ### Discovery
