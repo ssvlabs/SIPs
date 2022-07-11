@@ -32,7 +32,7 @@ and on the internal state of connected peers (provided by libp2p's `Host` and `P
 
 1. continue if we reached peers limit in the node level, or stop otherwise.
    (**TBD:** check topic peers limit) 
-2. tag best `n` peers where `n = maxPeers - 2`
+2. tag best `n` peers where `n = maxPeers - 1`
    1. calculate scores for subnets:
       1. subnet w/o peers - `2` 
       2. subnet w/ less than the minimum (2 peers) - `1`
