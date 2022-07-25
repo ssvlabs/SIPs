@@ -9,6 +9,9 @@ All major protocol decisions should be written in an SIP form.
 4. add your SIP to the bottom of the appropriate table of contents md file
 5. create a PR
 
+[SIP template](./template_sip.md)  
+Read [SIP 0](./sips/sip0.md) for SIP life cycle
+
 ## Categories
 - [Core](./sips/core/TABLE_OF_CONTENTS.md)
 - [Networking](./sips/networking/TABLE_OF_CONTENTS.md)

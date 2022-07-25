@@ -6,7 +6,7 @@
 Describes a general workflow and specifications for integrating DKG into SSV regardless of the DKG protocol selected, number of rounds it requires or data structures it uses.
 This SIP describes initializing, running and collecting the output of a DKG protocol.
 
-Rational & Design Goals
+**Rational & Design Goals**  
 This SIP does not change the way SSV validators are registered (on-chain via contract) or managed but rather just the way they are created (their private/ public keys).
 The party initializing the DKG does not necessarily take part in the DKG.
 The incentives for operators to participate in a DKG ceremony are the potential fees that can be collected from the DKG validator registering.

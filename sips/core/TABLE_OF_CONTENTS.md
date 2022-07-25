@@ -2,4 +2,4 @@
 
 | SIP #         | Title | Status |
 |---------------|-------|--------|
-| [0](./dkg.md) | DKG   | draft  |
+| [1](./dkg.md) | DKG   | draft  |
