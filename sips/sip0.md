@@ -1,6 +1,6 @@
-| Author      | Title          | Category | Status |
-|-------------|----------------|----------|--------|
-| Alon Muroch | SIP life cycle | Core     | Draft  |
+| Author      | Title          | Category | Status   |
+|-------------|----------------|----------|----------|
+| Alon Muroch | SIP life cycle | Core     | approved |
 
 **Summary**  
 Describes an SIPs life cycle from being submitted all the way to being accepted, standardized and merged into the spec (if applicable)
