@@ -1,6 +1,6 @@
 | Author      | Title                          | Category | Status |
 |-------------|--------------------------------|----------|--------|
-| Alon Muroch | Generalized DKG support in SSV | Core     | Draft  |
+| Alon Muroch | Generalized DKG support in SSV | Core     | open-for-discussion  |
 
 **Summary**
 Describes a general workflow and specifications for integrating DKG into SSV regardless of the DKG protocol selected, number of rounds it requires or data structures it uses.
