@@ -20,12 +20,16 @@ in all the subnets of its interest.
 Peers balancing is a procedure where we tag the best peers we are connected to, 
 then disconnecting from the peers that were not tagged. 
 This solution ensures (over time) that: 
-- our connections are replaced 
-- our connections are distributed across all the subnets of our interest.
+- connections are being replaced
+- connections are distributed across all the subnets of our interest.
 
-## Peers Balancing
+## Specification
 
-Peers balancing is taking place every `1m` and includes the following steps:
+### Networking
+
+#### Peers Balancing
+
+Peers balancing will take place place every `1m` and includes the following steps:
 
 **NOTE:** in this process we rely on information that was sent by the peer,
 and on the internal state of connected peers (provided by libp2p's `Host` and `Pubsub`).
@@ -35,19 +39,19 @@ and on the internal state of connected peers (provided by libp2p's `Host` and `P
 2. tag best `n` peers where `n = maxPeers - 1`
    1. calculate scores for subnets:
       1. subnet w/o peers - `2` 
-      2. subnet w/ less than the minimum (2 peers) - `1`
-      3. subnet w/ overflow of peers - `-1`
+      2. subnet w/ less than the minimum (<= 2) - `1`
+      3. subnet w/ overflow of peers (>= 5) - `-1`
    2. calculate peers scores according to their subnets, 
    by a counting the subnets scores and giving bonus score for peers with multiple shared subnets.
    3. **TBD** pubsub scoring will be taken into account (once added)
 3. trim untagged peers
 
-### Discovery
+#### Discovery
 
 Discovery system keeps on working by a random walk on the routing table, 
 and therefore we'll keep finding new peers so our connected peers list changes over time.
 
-### Tagging and Trimming
+#### Tagging and Trimming
 
 Tagging is done using `go-libp2p-core/connmgr.ConnManager` interface to protect or unprotect peers.
 
