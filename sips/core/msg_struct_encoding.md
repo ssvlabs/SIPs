@@ -1,6 +1,6 @@
-| Author      | Title                          | Category | Status |
-|-------------|--------------------------------|----------|--------|
-| Alon Muroch | Messages structure and encoding | Core     | draft  |
+| Author      | Title                          | Category | Status   |
+|-------------|--------------------------------|----------|----------|
+| Alon Muroch | Messages structure and encoding | Core     | draft v2 |
 
 **Summary**  
 Describes consensus and post consensus message structure and encoding for the SSV.Network.
@@ -33,21 +33,70 @@ SSZ is 66% smaller (in the test, 1,640 bytes vs 3,700) vs json, using snappy com
 
 SSZ hash tree root enables substituting full data objects with their hash tree root without changing the full message hash tree root which also doesn’t change the BLS signature signing the object. Below we explain how this property is used.
 
+**Wire Message**  
+A wire message struct has the responsibility of encapsulating an encoded and compresses SSZ structs. 
+It also has message ID and type encoded in it for easy traversal so SSV nodes could quickly identify where to route the message for processing
+
+Message types are now 4 byte arrays for easy and efficient encoding
+
+```go
+type Message struct {
+	ID            MessageID `ssz-size:"12"`
+	Type          MsgType   `ssz-size:"4"`
+	DataSSZSnappy []byte    `ssz-max:"2048"`
+}
+```
+
+
 **Message Types**  
 There are 2 major message types: consensus and partially signed duty data.
+For easy traversal without decompression and decoding, the message types include sub types.  
+Consensus messages start with 0x1 and have 4 subtypes.  
+The rest have incremental first byte.
+
+```go
+var (
+	// ConsensusProposeMsgType QBFT propose consensus message
+	ConsensusProposeMsgType = MsgType{0x1, 0x1, 0x0, 0x0}
+	// ConsensusPrepareMsgType QBFT prepare consensus message
+	ConsensusPrepareMsgType = MsgType{0x1, 0x2, 0x0, 0x0}
+	// ConsensusCommitMsgType QBFT commit consensus message
+	ConsensusCommitMsgType = MsgType{0x1, 0x3, 0x0, 0x0}
+	// ConsensusRoundChangeMsgType QBFT round change consensus message
+	ConsensusRoundChangeMsgType = MsgType{0x1, 0x4, 0x0, 0x0}
+	
+	// DecidedMsgType are all QBFT decided messages
+	DecidedMsgType = MsgType{0x2, 0x0, 0x0, 0x0}
+	
+	// PartialSignatureMsgType are all partial signatures msgs over beacon chain specific signatures
+	PartialSignatureMsgType = MsgType{0x3, 0x0, 0x0, 0x0}
+	
+	// DKGMsgType represent all DKG related messages
+	DKGMsgType = MsgType{0x4, 0x0, 0x0, 0x0}
+	
+	// UnknownMsgType can't be identified
+	UnknownMsgType = MsgType{0x0, 0x0, 0x0, 0x0}
+)
+```
+
+**Quick Traversing**  
+The SSV node checks for message ID and type to route incoming messages for processing, discarding irrelevant messages. Message ID is constructed from the validator’s index and beacon role.  
+SSZ enables quick traversal of items without decoding which makes message routing significantly faster and more efficient.
+[Implementation](https://github.com/bloxapp/ssv-experiments/blob/master/ssz_encoding/types/message_id.go#L36-L54)
+
 
 **QBFT Messages**  
 [Code](https://github.com/bloxapp/ssv-experiments/blob/master/ssz_encoding/qbft/messages.go)  
 QBFT messages represent all consensus messages sent on wire. We have 2 types of messages: regular and header messages.
 Regular messages contain the full consensus input object in them, mainly used in proposal and round change messages.  
 Header messages have just the hash tree root for the consensus input object to save bandwidth.  
-SSZ’s properties allow this substitution without changing the actual signature, we can even move (one way) from SignedMessage to SignedMessageHeader
+SSZ’s properties allow this substitution without changing the actual signature, we can even move (one way) from SignedMessage to SignedMessageHeader.  
+
+Notice that there are no message ID and type in the QBFT message, those types are move to the outer Message struct.
 
 ```go
 // Message includes the full consensus input to be decided on, used for proposal and round-change messages
 type Message struct {
-	ID     types.MessageID `ssz-size:"52"`
-	Type   Type
 	Height uint64
 	Round  uint64
 	Input  types.ConsensusInput
@@ -67,8 +116,6 @@ type SignedMessage struct {
 
 // MessageHeader includes just the root of the input to be decided on (to save space), used for prepare and commit messages
 type MessageHeader struct {
-        ID            types.MessageID `ssz-size:"52"`
-        Type          Type
         Height        uint64
         Round         uint64
         InputRoot     [32]byte `ssz-size:"32"`
@@ -101,9 +148,3 @@ type SignedPartialSignatures struct {
 	PartialSignatures []*PartialSignature `ssz-max:"13"`
 }
 ```
-
-**MessageID Quick Traversing**  
-The SSV node checks for message ID to route incoming messages for processing, discarding irrelevant messages. Message ID is constructed from the [validator’s public key and beacon role](https://github.com/bloxapp/ssv-spec/blob/main/types/messages.go#L33-L53).  
-SSZ enables quick traversal of items without decoding which makes message routing significantly faster and more efficient.
-[Implementation](https://github.com/bloxapp/ssv-experiments/blob/master/ssz_encoding/types/messages.go)
-
