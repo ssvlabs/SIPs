@@ -5,7 +5,9 @@
 **Summary**  
 Describes consensus and post consensus message structure and encoding for the SSV.Network.
 The structure minimizes message relaying.
-Encoding chosen is SSZ.
+Encoding chosen is SSZ.  
+
+[Ref implementation](https://github.com/bloxapp/ssv-experiments/tree/master/ssz_encoding)
 
 **Rational & Design Goals**  
 SSV produces, at a minimum, 10 new messages (proposal, 3X prepare, 3X commit, 3X partial signature) per validator attestation per epoch that are propagated in the SSV network. Since every validator has 1 attestation per epoch (other duties are significantly rarer) it’s obvious that attestations make the bulk of the SSV’s network traffic.
