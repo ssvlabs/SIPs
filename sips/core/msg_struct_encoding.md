@@ -43,41 +43,60 @@ Message types are now 4 byte arrays for easy and efficient encoding
 
 ```go
 type Message struct {
-	ID            MessageID `ssz-size:"12"`
-	Type          MsgType   `ssz-size:"4"`
+	ID            MessageID `ssz-size:"32"`
 	DataSSZSnappy []byte    `ssz-max:"2048"`
 }
 ```
 
+**Message ID**  
+Message ID is a 32 byte array which can take different uses for different message types.  
+For consensus, decided and partial signature messages the structure is:   
+
+| Validator Index | Beacon Role | Padding  | Message Type |
+|-----------------|-------------|----------|--------------|
+| 8 bytes         | 4 bytes     | 16 bytes | 4 bytes      |
+
+
+For DKG messages the structure is: 
+
+| ETH Address | Index   | Padding | Message Type |
+|-------------|---------|---------|--------------|
+| 20 bytes    | 4 bytes | 4 bytes | 4 bytes      |
 
 **Message Types**  
-There are 2 major message types: consensus and partially signed duty data.
+There are 3 major message types: consensus partially signed duty data and DKG.
 For easy traversal without decompression and decoding, the message types include sub types.  
 Consensus messages start with 0x1 and have 4 subtypes.  
 The rest have incremental first byte.
 
 ```go
 var (
-	// ConsensusProposeMsgType QBFT propose consensus message
-	ConsensusProposeMsgType = MsgType{0x1, 0x1, 0x0, 0x0}
-	// ConsensusPrepareMsgType QBFT prepare consensus message
-	ConsensusPrepareMsgType = MsgType{0x1, 0x2, 0x0, 0x0}
-	// ConsensusCommitMsgType QBFT commit consensus message
-	ConsensusCommitMsgType = MsgType{0x1, 0x3, 0x0, 0x0}
-	// ConsensusRoundChangeMsgType QBFT round change consensus message
-	ConsensusRoundChangeMsgType = MsgType{0x1, 0x4, 0x0, 0x0}
-	
-	// DecidedMsgType are all QBFT decided messages
-	DecidedMsgType = MsgType{0x2, 0x0, 0x0, 0x0}
-	
-	// PartialSignatureMsgType are all partial signatures msgs over beacon chain specific signatures
-	PartialSignatureMsgType = MsgType{0x3, 0x0, 0x0, 0x0}
-	
-	// DKGMsgType represent all DKG related messages
-	DKGMsgType = MsgType{0x4, 0x0, 0x0, 0x0}
-	
-	// UnknownMsgType can't be identified
-	UnknownMsgType = MsgType{0x0, 0x0, 0x0, 0x0}
+    // ConsensusProposeMsgType QBFT propose consensus message
+    ConsensusProposeMsgType = MsgType{0x1, 0x0, 0x0, 0x0}
+    // ConsensusPrepareMsgType QBFT prepare consensus message
+    ConsensusPrepareMsgType = MsgType{0x1, 0x1, 0x0, 0x0}
+    // ConsensusCommitMsgType QBFT commit consensus message
+    ConsensusCommitMsgType = MsgType{0x1, 0x2, 0x0, 0x0}
+    // ConsensusRoundChangeMsgType QBFT round change consensus message
+    ConsensusRoundChangeMsgType = MsgType{0x1, 0x3, 0x0, 0x0}
+    
+    // DecidedMsgType are all QBFT decided messages
+    DecidedMsgType = MsgType{0x2, 0x0, 0x0, 0x0}
+    
+    // PartialSignatureMsgType are all partial signatures msgs over beacon chain specific signatures
+    PartialSignatureMsgType = MsgType{0x3, 0x0, 0x0, 0x0}
+    
+    // DKGInitMsgType sent when DKG instance is started by requester
+    DKGInitMsgType = MsgType{0x4, 0x0, 0x0, 0x0}
+    // DKGProtocolMsgType contains all key generation protocol msgs
+    DKGProtocolMsgType = MsgType{0x4, 0x1, 0x0, 0x0}
+    // DKGDepositDataMsgType post DKG deposit data signatures
+    DKGDepositDataMsgType = MsgType{0x4, 0x2, 0x0, 0x0}
+    // DKGOutputMsgType final output msg used by requester to make deposits and register validator with SSV
+    DKGOutputMsgType = MsgType{0x4, 0x3, 0x0, 0x0}
+    
+    // UnknownMsgType can't be identified
+    UnknownMsgType = MsgType{0x0, 0x0, 0x0, 0x0}
 )
 ```
 
@@ -96,57 +115,10 @@ SSZ’s properties allow this substitution without changing the actual signature
 
 Notice that there are no message ID and type in the QBFT message, those types are move to the outer Message struct.
 
-```go
-// Message includes the full consensus input to be decided on, used for proposal and round-change messages
-type Message struct {
-	Height uint64
-	Round  uint64
-	Input  types.ConsensusInput
-	// PreparedRound an optional field used for round-change
-	PreparedRound uint64
-}
-
-// SignedMessage includes a signature over Message AND optional justification fields (not signed over)
-type SignedMessage struct {
-        Message   Message
-        Signers   []uint64 `ssz-max:"13"`
-        Signature [96]byte `ssz-size:"96"`
-
-        RoundChangeJustifications []*SignedMessageHeader `ssz-max:"13"`
-        ProposalJustifications    []*SignedMessageHeader `ssz-max:"13"`
-}
-
-// MessageHeader includes just the root of the input to be decided on (to save space), used for prepare and commit messages
-type MessageHeader struct {
-        Height        uint64
-        Round         uint64
-        InputRoot     [32]byte `ssz-size:"32"`
-        PreparedRound uint64
-}
-
-// SignedMessageHeader includes a signature over MessageHeader
-type SignedMessageHeader struct {
-        Message   MessageHeader
-        Signers   []uint64 `ssz-max:"13"`
-        Signature [96]byte `ssz-size:"96"`
-}
-```
 SignedMessageHeader structs do not contain justification fields per QBFT form [specification](https://entethalliance.github.io/client-spec/qbft_dafny_spec/types.dfy)
 
 **Partially Signed Duty Messages**  
 [Code](https://github.com/bloxapp/ssv-experiments/blob/master/ssz_encoding/ssv/messages.go)  
 
-```go
-type PartialSignature struct {
-	Slot          uint64
-	Signature     [96]byte `ssz-size:"96"`
-	SigningRoot   [32]byte `ssz-size:"32"`
-	Signer        uint64
-	Justification *qbft.SignedMessageHeader
-}
-
-type SignedPartialSignatures struct {
-	ID                types.MessageID     `ssz-size:"52"`
-	PartialSignatures []*PartialSignature `ssz-max:"13"`
-}
-```
+**DKG Messages**  
+[Code](https://github.com/bloxapp/ssv-experiments/blob/master/ssz_encoding/dkg/messages.go)  
