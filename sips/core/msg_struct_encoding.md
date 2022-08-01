@@ -35,6 +35,52 @@ SSZ is 66% smaller (in the test, 1,640 bytes vs 3,700) vs json, using snappy com
 
 SSZ hash tree root enables substituting full data objects with their hash tree root without changing the full message hash tree root which also doesn’t change the BLS signature signing the object. Below we explain how this property is used.
 
+**Compression**  
+We’ve chosen to use [S2](https://github.com/klauspost/compress/tree/master/s2#snappy-compatibility) compression for SSZ encoding, based on the benchmark described below.
+
+S2 offers full compatibility with Snappy.
+This means that the efficient encoders of S2 can be used to generate fully Snappy compatible output.
+
+***size comparison between different encoding/compression methods:***
+```
+ssz:            1220
+ssz snappy:     156
+ssz s2:         134
+ssz s2 snappy:  161
+json:           2860
+json snappy:    476
+json s2:        407
+json s2 snappy: 487
+```
+
+***Benchmark***
+```
+go test -bench=. ./ssz_encoding/qbft -benchmem -benchtime 15s -cpu 2
+
+goos: darwin
+goarch: amd64
+pkg: ssv-experiments/ssz_encoding/qbft
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+--------------------------------------------------------------------------------------------------------------------------
+NAME-Number of cores                            Iterations           Nanoseconds/op        Number of bytes     Number of alloccs
+--------------------------------------------------------------------------------------------------------------------------
+BenchmarkSSZCompressSnappy-2                    17528079              1017 ns/op            1664 B/op          2 allocs/op
+BenchmarkSSZCompressS2-2                        17896132              1002 ns/op            1536 B/op          2 allocs/op
+BenchmarkSSZCompressS2Snappy-2                  17817144               991.6 ns/op          1536 B/op          2 allocs/op
+BenchmarkSSZDecompressSnappy-2                  12151700              1460 ns/op            2432 B/op          3 allocs/op
+BenchmarkSSZDecompressSnappyWithS2-2            11989394              1499 ns/op            2432 B/op          3 allocs/op
+BenchmarkSSZDecompressS2-2                      10051171              1547 ns/op            2304 B/op          3 allocs/op
+BenchmarkSSZDecompressS2Snappy-2                12332064              1503 ns/op            2304 B/op          3 allocs/op
+BenchmarkJSONCompressSnappy-2                     977996             19603 ns/op            3840 B/op          2 allocs/op
+BenchmarkJSONCompressS2-2                         928560             19324 ns/op            3584 B/op          2 allocs/op
+BenchmarkJSONCompressS2Snappy-2                   921326             18941 ns/op            3584 B/op          2 allocs/op
+BenchmarkJSONDecompressSnappy-2                   869610             20356 ns/op            5633 B/op          3 allocs/op
+BenchmarkJSONDecompressSnappyWithS2-2             839138             21903 ns/op            5633 B/op          3 allocs/op
+BenchmarkJSONDecompressS2-2                       820206             21964 ns/op            5376 B/op          3 allocs/op
+BenchmarkJSONDecompressS2Snappy-2                 796711             22015 ns/op            5376 B/op          3 allocs/op
+```
+
+
 **Wire Message**  
 A wire message struct has the responsibility of encapsulating an encoded and compresses SSZ structs. 
 It also has message ID and type encoded in it for easy traversal so SSV nodes could quickly identify where to route the message for processing
