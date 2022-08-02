@@ -35,6 +35,23 @@ SSZ is 66% smaller (in the test, 1,640 bytes vs 3,700) vs json, using snappy com
 
 SSZ hash tree root enables substituting full data objects with their hash tree root without changing the full message hash tree root which also doesn’t change the BLS signature signing the object. Below we explain how this property is used.
 
+***Benchmark [SSZ/JSON encode/decode]***
+```
+go test -bench=. ./ssz_encoding/qbft -benchmem -benchtime 15s -cpu 2
+
+goos: darwin
+goarch: amd64
+pkg: ssv-experiments/ssz_encoding/qbft
+cpu: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz
+---------------------------------------------------------------------------------------------------------------
+NAME-Number of cores          Iterations           Nanoseconds/op        Number of bytes     Number of alloccs
+---------------------------------------------------------------------------------------------------------------
+BenchmarkSSZEncode-2          45003988             401.6 ns/op           768 B/op            1 allocs/op
+BenchmarkSSZDecode-2          30176704             563.2 ns/op           568 B/op            5 allocs/op
+BenchmarkJSONEncode-2         1000000              18264 ns/op           1792 B/op           1 allocs/op
+BenchmarkJSONDecode-2         1806558              10149 ns/op           632 B/op            7 allocs/op
+
+```
 **Compression**  
 We’ve chosen to use [S2](https://github.com/klauspost/compress/tree/master/s2#snappy-compatibility) compression for SSZ encoding, based on the benchmark described below.
 
