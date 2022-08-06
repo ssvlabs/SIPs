@@ -13,7 +13,7 @@ All major protocol decisions should be written in an SIP form.
 Read [SIP 0](./sips/sip0.md) for SIP life cycle
 
 ## Categories
-- [All EIPS](./all.md)
+- [All SIPS](./all.md)
 - [Core](./core.md)
 - [Networking](./networking.md)
 - [Contracts](./contracts.md)
