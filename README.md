@@ -24,6 +24,10 @@ All merged SIPs will have a dedicated discussion topin in the [SIPs discussion b
 - [ ] Open discussion board + link board in the SIP page
 - [ ] Mark status 'open-for-discussion'
 
+## SIP status change checklist
+- [ ] Change in All category
+- [ ] Change in relevant sub categories
+
 ## Categories
 - [All SIPS](./all.md)
 - [Core](./core.md)
