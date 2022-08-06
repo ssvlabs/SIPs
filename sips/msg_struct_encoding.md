@@ -2,6 +2,8 @@
 |-------------|--------------------------------|----------|----------|
 | Alon Muroch | Messages structure and encoding | Core     | draft v2 |
 
+[Discussion](https://github.com/bloxapp/SIPs/discussions/8)
+
 **Summary**  
 Describes consensus and post consensus message structure and encoding for the SSV.Network.
 The structure minimizes message relaying.

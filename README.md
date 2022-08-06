@@ -12,6 +12,9 @@ All major protocol decisions should be written in an SIP form.
 [SIP template](./template_sip.md)  
 Read [SIP 0](./sips/sip0.md) for SIP life cycle
 
+## SIP Discussions
+All merged SIPs will have a dedicated discussion topin in the [SIPs discussion board](https://github.com/bloxapp/SIPs/discussions)
+
 ## Categories
 - [All SIPS](./all.md)
 - [Core](./core.md)
