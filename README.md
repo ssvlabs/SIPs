@@ -15,6 +15,15 @@ Read [SIP 0](./sips/sip0.md) for SIP life cycle
 ## SIP Discussions
 All merged SIPs will have a dedicated discussion topin in the [SIPs discussion board](https://github.com/bloxapp/SIPs/discussions)
 
+## SIP Merge checklist
+- [ ] Initial discussion and approvals
+  - [ ] SIP is written well and solves a problem/ advancess the protocol
+  - [ ] SIP formatted well
+  - [ ] Links added to the appropriate category and All SIPs page
+- [ ] Assign SIP number
+- [ ] Open discussion board + link board in the SIP page
+- [ ] Mark status 'open-for-discussion'
+
 ## Categories
 - [All SIPS](./all.md)
 - [Core](./core.md)

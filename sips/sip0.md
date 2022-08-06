@@ -16,6 +16,8 @@ First please use [SIP Template](../template_sip.md) for submitting new SIPs.
 - spec-merged: an optional step for SIP requiring changes to the spec
 - rejected: the SIP was rejected and all discussions/ processes related to it are stopped
 
+_`SIP number is assigned when PR is ready to be merged`_
+
 **Dependency SIP**  
 An SIP requiring some other SIP as a dependency will not move to last-call before the dependency SIP is approved.
 If dependency SIP is rejected the SIP will be rejected as well (unless changed to remove dependency)
