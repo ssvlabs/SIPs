@@ -53,3 +53,31 @@ Our internal SSVNetwork and SSVRegistry tests results:
 **Deployment changes**
 
 One of the challenges is to deploy UUPS contract. [hardhat-deploy](https://github.com/wighawag/hardhat-deploy) doesn't not support it. There is only one way, which was used before we switched to hardhat-deploy: manual deployment scripts (hardhat-ugpgrades). Or to use some tricks to include hardhat-upgrades mechanism inside hardhat-deploy.
+
+**Implementation**
+To make implementation contract UUPS compliant need to inherit a common standard interface that requires one to include the upgrade logic, like inheriting OpenZeppelin's [UUPSUpgradeable](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable1) interface.
+
+```go
+contract Box is UUPSUpgradeable {
+    uint256 private _value;
+
+    function store(uint256 value) public { /*..*/ }
+
+    function retrieve() public view returns (uint256) { /*..*/ }
+
+     // Upgrade logic in Implementation contract
+     upgradeTo(address newImpl) external {
+         // Changes stored address of implementation of contract
+         // at its slot in storage
+     }
+}
+
+contract BoxProxy {
+
+     function _delegate(address implementation) internal virtual { /*..*/ }
+
+     function getImplementationAddress() public view returns (address) { /*..*/ }
+
+     fallback() external { /*..*/ }
+}
+```
