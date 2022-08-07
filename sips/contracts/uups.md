@@ -21,7 +21,7 @@ The admin just as the implementation is going to be kept in the storage of the p
 
 ![proxy_storage_schema](./images/proxy_storage_schema.png)
 
-And the problem with this is that storage is actually one of the most expensive thing that you can do in a contract. Running code, accesing and writing to memory relativy cheap.
+And the problem with this is that storage is actually one of the most expensive thing that you can do in a contract. Running code, accessing and writing to memory relativy cheap.
 
 Every time when a user calls into the proxy you need to check, - is this caller admin or not. So need to fetch admin from a storage incurring the cost of that storage access, compare it and most likely it's not going to be the admin and so you fetch the implementation and do delegation. So it's two storage accesses there.
 
