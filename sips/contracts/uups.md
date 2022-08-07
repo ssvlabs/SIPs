@@ -46,9 +46,12 @@ Shortly, everything that goes through the proxy just get delegated as is over  t
 On a user-proxy level, based by OZ team tests results:
 ![cost_comparison](./images/cost_comparison.png)
 
-Our internal SSVNetwork and SSVRegistry tests results:
-![ssv_cost_comparison](./images/ssv_cost_comparison.png)
+Our internal SSVRegistry tests results:
 
+| SSVRegistry        | Transparent Proxy     | UUPS     |
+|---------------|----------------------|----------|
+| registerValidator  | 234482 | 232165     |
+| registerOperator  | 199713 | 197406     |
 
 **Deployment changes**
 
