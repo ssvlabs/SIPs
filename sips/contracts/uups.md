@@ -19,13 +19,13 @@ To fully understand why UUPS is meaningful, you need to know how Transparent Pro
 
 The admin just as the implementation is going to be kept in the storage of the proxy. 
 
-![transparent-proxy-schema](./images/proxy_storage_schema.png)
+![proxy_storage_schema](./images/proxy_storage_schema.png)
 
 And the problem with this is that storage is actually one of the most expensive thing that you can do in a contract. Running code, accesing and writing to memory relativy cheap.
 
 Every time when a user calls into the proxy you need to check, - is this caller admin or not. So need to fetch admin from a storage incurring the cost of that storage access, compare it and most likely it's not going to be the admin and so you fetch the implementation and do delegation. So it's two storage accesses there.
 
-![transparent-proxy-schema](./images/storage_fee_changes.png)
+![storage_fee_changes](./images/storage_fee_changes.png)
 
 At very beginning when proxy pannel was released, that wasn't that much of  a problem. Storage wasn't really that expensive. But through the subscequent network upgrades has become more and more expensive.
 
@@ -33,7 +33,7 @@ At very beginning when proxy pannel was released, that wasn't that much of  a pr
 
 **Universal Upgradeable Proxy Standard (UUPS)**  
 
-![transparent-proxy-schema](./images/uups.png)
+![uups](./images/uups.png)
 Shortly, everything that goes through the proxy just get delegated as is over  to the Implementation. So we no longer have this overhead of having to fetch the admin on every call.
 
 ***Drawbacks?***
@@ -44,10 +44,10 @@ Shortly, everything that goes through the proxy just get delegated as is over  t
 **Cost Comparison (Transparent vs UUPS)**
 
 On a user-proxy level, based by OZ team tests results:
-![transparent-proxy-schema](./images/cost_comparison.png)
+![cost_comparison](./images/cost_comparison.png)
 
 Our internal SSVNetwork and SSVRegistry tests results:
-![transparent-proxy-schema](./images/ssv_cost_comparison.png)
+![ssv_cost_comparison](./images/ssv_cost_comparison.png)
 
 
 **Deployment changes**
