@@ -84,7 +84,28 @@ Fork phase0.Version
 Every operator with id in OperatorIDs participates in the DKG protocol, broadcasting messages to the DKG topic.
 The withdrawal credentials are configured according to the eth consensus spec
 
-**DKG Output**
+**Message Encryption**  
+Some messages (or part of) during the key generation process need to be encrypted to keep the final operator shares private and secret.
+We use [ECIES](https://cryptobook.nakov.com/asymmetric-key-ciphers/ecies-public-key-encryption) hybrid encryption scheme for that end.
+[ECIES](https://cryptobook.nakov.com/asymmetric-key-ciphers/ecies-public-key-encryption) are aligned with current ethereum cryptographic primitives and have small footprint.
+Immediately after receiving an Init message, each operator will broadcast a newly generated EC public key for the session.  
+
+IMPORTANT: The protocol does not start the key generation process if did not receive SignedSessionPubKey from every operator
+
+// TODO - missing proof of possession for the pubkey?
+
+```go
+type SignedSessionPubKey struct {
+    // Session EC pubkey
+    PubKey []byte
+    // Signer operator ID which signed
+    Signer OperatorID
+    // Signature over PubKey
+    Signature Signature
+}
+```
+
+**DKG Output**  
 A DKG output, the result of a fully executed DKG, must be encoded and signed with the signing key.
 We sign it in such a way so any smart contract can verify the operator actually produced it and not a malicious actor.
 The operators themselves can act maliciously, the DKG requester should pick his operators in a diligent way,
@@ -147,3 +168,37 @@ Signature Signature
 ```
 
 Any user can now take the encrypted shares and validator pub key and register the validator in the SSV contracts
+
+IMPORTANT: The protocol is declared "Done" once SignedDKGOutput is received from all operators
+
+**Identifiable DKG Aborting**  
+During the key generation process any peer can detect an invalid message (directed to him) via [VSS](https://en.wikipedia.org/wiki/Verifiable_secret_sharing).
+To make such a detection identifiable by everyone else, the peer will publish an AbortBlame message containing the original DKG message and his own session private key.
+Every receiving party can decrypt the relevant part of the signed message and verify the AbortBlame claim.
+
+```go
+type AbortBlame struct {
+    // SignedMessage is the original signed message sent by the blamed operator
+    Msg *SignedMessage
+    // RevealedSecretKey is the private key corresponding to the session pubkey published by the operator
+    RevealedSecretKey []byte 
+    // BlamerOperatorID operator ID which makes the blame 
+    BlamerOperatorID OperatorID
+}
+
+type SignedAbortBlame struct {
+    // Data signed
+    Data *AbortBlaim
+    // Signer operator ID which signed
+    Signer OperatorID
+    // Signature over Data.GetRoot()
+    Signature Signature
+}
+```
+
+**DKG abort cases**  
+Those are the cases for which the entire DKG session will be declared "Aborted"
+1) Time out - 5 minutes
+2) Valid AbortBlame received
+3) Did not receive SignedDKGOutput from every operator
+4) Did not receive SignedSessionPubKey from every operator
