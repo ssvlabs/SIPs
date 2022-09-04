@@ -85,3 +85,22 @@ func (i *Instance) Start(value []byte, height Height) {
 
 This sync only fetches the highest round change because for every round > FirstRound the following proposal requires a quorum of round change messages.  
 Most times when a committee is "stuck" it's because it's waiting for such a quorum. Syncing directly the highest round change will enable the syncing node to quickly form a quorum and/ or speef up F+1 sync.
+
+_**Continuous get highest round change**_  
+Due to the importance of getting the most recent rc message we employ a continuous get highest round change in certain conditions.    
+The above means that a get highest change round call will be triggered every X^(R-4) until the instance decides.
+
+Params:  
+Round Timeout(sec): X^R, R >= 0
+Next get highest round change(sec): X^(R-4) ∀ R>6
+Next get highest round frequency (within each round timeout) = X^R/X^(R-4)  = X^4
+
+Example: X=2,R=10
+Round timeout = 2^10 = 1024 seconds
+Next get highest round change = 2^(10-4) = 64 seconds
+Next get highest round frequency (within each round timeout) = 16
+
+Example 2: X=3, R=10
+Round timeout = 3^10 = 59049 seconds
+Next get highest round change = 3^(10-4) = 729 seconds
+Next get highest round frequency (within each round timeout) = 81
