@@ -19,7 +19,7 @@ A third node goes back online, starting at height H' < H.
 Inter-instance syncing will enable the node to sync back to H, intra-instance syncing will enable the node to catchup quickly with messages leading to round R, compile a quorum and decided instance H.  
 
 **What syncing doesn't solve**  
-QBTF is a leader and round based protocol requiring 2f+1 honest nodes to make progress.  
+QBTF is a leader and round based protocol   requiring 2f+1 honest nodes to make progress.  
 If t < f nodes are offline/ unstable the committee itself will see a degradation in performance as every time the leader is one of the offline nodes the committee will need to go into change round  
 
 **Inter-instance syncing**  
@@ -88,19 +88,19 @@ Most times when a committee is "stuck" it's because it's waiting for such a quor
 
 _**Continuous get highest round change**_  
 Due to the importance of getting the most recent rc message we employ a continuous get highest round change in certain conditions.    
-The above means that a get highest change round call will be triggered every X^(R-4) until the instance decides.
+The above means that a get highest change round call will be triggered every X^(R-3) until the instance decides.
 
 Params:  
 Round Timeout(sec): X^R, R >= 0
-Next get highest round change(sec): X^(R-4) ∀ R>6
-Next get highest round frequency (within each round timeout) = X^R/X^(R-4)  = X^4
+Next get highest round change(sec): X^(R-3) ∀ R>6
+Next get highest round frequency (within each round timeout) = X^R/X^(R-3)  = X^3
 
 Example: X=2,R=10
 Round timeout = 2^10 = 1024 seconds
-Next get highest round change = 2^(10-4) = 64 seconds
-Next get highest round frequency (within each round timeout) = 16
+Next get highest round change = 2^(10-3) = 128 seconds
+Next get highest round frequency (within each round timeout) = 8
 
 Example 2: X=3, R=10
 Round timeout = 3^10 = 59049 seconds
-Next get highest round change = 3^(10-4) = 729 seconds
-Next get highest round frequency (within each round timeout) = 81
+Next get highest round change = 3^(10-3) = 2187 seconds
+Next get highest round frequency (within each round timeout) = 27
