@@ -12,6 +12,8 @@ Changing an operator consists of:
 3) Syncing new operator set's slashing protection data
 4) Transitioning to new operator set
 
+From the above there is a handoff of highest decided (including initial values for new operators slashing db) and a period of 2 epochs in which no operator set (old and new) execute duties.
+
 **Generating new shares**  
 New shares can be generated via a centralized dealer or DKG, the end result will be 3f+1 new shares for the new operator set/
 
@@ -25,14 +27,12 @@ Triggering a transfer validator happens by calling to below SSVNetwork contract 
      * @param operatorIds new Operator ids(cluster) to transfer the validator to.
      * @param shares snappy compressed shares(a set of encrypted and public shares).
      * @param amount amount of tokens to be deposited for the validator's pod.
-     * @param transitionEpoch indicates the beacon chain epoch in which the transition will happen
      */
     function transferValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
         bytes calldata shares,
         uint64 amount,
-        uint64 transitionEpoch
     ) external;
 
     /**
@@ -51,8 +51,6 @@ Triggering a transfer validator happens by calling to below SSVNetwork contract 
 ```
 _Notice the above function is for contracts V3_
 
-<ins>transitionEpoch needs to be set at least 2 epochs into the future. Setting it lower might juprodize the validator</ins>
-
 **Syncing new operator set's slashing protection data**  
 Upon parsing a ValidatorTransferred event, each of the new operators will trigger a get highest decided sync from peers in the relevant subnet for each duty type (each one has it's own QBFT controller).  
 
@@ -62,15 +60,21 @@ The highest decided beacon object will be saved in the slashing protection datab
 
 Upon parsing a ValidatorTransferred event, register to the relevant subnet to listen for any validator decided messages (to keep up to date with decdied duties)
 
+**Transitioning epoch**  
+The epoch in which the transfer validator transaction is included is marked as the pre-transition epoch.  
+Transition epoch = pre-transition epoch + 2
+
+To let the new operator set sync and coordinate the transition we wait 2 epochs.  
+TBD - fees calculation in contract
+
 **Transitioning to new operator set - new operators**  
 Conditions before starting:
-1) transitionEpoch reached
+1) transition epoch reached
 2) synced highest decided
 
-Upon conditions meet, a new operator will start the next available duty (transitionEpoch+1).  
-QBFT instance started will be synced highest decided + 1
+Upon conditions meet, a new operator will start the next available duty (in transition epoch).
 
 **Transitioning to new operator set - old operators**  
-* Upon first slot at transitionEpoch, stop any running duty execution (including running QBFT instances).
+* Upon pre-transition epoch, stop any running duty execution (including running QBFT instances).
 * Delete associated share from database
 * Terminate all associated runners
