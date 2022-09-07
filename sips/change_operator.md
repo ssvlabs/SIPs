@@ -33,15 +33,28 @@ type SSVMessage struct {
     Version ShareVersion
 }
 
-func ComputeShareVersion(share *Share) ShareVersion {
-    operatorByts := make([]byte, 0)
+// ComputeShareVersion computes share version using solidity primitives keccak256(abi.encodePacked(operatorIds))
+func ComputeShareVersion(share *Share) (ShareVersion, error) {
+    uint64Solidity, _ := abi.NewType("uint64", "", nil)
+
+    ret := ShareVersion{}
+
+    arguments := abi.Arguments{}
+    ids := make([]interface{}, 0)
     for _, operator := range share.Committee {
-        b := make([]byte, 8)
-        binary.LittleEndian.PutUint64(b, uint64(operator.GetID()))
-        operatorByts = append(operatorByts, b...)
+        arguments = append(arguments, abi.Argument{
+            Type: uint64Solidity,
+        })
+        ids = append(ids, uint64(operator.OperatorID))
     }
 
-    return sha256.Sum256(operatorByts)
+    bytes, err := arguments.Pack(ids...)
+    if err != nil {
+        return ret, err
+    }
+    root := crypto.Keccak256(bytes)
+    copy(ret[:], root)
+    return ret, nil
 }
 
 ```
