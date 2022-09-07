@@ -2,6 +2,11 @@
 |-------------|--------------------------|----------|--------|
 | Alon Muroch | Change SSV operators set | Core     | draft  |
 
+
+Open issues:
+- Long range attack - past operator committee gets compromised, what it can do?
+- historical syncing post committee change?
+
 **Overview**  
 Changing the operator set for an SSV validator is the last resort in keeping the validator operational. Changing operators can happen for a number of reasons: change fee structure, replacing malicious/ low performing operator and more.  
 This SIP describes how the SSV protocol can support operator set change.  
