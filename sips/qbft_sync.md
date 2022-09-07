@@ -37,28 +37,53 @@ func (c *Controller) ProcessMsg(msg *SignedMessage) (bool, []byte, error) {
 	// code after
 }
 
-func (c *Controller) processHigherHeightMsg(msg *SignedMessage) error {
-    added, err := c.HigherReceivedMessages.AddIfDoesntExist(msg)
-    if err != nil {
-        return errors.Wrap(err, "could not add higher height msg")
+func (c *Controller) processFutureMsg(msg *SignedMessage) (*SignedMessage, error) {
+    if c.isDecidedMsg(msg) {
+        return c.uponFutureDecided(msg)
     }
-    if added && c.f1SyncTrigger() {
-        return c.network.SyncHighestDecided(c.Identifier)
+
+    if err := c.verifyAndAddHigherHeightMsg(msg); err != nil {
+        return nil, errors.Wrap(err, "failed adding higher height msg")
     }
+    if c.f1SyncTrigger() {
+        return nil, c.network.SyncHighestDecided(c.Identifier)
+    }
+    return nil, nil
+}
+
+// verifyAndAddHigherHeightMsg verifies msg, cleanup queue and adds the message if unique signer
+func (c *Controller) verifyAndAddHigherHeightMsg(msg *SignedMessage) error {
+    if err := msg.Signature.VerifyByOperators(msg, c.Domain, types.QBFTSignatureType, c.Share.Committee); err != nil {
+        return errors.Wrap(err, "msg signature invalid")
+    }
+    if len(msg.GetSigners()) != 1 {
+        return errors.New("msg allows 1 signer")
+    }
+
+    // cleanup lower height msgs
+    cleanedQueue := make(map[types.OperatorID]Height)
+    signerExists := false
+    for signer, height := range c.FutureMsgQueue {
+        if height <= c.Height {
+            continue
+        }
+
+        if signer == msg.GetSigners()[0] {
+            signerExists = true
+        }
+        cleanedQueue[signer] = height
+    }
+
+    if !signerExists {
+        cleanedQueue[msg.GetSigners()[0]] = msg.Message.Height
+    }
+    c.FutureMsgQueue = cleanedQueue
     return nil
 }
 
 // f1SyncTrigger returns true if received f+1 higher height messages from unique signers
 func (c *Controller) f1SyncTrigger() bool {
-    uniqueSigners := make(map[types.OperatorID]bool)
-    for _, msg := range c.HigherReceivedMessages.AllMessaged() {
-        for _, signer := range msg.GetSigners() {
-            if _, found := uniqueSigners[signer]; !found {
-                uniqueSigners[signer] = true
-            }
-        }
-    }
-    return c.Share.HasPartialQuorum(len(uniqueSigners))
+    return c.Share.HasPartialQuorum(len(c.FutureMsgQueue))
 }
 
 ```
