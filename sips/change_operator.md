@@ -1,7 +1,8 @@
-| Author      | Title                    | Category | Status |
-|-------------|--------------------------|----------|--------|
-| Alon Muroch | Change SSV operators set | Core     | draft  |
+| Author      | Title                   | Category | Status |
+|-------------|-------------------------|----------|--------|
+| Alon Muroch | Change operators set | Core     | open-for-discussion  |
 
+[Discussion] (https://github.com/bloxapp/SIPs/discussions/14)
 
 ## Overview  
 Changing the operator set for an SSV validator is the last resort in keeping the validator operational. Changing operators can happen for a number of reasons: change fee structure, replacing malicious/ low performing operator and more.  
@@ -82,13 +83,11 @@ Triggering a transfer validator happens by calling to below SSVNetwork contract 
          * @param publicKey The public key of a validator.
          * @param podId The validator's new pod id.
          * @param shares snappy compressed shares(a set of encrypted and public shares).
-         * @param transitionEpoch indicates the beacon chain epoch in which the transition will happen
          */
     event ValidatorTransferred(
         bytes publicKey,
         bytes32 podId,
         bytes shares,
-        uint64 transitionEpoch
     );
 ```
 _Notice the above function is for contracts V3_
