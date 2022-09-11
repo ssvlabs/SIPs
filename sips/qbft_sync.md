@@ -1,7 +1,9 @@
 
 | Author      | Title     | Category | Status |
 |-------------|-----------|----------|--------|
-| Alon Muroch | QBFT Sync | Core     | draft  |
+| Alon Muroch | QBFT Sync | Core     | open-for-discussion  |
+
+[Discussion] (https://github.com/bloxapp/SIPs/discussions/12)
 
 **Summary**  
 Describes when QBFT requires syncing with other nodes and what type of syncing.   
