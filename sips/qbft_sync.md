@@ -25,69 +25,25 @@ QBTF is a leader and round based protocol   requiring 2f+1 honest nodes to make 
 If t < f nodes are offline/ unstable the committee itself will see a degradation in performance as every time the leader is one of the offline nodes the committee will need to go into change round  
 
 **Inter-instance syncing**  
-A node receiving f+1 messages with a higher height than his local height will trigger sync highest decided in which the node fetches the highest decided (signed message and justification) from its peers.   
-[link to code](https://github.com/bloxapp/ssv-spec/blob/qbft_sync/qbft/controller.go#L98-L100)
+A node receiving f+1 messages with a higher height than its local height will trigger sync highest decided in which the node fetches the highest decided (signed message and justification) from its peers.   
+[UponFutureMsg code](https://github.com/bloxapp/ssv-spec/blob/qbft_sync/qbft/sync.go)  
+[UponDecided code](https://github.com/bloxapp/ssv-spec/blob/qbft_sync/qbft/decided.go)
 
 ```go
-func (c *Controller) ProcessMsg(msg *SignedMessage) (bool, []byte, error) {
-	// code before
+// ProcessMsg processes a new msg, returns decided message or error
+func (c *Controller) ProcessMsg(msg *SignedMessage) (*SignedMessage, error) {
+    if err := c.baseMsgValidation(msg); err != nil {
+        return nil, errors.Wrap(err, "invalid msg")
+    }
 
-	if msg.Message.Height > c.Height {
-            return false, nil, c.processHigherHeightMsg(msg)
-        }
-	
-	// code after
+    if isDecidedMsg(c.Share, msg) {
+        return c.UponDecided(msg)
+    } else if msg.Message.Height > c.Height {
+        return c.UponFutureMsg(msg)
+    } else {
+        return c.UponExistingInstanceMsg(msg)
+    }
 }
-
-func (c *Controller) processFutureMsg(msg *SignedMessage) (*SignedMessage, error) {
-    if c.isDecidedMsg(msg) {
-        return c.uponFutureDecided(msg)
-    }
-
-    if err := c.verifyAndAddHigherHeightMsg(msg); err != nil {
-        return nil, errors.Wrap(err, "failed adding higher height msg")
-    }
-    if c.f1SyncTrigger() {
-        return nil, c.network.SyncHighestDecided(c.Identifier)
-    }
-    return nil, nil
-}
-
-// verifyAndAddHigherHeightMsg verifies msg, cleanup queue and adds the message if unique signer
-func (c *Controller) verifyAndAddHigherHeightMsg(msg *SignedMessage) error {
-    if err := msg.Signature.VerifyByOperators(msg, c.Domain, types.QBFTSignatureType, c.Share.Committee); err != nil {
-        return errors.Wrap(err, "msg signature invalid")
-    }
-    if len(msg.GetSigners()) != 1 {
-        return errors.New("msg allows 1 signer")
-    }
-
-    // cleanup lower height msgs
-    cleanedQueue := make(map[types.OperatorID]Height)
-    signerExists := false
-    for signer, height := range c.FutureMsgQueue {
-        if height <= c.Height {
-            continue
-        }
-
-        if signer == msg.GetSigners()[0] {
-            signerExists = true
-        }
-        cleanedQueue[signer] = height
-    }
-
-    if !signerExists {
-        cleanedQueue[msg.GetSigners()[0]] = msg.Message.Height
-    }
-    c.FutureMsgQueue = cleanedQueue
-    return nil
-}
-
-// f1SyncTrigger returns true if received f+1 higher height messages from unique signers
-func (c *Controller) f1SyncTrigger() bool {
-    return c.Share.HasPartialQuorum(len(c.FutureMsgQueue))
-}
-
 ```
 
 All received decided messages from syncing will trigger, as usual, the upon decided function.  
