@@ -35,6 +35,9 @@ type Sync interface {
 ```
 ## Changes to QBFT Controller
 
+### bump height at decided
+Bump height is moved to when an instance is decdied so any related msgs will be passed through UponPastInstanceMsg 
+
 ### Remove HistoricalInstanceCapacity
 QBFT controller will maintain just the current running instance, other instances will be fetched from storage
 
