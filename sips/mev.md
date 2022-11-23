@@ -17,14 +17,23 @@ Currently, operators wishing to offer competitive returns must be sophisticated 
 #### Metadata
 Operators advertise whether they intend to build blinded blocks and which MEV relays they work with.
 
-Since blinded blocks can't be validated for their `fee_recipient`, some validators may be willing to compromise on potential profits from MEV in return for the guaranteed block reward.
+Since blinded blocks can't be validated for their `fee_recipient`, some validators may be willing to compromise on potential profits from MEV in return for the guaranteed block reward, and even more during adversarial conditions in which some previously trusted operators/builders are now defrauding validators.
 
 #### Node behaviour
-Operators who wish to support blinded blocks must configure their node to do so, otherwise their node will reject signing those.
+
+##### Scenario A — Soft restriction
+Operators who wish to support blinded blocks must configure their node to do so, otherwise it will reject signing those.
 
 Validators who want to propose MEV blocks would have to avoid registering with a combination of MEV and non-MEV operators, as the latter would reject any blinded blocks and result in a missed duty.
 
 > TODO: can't leaders just fall back to propose non-blinded blocks if at least one of the other operators is non-MEV supporting? This should allow such combinations.
+
+##### Scenario B — Hard restriction
+Operators set whether they propose blinded blocks in the SSV contract.
+
+Other operators verify this and forbid non-blinded block operators from proposing blinded blocks.
+
+Operators can update this setting in the contract, but there's a cooldown period of 7 days until this becomes effective to prevent operators from gaming this without their validators' knowledge.
 
 ### Validator registration
 
