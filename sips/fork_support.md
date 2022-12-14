@@ -136,5 +136,7 @@ type ForkDigest [4]byte
 
 ```
 
-**Weak Subjectivity Considerations**  
-A node syncing from scratch will need to either specify which forkDigest to start with or sync from height 0 and move between forks as decided messages are received
+**Syncing considerations**  
+Sycing messages (past or future instances) will require special considerations.
+When syncing from a peer, it will provide the requesting node with the fork for the specific message sent.
+For example: if my node asks a peer for a the highest decided, the peer will return it + indicate which fork the message uses.
