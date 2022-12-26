@@ -49,17 +49,22 @@ Once a threshold round was reached the timeout is extended to `T=2m`
 
 **Specification**  
 
-`12` is used as the quick timeout threshold, allowing the nodes to have a 24s window (or 2 slots) for finalizing the duty before quick timeout period is over.
+`8` is used as the quick timeout threshold, allowing the nodes to have a `16s` window for finalizing the duty before quick timeout period is over.
 
 The new timeout calculation:
 
 ```go
-quickTimeoutThreshold := 12
-// RoundTimeout returns the number of seconds until next timeout for a give round
-func (i *Instance) RoundTimeout(round Round) uint64 {
-	if round <= quickTimeoutThreshold {
-	    return 2	
+var (
+    quickTimeoutThreshold = Round(8)
+    quickTimeout          = 2 * time.Second
+    slowTimeout           = 2 * time.Minute
+)
+
+// RoundTimeout returns the number of seconds until next timeout for a given round.
+func RoundTimeout(r Round) time.Duration {
+    if r <= quickTimeoutThreshold {
+        return quickTimeout
     }
-	return 120
+    return slowTimeout
 }
 ```
