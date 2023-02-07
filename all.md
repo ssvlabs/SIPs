@@ -9,3 +9,4 @@
 | [5](./sips/ecies_share_encryption.md) | ECIES Share Encryption      | open-for-discussion  |
 | [6](./sips/constant_qbft_timeout.md)  | Constant QBFT timeout       | open-for-discussion  |
 | [7](./sips/fork_support.md)           | Fork Support                | open-for-discussion  |
+| [8](./sips/pre_consensus_livness.md)                    | Pre-Consensus livness fix   | open-for-discussion  |
