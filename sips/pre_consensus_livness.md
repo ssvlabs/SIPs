@@ -22,11 +22,33 @@ The system is forever stuck.
 We add a pre-consensus justification field to the ConsensusData object (attached to all QBFT messages) so any replica which did not receive a quorum of pre-consensus messages can use the justification (verify it) and start a consensus instance.   
 Solving the livness issue.
 
-To avoid abuses by f byzantine nodes we wait for at least f+1 pre-consensus justification messages signed be unique replicas.
+
+partial_signature_message.go
+```go
+// PartialSignatureMessage is a msg for partial Beacon chain related signatures (like partial attestation, block, randao sigs)
+type PartialSignatureMessage struct {
+    PartialSignature []byte // The Beacon chain partial Signature for a duty
+    SigningRoot      []byte // the root signed in PartialSignature
+    Signer           OperatorID
+}
+
+type PartialSignatureMessages struct {
+	Type     PartialSigMsgType
+	Slot     phase0.Slot
+	Messages []*PartialSignatureMessage
+}
+
+// SignedPartialSignatureMessage is an operator's signature over PartialSignatureMessage
+type SignedPartialSignatureMessage struct {
+    Message   PartialSignatureMessages
+    Signature Signature
+    Signer    OperatorID
+}
+
+```
 
 consensus_data.go
 ```go
-// ConsensusData holds all relevant duty and data Decided on by consensus
 // ConsensusData holds all relevant duty and data Decided on by consensus
 type ConsensusData struct {
     Duty                       Duty
@@ -91,66 +113,79 @@ func (cid *ConsensusData) validateUniqueJustificationSigners() bool {
 
 runner
 ```go
-// shouldProcessPreConsensusJustification returns true if there is no running instance and qbft message is controller.Height + 1
-func (b *BaseRunner) shouldProcessPreConsensusJustification(msg *qbft.SignedMessage) bool {
+// canProcessPreConsensusJustification returns true if
+// - there is no running instance
+// - qbft message is controller.Height + 1
+func (b *BaseRunner) canProcessPreConsensusJustification(msg *qbft.SignedMessage) bool {
     return b.QBFTController.CanStartInstance() == nil && b.QBFTController.Height+1 == msg.Message.Height
 }
 
 // validatePreConsensusJustification validates:
-// 1) the qbft msg
-// 2) the justifications
-// 3) can add to container (unique signer)
-// and returns the decoded consensus data
-func (b *BaseRunner) validatePreConsensusJustification(runner Runner, msg *qbft.SignedMessage) (*types.ConsensusData, error) {
-
+// 1) unique partial sig signers
+// 2) quorum
+// 3) slot valid
+func (b *BaseRunner) validatePreConsensusJustificationForSlot(
+    sigs []*types.SignedPartialSignatureMessage,
+    slot phase0.Slot,
+) error {
+    signers := map[types.OperatorID]bool{}
+    for _, sig := range sigs {
+        if err := types.ValidateSignedPartialSignatureMessage(b.Share, sig, slot); err != nil {
+            return err
+        }
+        if signers[sig.Signer] {
+            return errors.New("non unique signers")
+        }
+        signers[sig.Signer] = true
+    }
+    return nil
 }
 
-func (b *BaseRunner) hasPartialQuorumForPreConsensusJustification() bool {
-    // check pre consensus roots equal
-    // check duties are equal
-
-    return b.Share.HasPartialQuorum(len(b.preConsensusJustificationContainer))
-}
-
-func (b *BaseRunner) processPreConsensusJustification(runner Runner, msg *qbft.SignedMessage) error {
-    if !b.shouldProcessPreConsensusJustification(msg) {
+// processPreConsensusJustification processes a pre-consensus justification
+// highestDecidedDutySlot is the highest decided duty slot known
+// is the qbft message carrying  the pre-consensus justification
+func (b *BaseRunner) processPreConsensusJustification(runner Runner, highestDecidedDutySlot phase0.Slot, msg *qbft.SignedMessage) error {
+    if !b.canProcessPreConsensusJustification(msg) {
         return nil
     }
     
-    cd, err := b.validatePreConsensusJustification(runner, msg)
+    cd := &types.ConsensusData{}
+    if err := cd.Decode(msg.Message.Data); err != nil {
+        return err
+    }
+    
+    err := b.validatePreConsensusJustificationForSlot(cd.PreConsensusJustifications, cd.Duty.Slot)
     if err != nil {
         return errors.Wrap(err, "invalid pre-consensus justification")
     }
-
-    // add to f+1 container
-    b.preConsensusJustificationContainer[msg.Signers[0]] = msg
     
-    if !b.hasPartialQuorumForPreConsensusJustification() {
-        return nil
+    // only new pre-consensus justifications can be processed
+    if cd.Duty.Slot <= highestDecidedDutySlot {
+        return errors.New("invalid pre-consensus slot")
     }
-
+    
     if !b.hasRunningDuty() {
-        b.setupForNewDuty(cd.Duty)
+        b.setupForNewDuty(&cd.Duty)
     }
     
     // add pre-consensus sigs to state container
     var r [][]byte
-    for _, signedMsg := range cd.PreConsensusJustification {
+    for _, signedMsg := range cd.PreConsensusJustifications {
         quorum, roots, err := b.basePartialSigMsgProcessing(signedMsg, b.State.PreConsensusContainer)
         if err != nil {
             return errors.Wrap(err, "invalid partial sig processing")
         }
-
+        
         if quorum {
             r = roots
             break
-	    }
+        }
     }
-	
     if len(r) == 0 {
         return errors.New("invalid pre-consensus justification quorum")
     }
-
+    
     return runner.decideOnRoots(r)
 }
+
 ```
