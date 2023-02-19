@@ -22,6 +22,16 @@ The system is forever stuck.
 We add a pre-consensus justification field to the ConsensusData object (attached to all QBFT messages) so any replica which did not receive a quorum of pre-consensus messages can use the justification (verify it) and start a consensus instance.   
 Solving the livness issue.
 
+runner.go
+```go
+type BaseRunner struct {
+	...
+
+	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
+	// this param is not part of the state as it should be set on struct init and updated during normal operations when decided
+	highestDecidedSlot spec.Slot
+}
+```
 
 partial_signature_message.go
 ```go
