@@ -126,27 +126,61 @@ runner
 // canProcessPreConsensusJustification returns true if
 // - there is no running instance
 // - qbft message is controller.Height + 1
-func (b *BaseRunner) canProcessPreConsensusJustification(msg *qbft.SignedMessage) bool {
-    return b.QBFTController.CanStartInstance() == nil && b.QBFTController.Height+1 == msg.Message.Height
+func (b *BaseRunner) shouldProcessingJustificationsForHeight(msg *qbft.SignedMessage) bool {
+    rightQBFTHeight := b.QBFTController.CanStartInstance() == nil && (b.QBFTController.Height == msg.Message.Height || b.QBFTController.Height+1 == msg.Message.Height)
+    hasData := len(msg.FullData) > 0
+    requiresPreConsensus := b.BeaconRoleType == types.BNRoleProposer || b.BeaconRoleType == types.BNRoleAggregator || b.BeaconRoleType == types.BNRoleSyncCommitteeContribution
+    return rightQBFTHeight && hasData && requiresPreConsensus
 }
 
 // validatePreConsensusJustification validates:
 // 1) unique partial sig signers
 // 2) quorum
 // 3) slot valid
-func (b *BaseRunner) validatePreConsensusJustificationForSlot(
-    sigs []*types.SignedPartialSignatureMessage,
-    slot phase0.Slot,
-) error {
-    signers := map[types.OperatorID]bool{}
-    for _, sig := range sigs {
-        if err := types.ValidateSignedPartialSignatureMessage(b.Share, sig, slot); err != nil {
+func (b *BaseRunner) validatePreConsensusJustifications(data *types.ConsensusData) error {
+    if err := data.Validate(); err != nil {
+        return err
+    }
+    
+    // validate justification quorum
+    if !b.Share.HasQuorum(len(data.PreConsensusJustifications)) {
+        return errors.New("no quorum")
+    }
+    
+    signers := make(map[types.OperatorID]bool)
+    roots := make(map[[32]byte]bool)
+    for i, msg := range data.PreConsensusJustifications {
+        if err := msg.Validate(); err != nil {
+            return err
+		}
+        
+        // check unique signers
+        if !signers[msg.Signer] {
+           signers[msg.Signer] = true
+        } else { 
+		   return errors.New("duplicate signer")
+        }
+        
+        // validate roots
+        for _, msgRoot := range msg.Message.Messages {
+            // validate roots
+            if i == 0 {
+                // record roots
+                if !roots[msgRoot.SigningRoot] {
+                    roots[msgRoot.SigningRoot] = true
+                }
+            } else {
+                // compare roots
+                if !roots[msgRoot.SigningRoot] {
+                    return errors.New("invalid roots")
+                }
+            }
+        }
+            
+            // verify sigs and duty.slot == msg.slot
+        if err := b.validatePartialSigMsgForSlot(msg, data.Duty.Slot); err != nil {
             return err
         }
-        if signers[sig.Signer] {
-            return errors.New("non unique signers")
-        }
-        signers[sig.Signer] = true
     }
     return nil
 }
