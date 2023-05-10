@@ -35,7 +35,7 @@ Validators may set their preferred `fee_receipient` address by calling `setFeeRe
 At the start of every slot, operators select their active validators with `ShouldRegisterValidatorAtSlot`, and for those, produce a [`builder-specs/SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) with their preferred `fee_recipient`.
 
 ```go
-ValidatorRegistrationSlotInterval = 16 * SlotsPerEpoch
+ValidatorRegistrationSlotInterval = 10 * SlotsPerEpoch
 
 func ShouldRegisterValidatorAtSlot(index phase0.ValidatorIndex, slot phase0.Slot) bool {
     return (index + slot) % ValidatorRegistrationSlotInterval == 0
@@ -48,13 +48,15 @@ At the end of every slot, operators publish registrations for the validators sel
 
 > Note: Since relays/builders can have some delay with registrations, producing a blinded block before and shortly thereafter publishing the first registration may result in either:
 >
-> 1. Builder doesn't build a block, and Beacon node falls back to locally-built block from it's execution layer.
+> 1. Builder is unfamiliar with the validator yet and doesn't build a block, and Beacon node falls back to locally-built block from it's execution layer.
 > 2. Builder doesn't reward the validator's `fee_recipient` because it isn't aware of it yet.
 > 3. Builder rewards a potentially different `fee_recipient` from the validator's latest registration (such as a registration prior to onboarding to SSV.)
 
+> Note: Currently, implementation publishes registration differently: right after producing signatures. We're following the performance of that, and will either revise this SIP or the implementation accordingly.
+
 #### Issue: Gas limits
 
-Unlike standard validator clients, gas limits are not set by validators, but rather by their operators.
+Gas limits are set by operators rather than validators, unlike in standard validator clients.
 
 This SIP proposes to hardcode the gas limit to 30 million (which is the default in Prysm and Lighthouse), but recommends to keep watching it and modify if necessary.
 
@@ -74,9 +76,9 @@ Since SSV can't enforce a specific set of builder(s) at the protocol-level, oper
 
 #### Locally-built blinded blocks
 
-Sometimes, Beacon nodes fallback to a locally-built `BlindedBeaconBlock`, either because it's configured to do so under certain conditions (profitability threshold; chain is unstable) or because the builder(s) are unavailable.
+Sometimes, a Beacon node falls back to a locally-built `BlindedBeaconBlock` from it's execution layer, either because it's configured to do so under certain conditions (profitability threshold; chain is unstable) or because the builder(s) are unavailable.
 
-Locally-built blinded blocks can only be unblinded by the Beacon node which built it, which unfortunately means that only the round leader would successfully submit the block, thereby reducing the network outreach of the proposal down to a single Beacon node.
+A locally-built blinded block can only be unblinded by the same Beacon node which built it, which unfortunately means that only the round leader would successfully submit the block, thereby reducing the total network outreach of the proposal down to a single Beacon node.
 
 We should consider pushing operators to configure their node for less harsh fallback conditions, so that more of their blocks are externally-built and can be successfully submitted by other operators' Beacon nodes.
 
