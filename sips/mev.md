@@ -52,15 +52,11 @@ At the end of every slot, operators publish registrations for the validators sel
 > 2. Builder doesn't reward the validator's `fee_recipient` because it isn't aware of it yet.
 > 3. Builder rewards a potentially different `fee_recipient` from the validator's latest registration (such as a registration prior to onboarding to SSV.)
 
-#### Issues
+#### Issue: Gas limits
 
-##### Gas limit
+Unlike standard validator clients, gas limits are not set by validators, but rather by their operators.
 
-Within the proposed construction, the gas limit is set by validators only and relies on them to update it if needed.
-
-If gas limit is likely to change to adjust to network conditions, then this isn't ideal because validators would have to track of it, and when it changes — produce a new signature and publish an update transaction to the contract (which may be very expensive when the network is congested).
-
-> TODO: examine the code of validator clients such as Lighthouse and Prysm to figure this out.
+This SIP proposes to hardcode the gas limit to 30 million (which is the default in Prysm and Lighthouse), but recommends to keep watching it and modify if necessary.
 
 ### Blinded block proposals
 
