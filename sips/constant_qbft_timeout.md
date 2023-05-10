@@ -42,7 +42,7 @@ so the committee could have a "second chance" in case the leading operator is fa
 **Catch up property** 
 Timeouts need to be structured such that nodes in different rounds can catch to one another and ultimately reach consensus, otherwise a liveness issue is created.
 
-Exponential functions, base >2, provide such guarantees in which $\sum_{r=1}^n a^r - \sum_{r=1}^(n+1) a^r = a$ 
+Exponential functions, base >2, provide such guarantees in which $\sum_{r=1}^n a^r$ $\sum_{r=1}^(n+1) a^r$ 
 
 **Quick Timeout Period**
 
