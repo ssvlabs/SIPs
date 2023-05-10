@@ -15,7 +15,7 @@ According to the [original QBFT paper](https://arxiv.org/pdf/2002.03613.pdf), ti
 An exponential timeout (or even a sub-exponent) can quickly grow the timeout value under periods of low network stability (for example >f nodes are offline). 
 In such cases recovery becomes a lengthy process, especially when the leader is faulty after a long period of instability.  
 
-By making the timeout constant we can remove a lot of "stand and wait" post unstable periods.
+By having a constant tieout for a few first slots and then transitioning to > 1 < 2 exponential timeout we can ensure high performance in good periods of communication and recovery in bad periods.
 
 **SSV Network Module**  
 
@@ -39,13 +39,18 @@ Attester duties can be submitted with a delay of 31 slots,
 and therefore we can optimize validator performance by having a quick timeout in the first rounds,
 so the committee could have a "second chance" in case the leading operator is faulty.
 
+**Catch up property** 
+Timeouts need to be structured such that nodes in different rounds can catch to one another and ultimately reach consensus, otherwise a liveness issue is created.
+
+Exponential functions, base >2, provide such guarantees in which $\sqrt{2}$
+
 **Quick Timeout Period**
 
 Smaller `T` helps validator performance in the first rounds, 
 but becomes redundant in later rounds when the duty was already finalized.
 
 As a mitigation, we use a quick timeout period where `T=2s`. 
-Once a threshold round was reached the timeout is extended to `T=2m`
+Once a threshold round was reached the timeout becomes exponential `T=T*Threshold + X^Round`
 
 **Specification**  
 
@@ -55,16 +60,19 @@ The new timeout calculation:
 
 ```go
 var (
-    quickTimeoutThreshold = Round(8)
-    quickTimeout          = 2 * time.Second
-    slowTimeout           = 2 * time.Minute
+    quickTimeoutThresholdRound = Round(8)
+    quickTimeoutSecond         = 2
+    slowTimeoutBaseSecond      = 1.1
+    quickTimeoutAggregated     = quickTimeoutSecond * int(quickTimeoutThresholdRound)
 )
 
 // RoundTimeout returns the number of seconds until next timeout for a given round.
 func RoundTimeout(r Round) time.Duration {
-    if r <= quickTimeoutThreshold {
-        return quickTimeout
+    if r <= quickTimeoutThresholdRound {
+        return time.Duration(quickTimeoutSecond) * time.Second
     }
-    return slowTimeout
+
+    expTimeout := math.Pow(slowTimeoutBaseSecond, float64(r))
+    return (time.Duration(quickTimeoutAggregated) + time.Duration(expTimeout)) * time.Second
 }
 ```
