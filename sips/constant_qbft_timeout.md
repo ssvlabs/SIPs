@@ -39,12 +39,14 @@ Attester duties can be submitted with a delay of 31 slots,
 and therefore we can optimize validator performance by having a quick timeout in the first rounds,
 so the committee could have a "second chance" in case the leading operator is faulty.
 
-**Catch up property** 
-Timeouts need to be structured such that nodes in different rounds can catch to one another and ultimately reach consensus, otherwise a liveness issue is created.
+**Catch up property**   
+Timeouts need to be structured such that nodes in different rounds can "catch" one another and ultimately reach consensus, otherwise a liveness issue is created.
 
-Exponential functions, base >2, provide such guarantees in which:  
+Exponential functions, base >2, provide such guarantees that in round r the timeout is greater than the sum of previous rounds such that a node starting at round 1 could catch a node starting round R within round R. 
 
-$\sum_{r=1}^n a^r$ $\sum_{r=1}^(n+1) a^r$ 
+$\sum_{r=1}^{n+1} a^r - \sum_{r=1}^{n} a^r = a$
+
+Exponential functions have the issue of growing too fast for the first few rounds and can degrade performance.
 
 **Quick Timeout Period**
 
