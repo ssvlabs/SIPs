@@ -18,7 +18,7 @@ Currently, operators wishing to offer competitive returns must be sophisticated 
 
 Operators who wish to propose blinded blocks must configure their node to do so, otherwise it would reject QBFT proposals containing blinded blocks and only propose standard blocks.
 
-Therefore, validators should solely select operators with matching configuration, otherwise consensus might be unattainable.
+Therefore, validators should solely select operators with matching configuration, otherwise consensus might be unreachable.
 
 ### Validator registration
 
