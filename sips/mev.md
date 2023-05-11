@@ -26,7 +26,7 @@ Builders require validators to publish a [`builder-specs/SignedValidatorRegistra
 
 When building a block for a validator, builders refer only to the registration with the highest timestamp.
 
-In the wild, some Ethereum validator clients currently produce and publish this message every epoch.
+In the wild, some Ethereum validator clients currently publish this message every epoch.
 
 #### Fee recipients
 
