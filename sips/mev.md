@@ -14,9 +14,9 @@ Currently, operators wishing to offer competitive returns must be sophisticated 
 
 ## Specification
 
-### MEV-supporting operators
+### Configuration
 
-Operators who wish to propose blinded blocks must configure their node to do so, otherwise it will propose standard locally-built blocks.
+Operators who wish to propose blinded blocks must configure their node to do so, otherwise it would reject blinded blocks and only propose standard locally-built blocks.
 
 ### Validator registration
 
