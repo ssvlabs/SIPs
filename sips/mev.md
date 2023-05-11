@@ -46,7 +46,7 @@ func ShouldRegisterValidatorAtSlot(index phase0.ValidatorIndex, slot phase0.Slot
 
 #### Publishing
 
-At the end of every slot, operators publish registrations for the validators selected for signing in that slot, using their most recent successfully signed registration.
+Every slot, operators should publish the most recent successfully signed registration for `1/SlotsPerEpoch` of their validators, so that all validators are registered at least once per epoch.
 
 > Note: Since relays/builders can have some delay with registrations, producing a blinded block before and shortly thereafter publishing the first registration may result in either:
 >
