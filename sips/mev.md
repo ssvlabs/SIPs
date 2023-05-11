@@ -46,7 +46,9 @@ func ShouldRegisterValidatorAtSlot(index phase0.ValidatorIndex, slot phase0.Slot
 
 #### Publishing
 
-Every slot, operators should publish the most recent successfully signed registration for `1/SlotsPerEpoch` of their validators, so that all validators are registered at least once per epoch.
+Every epoch, operators should publish the most recent successfully signed registration for their entire validator set.
+
+This SIP suggests to spread registrations between slots. For example, at every slot, operators may publish for a fraction of their validators (corresponding to `1/SlotsPerEpoch`), ensuring a more evenly distributed load on the Beacon node and builder(s).
 
 > Note: Since relays/builders can have some delay with registrations, producing a blinded block before and shortly thereafter publishing the first registration may result in either:
 >
