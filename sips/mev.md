@@ -16,7 +16,9 @@ Currently, operators wishing to offer competitive returns must be sophisticated 
 
 ### Configuration
 
-Operators who wish to propose blinded blocks must configure their node to do so, otherwise it would reject blinded blocks and only propose standard locally-built blocks.
+Operators who wish to propose blinded blocks must configure their node to do so, otherwise it would reject QBFT proposals containing blinded blocks and only propose standard blocks.
+
+Therefore, MEV-averse validators should solely select operators who have disabled blinded proposals, otherwise consensus might be unattainable.
 
 ### Validator registration
 
