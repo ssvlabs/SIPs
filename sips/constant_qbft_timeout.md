@@ -7,6 +7,8 @@ _Special thanks for Henrique Moniz for reviewing_
 **Summary**  
 Describes moving to a constant timeout for QBFT by defining better the network module for the SSV network.
 
+![Timeout Graph](https://imgur.com/GEJLBDC)
+
 **Rational**  
 Timeouts in QBFT allow the protocol to overcome partially asynchronous network modules in which there is an unknown upper bound of latency. 
 This unknown upper bound requires the QBFT protocol to make progress in rounds, each round is considered a period of a synchronous network (known upper limit on latency).  
@@ -42,12 +44,6 @@ so the committee could have a "second chance" in case the leading operator is fa
 **Catch up property**   
 Timeouts need to be structured such that nodes in different rounds can "catch" one another and ultimately reach consensus, otherwise a liveness issue is created.
 
-Exponential functions, base >2, provide such guarantees that in round r the timeout is greater than the sum of previous rounds such that a node starting at round 1 could catch a node starting round R within round R. 
-
-$\sum_{r=1}^{n+1} a^r - \sum_{r=1}^{n} a^r = a$
-
-Exponential functions have the issue of growing too fast for the first few rounds and can degrade performance.
-
 **Quick Timeout Period**
 
 Smaller `T` helps validator performance in the first rounds, 
@@ -56,6 +52,16 @@ but becomes redundant in later rounds when the duty was already finalized.
 As a mitigation, we use a quick timeout period where `T=2s`. 
 Once a threshold round was reached the timeout becomes exponential `T=T*Threshold + X^Round`
 
+**Stop For Catchup**  
+To enjoy both the benefits of a constant timeouts and the catch property we introduce a stop for catchup mechanism. 
+A node will progress through the rounds (via timeout) until it hits round r. At round r it will bump to r+1 but will not start a timeout clock.
+Instead, it will wait for 2f+1 round change messages for round r+1 **OR** f+1 round change messages for round higher than r+1.
+
+1) R <= r, open timeout clock  
+2) R > r, wait for 2f+1 round change messages to open timeout clock. Timout to r+2 as usual.
+3) R > r+1, repeat point
+4) Received f+1 round change for R > r, process partial round change quorum
+
 **Specification**  
 
 `8` is used as the quick timeout threshold, allowing the nodes to have a `16s` window for finalizing the duty before quick timeout period is over.
@@ -63,20 +69,28 @@ Once a threshold round was reached the timeout becomes exponential `T=T*Threshol
 The new timeout calculation:
 
 ```go
-var (
+const (
+    // quickTimeoutThresholdRound represents the highest round with quick timeout
     quickTimeoutThresholdRound = Round(8)
-    quickTimeoutSecond         = 2
-    slowTimeoutBaseSecond      = 1.1
-    quickTimeoutAggregated     = quickTimeoutSecond * int(quickTimeoutThresholdRound)
+    // quickTimeoutSecond represents the quick timeout duration
+    quickTimeoutSecond = 2 * time.Second
+    // slowTimeout represents the slow timeout duration
+    slowTimeout = 2 * time.Minute
+    // stopForCatchupRound represents the highest round with for normal timeout cycle
+    stopForCatchupRound = Round(20)
+    // noTimerDuration represents a non-timeout, for which no timer needs to be started
+    noTimerDuration = 0
 )
 
 // RoundTimeout returns the number of seconds until next timeout for a given round.
 func RoundTimeout(r Round) time.Duration {
-    if r <= quickTimeoutThresholdRound {
-        return time.Duration(quickTimeoutSecond) * time.Second
+    if r > stopForCatchupRound {
+        return noTimerDuration
     }
-
-    expTimeout := math.Pow(slowTimeoutBaseSecond, float64(r))
-    return (time.Duration(quickTimeoutAggregated) + time.Duration(expTimeout)) * time.Second
+    
+    if r <= quickTimeoutThresholdRound {
+        return quickTimeoutSecond
+    }
+    return slowTimeout
 }
 ```
