@@ -78,9 +78,11 @@ To:
     )
     
 ```
-> Note: registerValidator function input parameters are not final and should consider gas fees optimisation. 
+> Note: The input parameters for the registerValidator function are not yet finalized and should be evaluated in light of optimizing gas fees. 
 >
-> 1. Combined shares, signature and nonce to one bytes array. 
-> 2. Combined signature and nonce to one bytes array.
-> 3. Keep the all separate.
+> Several potential arrangements are under consideration:
+> 1. Consolidating shares, signature, and nonce into a single bytes array.
+> 2. Merging signature and nonce into a single bytes array.
+> 3. Keeping all elements separate.
+
 
