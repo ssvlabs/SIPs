@@ -22,13 +22,13 @@ The attacker will pay fees for the validator to maintain the attack active.
 The honest user will need to exit the validator immediately.
 
 ## Rational & Design Goals
-We need to protect users from having their validators being hijacked by malicious actors by ensuring that only the owner of the validator can register it to the SSV network.
-This SIP proposes a solution using validator private key to sign on the address that making the registration and a nonce.
-A nonce is required to prevent re-registering edge case where the removed validator address is compromised and the attacker can re-register it with the original address. 
-The BLS signature will be verified by the ssv nodes using the validator public key and making sure the nonce is higher than the last one.
-The nonce will be on an account level and not a validator level to prevent the case where a validator is removed and re-registered by the same user.
-It should be decided if it's needed to be stored on the contract or on the SSV nodes only.
+This SIP proposes a method to safeguard users by preventing unauthorized access to their validators by harmful entities. The proposal ensures that only the legitimate owner of a validator can enroll it in the SSV network. The process involves using the validator's private key to sign the address that is registering, along with a nonce.
 
+The nonce is a necessary addition to prevent a unique edge case where, if a validator address that has been removed is compromised, a malicious party could potentially re-register it using the original address.
+
+The BLS signature's authenticity will be confirmed by the SSV nodes, which will use the validator's public key and ensure that the nonce value is greater than the previous one. Instead of being on a validator level, the nonce will be on an account level to prevent scenarios where a validator is deregistered and re-registered by the same user.
+
+The decision regarding whether the nonce should be stored on the contract or solely on the SSV nodes still needs to be made.
 
 ## Specification
 The specification is divided into 3 parts:
