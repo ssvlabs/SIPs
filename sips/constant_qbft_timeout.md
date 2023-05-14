@@ -7,7 +7,7 @@ _Special thanks for Henrique Moniz for reviewing_
 **Summary**  
 Describes moving to a constant timeout for QBFT by defining better the network module for the SSV network.
 
-![Timeout Graph](https://imgur.com/GEJLBDC)
+![img](https://i.imgur.com/GEJLBDC.png)
 
 **Rational**  
 Timeouts in QBFT allow the protocol to overcome partially asynchronous network modules in which there is an unknown upper bound of latency. 
