@@ -4,22 +4,19 @@
 
 ## Summary
 
-A copied shares attack can happen by an attacker registering valid shares to a valid validator by frontrunning a valid register cluster transaction or re-registering a removed validator.
+A "copied shares" attack can occur when a malicious actor registers valid shares to a legitimate validator by either "frontrunning" a valid registration of a cluster transaction, or re-registering a previously removed validator.
 
-In both cases a validator will be running on SSV by a malicious user instead of the owner of the validator.
+In both scenarios, a validator would be operating on the SSV network under the control of a harmful user instead of the rightful validator owner.
 
 #### Front-Running
-A malicious attacker will front-run an honest user registering a validator.
-The registration will pass as valid.
-The attacker will pay fees for the validator to maintain the attack active.
+In this scenario, a malicious actor could "front-run" a genuine user trying to register a validator. The registration would appear as legitimate. To keep the attack ongoing, the attacker would cover the validator's fees.
 
-The honest user will need to exit the validator to make any change (remove/ change cluster).
+To make any changes (such as removing or changing the cluster), the genuine user would need to exit the validator.
 
 #### Re-registering attack
-An attacker will detect a removed validator (removed from the SSV network) and will re-register it immediately, preventing the owner from moving the validator away.
-The attacker will pay fees for the validator to maintain the attack active. 
+In this case, an attacker could identify a validator that has been removed (from the SSV network) and quickly re-register it, thereby preventing the owner from transferring the validator elsewhere. Similar to the front-running scenario, the attacker would cover the validator's fees to keep the attack active.
 
-The honest user will need to exit the validator immediately.
+In response, the genuine user would need to exit the validator immediately.
 
 ## Rational & Design Goals
 This SIP proposes a method to safeguard users by preventing unauthorized access to their validators by harmful entities. The proposal ensures that only the legitimate owner of a validator can enroll it in the SSV network. The process involves using the validator's private key to sign the address that is registering, along with a nonce.
@@ -31,16 +28,21 @@ The BLS signature's authenticity will be confirmed by the SSV nodes, which will 
 The decision regarding whether the nonce should be stored on the contract or solely on the SSV nodes still needs to be made.
 
 ## Specification
-The specification is divided into 3 parts:
-1. Changing the validator registration process to include the validator's signature on the address.
-2. Changing the validator map keys in the contract to include address in addition to the public key.
-3. Adding the signature verification to the SSV nodes upon validator registration.
+The specification is organized into three distinct sections:
 
+1. Modifying the validator enrollment procedure to incorporate the validator's signature on the address.
+2. Altering the validator map keys within the contract to include the address along with the public key.
+3. Implementing signature verification within the SSV nodes during the validator registration process.
+
+> Please be aware: A new contract deployment will be necessary to modify the validator map.
+> Furthermore, the uniqueness of a public key will be associated with each individual address, rather than being unique across the entire contract.
 
 ### SSV Keys
-SSV keys should input should include the validator's address and the last account nonce.
-It will use the validator private key to sign on the address and the incremented nonce.
-The output should include the signature and the incremented nonce in addition to the current output.
+Inputs for SSV keys should encompass both the validator's address and the most recent account nonce.
+
+These inputs will utilize the validator's private key to sign the address as well as the incremented nonce.
+
+The resultant output should not only contain the current output but also the signature and the incremented nonce.
 
 ### SSV Contract
 
