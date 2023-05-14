@@ -30,7 +30,7 @@ In the wild, some Ethereum validator clients currently publish this message ever
 
 #### Fee recipients
 
-Validators may set their preferred `fee_receipient` address by calling `setFeeRecipientAddress` in the `SSVNetwork` contract. Validators may repeat this call as their preference changes over time.
+Validators may set their preferred `fee_recipient` address by calling `setFeeRecipientAddress` in the `SSVNetwork` contract. Validators may repeat this call as their preference changes over time.
 
 #### Signing
 
