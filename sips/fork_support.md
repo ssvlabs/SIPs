@@ -13,7 +13,7 @@ For a fork to work it needs to:
 
 A fork will be triggered by a beacon epoch number as its deterministic and easy to compute independently. If epoch E is the trigger epoch then pre-fork are all messages refering epoch < E and post-fork are all messages referring epoch >= E.
 
-[Suggested changes to SSV-Spec](https://github.com/bloxapp/ssv-spec/compare/main...alonmuroch:ssv-spec:experiments/fork-support)
+[Suggested changes to SSV-Spec](https://github.com/bloxapp/ssv-spec/compare/main...alonmuroch:ssv-spec:ssv-fork-updated)
 
 **Difficulty tracking forks**  
 Every SSV node runs multiple validators for which 5 different duty runners are creates (attestation, aggregation, proposal, sync committee and sync committee contribution). Each of the runners have an independent QBFT controller running sequential instances (one can start after the previous has decided).
@@ -22,59 +22,46 @@ Some duties have a pre-consensus phase (for example proposer needs to sign randa
 Only when the consensus phase starts the QBFT controller must wait until it decides, which can takes 500ms or up to days if there is no quorum of peers.
 
 **Triggering Fork**  
-A fork is triggered by a specific epoch E detailed in the ForkData(see below).
+A fork is triggered by a specific epoch E.
 Different forks might require different message processing, parsing and more which should be detailed in the spec.
-
-We check fork digest version whenever baseStartNewDuty is called and passes the canStartNewDuty check.
 
 **Spec Changes** 
 
 BaseRunner changes
 ```go
-type BaseRunner struct {
-    State           *State
-    Share           *types.Share // domain type is removed from Share
-    ForkDigest      types.ForkDigest
-    QBFTController  *qbft.Controller
-    BeaconNetwork   types.BeaconNetwork
-    SSVNetworkChain types.SSVNetworkChain
-    BeaconRoleType  types.BeaconRole
+// setupForNewDuty is sets the runner for a new duty
+func (b *BaseRunner) baseSetupForNewDuty(duty *types.Duty) error {
+    // handle fork change
+    currentFork, err := b.forkBasedOnLatestDecided()
+    if err != nil {
+        return errors.Wrap(err, "could not calculate current fork")
+    }
+    b.Share.DomainType = currentFork
+    b.QBFTController.SetDomainType(currentFork)
+    
+    // start new state
+    b.State = NewRunnerState(b.Share.Quorum, duty)
+    
+    return nil
 }
 
-// baseStartNewDuty is a base func that all runner implementation can call to start a duty
-func (b *BaseRunner) baseStartNewDuty(runner Runner, duty *types.Duty) error {
-	if err := b.canStartNewDuty(); err != nil {
-		return err
-	}
-
-	// Based on previous decided instance we calculate the fork digest to be used on the next instance
-	currentForkDigest, err := b.forkBasedOnLatestDecided()
-	if err != nil {
-		return errors.Wrap(err, "could not calculate current fork digest")
-	}
-	b.ForkDigest = currentForkDigest
-
-	b.State = NewRunnerState(b.Share.Quorum, duty)
-	return runner.executeDuty(duty)
-}
-
-// forkBasedOnLatestDecided will return fork digest based on b.Height instance that was previously decided
-func (b *BaseRunner) forkBasedOnLatestDecided() (types.ForkDigest, error) {
+// forkBasedOnLatestDecided will return domain type based on b.Height instance that was previously decided
+func (b *BaseRunner) forkBasedOnLatestDecided() (types.DomainType, error) {
     inst := b.QBFTController.InstanceForHeight(b.QBFTController.Height)
     if inst == nil {
-        return b.SSVNetworkChain.DefaultForkDigest(), nil
+        return b.Share.DomainType, nil
     }
     
     _, decidedValue := inst.IsDecided()
     cd := &types.ConsensusData{}
     if err := cd.Decode(decidedValue); err != nil {
-        return types.ForkDigest{}, errors.Wrap(err, "could not decoded consensus data")
+        return b.Share.DomainType, errors.Wrap(err, "could not decoded consensus data")
     }
     
-    currentForkDigest := b.SSVNetworkChain.DefaultForkDigest()
-    for _, forkData := range b.SSVNetworkChain.GetForksData() {
+    currentForkDigest := b.Share.DomainType
+    for _, forkData := range currentForkDigest.GetForksData() {
         if b.BeaconNetwork.EstimatedEpochAtSlot(cd.Duty.Slot) >= forkData.Epoch {
-            currentForkDigest = forkData.CalculateForkDigest()
+            currentForkDigest = forkData.Domain
         }
     }
     return currentForkDigest, nil
@@ -83,60 +70,54 @@ func (b *BaseRunner) forkBasedOnLatestDecided() (types.ForkDigest, error) {
 
 type changes
 ```go
-type SSVNetworkChain []byte
+// DomainType is a unique identifier for signatures, 2 identical pieces of data signed with different domains will result in different sigs
+type DomainType [4]byte
 
-var (
-    MainnetSSVNetworkChain      SSVNetworkChain = []byte("mainnet")
-    ShifuTestnetSSVNetworkChain SSVNetworkChain = []byte("shifu_testnet")
+const (
+    GenesisChain = 0x0
+    PrimusChain  = 0x1
+    ShifuChain   = 0x2
+    JatoChain    = 0x3
 )
 
-func (chain SSVNetworkChain) GetForksData() []ForkData {
-    return []ForkData{
+var (
+    GenesisMainnet = DomainType{0x0, 0x0, GenesisChain, 0x0}
+    PrimusTestnet  = DomainType{0x0, 0x0, PrimusChain, 0x0}
+    ShifuTestnet   = DomainType{0x0, 0x0, ShifuChain, 0x0}
+    ShifuV2Testnet = DomainType{0x0, 0x0, ShifuChain, 0x1}
+    JatoTestnet    = DomainType{0x0, 0x0, JatoChain, 0x1}
+)
+
+type ForkData struct {
+    Epoch  phase0.Epoch
+    Domain DomainType
+}
+
+func (domainType DomainType) GetChain() byte {
+    return domainType[2]
+}
+
+func (domainType DomainType) GetForksData() []*ForkData {
+    switch domainType.GetChain() {
+    case GenesisChain:
+        return genesisForks()
+    default:
+        return []*ForkData{}
+    }
+}
+
+func genesisForks() []*ForkData {
+    return []*ForkData{
         {
-            Epoch:             0,
-            GenesisIdentifier: chain,
+            Epoch:  0,
+            Domain: GenesisMainnet,
         },
     }
 }
-
-func (chain SSVNetworkChain) DefaultForkDigest() ForkDigest {
-    return chain.GetForksData()[0].CalculateForkDigest()
-}
-
-type ForkData struct {
-    // Epoch for which the fork is triggered (for all messages >= Epoch)
-    Epoch spec.Epoch
-    // GenesisIdentifier is a unique constant identifier per chain
-    GenesisIdentifier []byte
-}
-
-func (dd ForkData) GetRoot() ([]byte, error) {
-    byts, err := json.Marshal(dd)
-    if err != nil {
-        return nil, errors.Wrap(err, "could not marshal ForkData")
-    }
-    ret := sha256.Sum256(byts)
-    return ret[:], nil
-}
-
-// CalculateForkDigest returns the fork digest for the fork data
-func (dd ForkData) CalculateForkDigest() ForkDigest {
-    r, err := dd.GetRoot()
-    if err != nil {
-        panic(err.Error())
-    }
-    ret := ForkDigest{}
-    copy(ret[:], r[:4])
-    
-    return ret
-}
-
-// ForkDigest is a 4 byte identifier for a specific fork, calculated from ForkData
-type ForkDigest [4]byte
 
 ```
 
 **Syncing considerations**  
 Sycing messages (past or future instances) will require special considerations.
 When syncing from a peer, it will provide the requesting node with the fork for the specific message sent.
-For example: if my node asks a peer for a the highest decided, the peer will return it + indicate which fork the message uses.
+For example: if my node asks a peer for the highest decided, the peer will return it + indicate which fork the message uses.
