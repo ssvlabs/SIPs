@@ -17,13 +17,11 @@ According to the [original QBFT paper](https://arxiv.org/pdf/2002.03613.pdf), ti
 An exponential timeout (or even a sub-exponent) can quickly grow the timeout value under periods of low network stability (for example >f nodes are offline). 
 In such cases recovery becomes a lengthy process, especially when the leader is faulty after a long period of instability.  
 
-By having a constant tieout for a few first slots and then transitioning to > 1 < 2 exponential timeout we can ensure high performance in good periods of communication and recovery in bad periods.
-
 **SSV Network Module**  
 
 We adopt a slightly modified network module for SSV, it is still a partially synchronous module but with an added assumption that there are long enough periods of stability in which network latency is < T.
 
-From the above we can safely set the timeout to a constant `T`.
+From the above we can safely set the timeout to a constant and add a stop and wait rule if periods of instability are longer than `R` rounds.
 
 **Beacon Duty Timing Assumptions**  
 The Beacon chain has some timing assumptions regarding duty execution for maximizing rewards.
@@ -50,7 +48,7 @@ Smaller `T` helps validator performance in the first rounds,
 but becomes redundant in later rounds when the duty was already finalized.
 
 As a mitigation, we use a quick timeout period where `T=2s`. 
-Once a threshold round was reached the timeout becomes exponential `T=T*Threshold + X^Round`
+Once a threshold round was reached the timeout becomes larger `T=2m`
 
 **Stop For Catchup**  
 To enjoy both the benefits of a constant timeouts and the catch property we introduce a stop for catchup mechanism. 
@@ -58,7 +56,7 @@ A node will progress through the rounds (via timeout) until it hits round r. At 
 Instead, it will wait for 2f+1 round change messages for round r+1 **OR** f+1 round change messages for round higher than r+1.
 
 1) R <= r, open timeout clock  
-2) R > r, wait for 2f+1 round change messages to open timeout clock. Timout to r+2 as usual.
+2) R > r, wait for 2f+1 round change messages to open timeout clock.
 3) R > r+1, repeat point
 4) Received f+1 round change for R > r, process partial round change quorum
 
