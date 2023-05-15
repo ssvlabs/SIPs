@@ -1,5 +1,5 @@
-| Author                      | Title                           | Category         | Status              |
-|-----------------------------| ------------------------------- |------------------| ------------------- |
+| Author                      | Title                                     | Category         | Status              |
+|-----------------------------|-------------------------------------------|------------------|---------------------|
 | Lior Rutenberg (@lior-blox) | SSV Register Cluster copied shares attack | Core + Contracts | open-for-discussion |
 
 ## Summary
@@ -9,14 +9,14 @@ A "copied shares" attack can occur when a malicious actor registers valid shares
 In both scenarios, a validator would be operating on the SSV network under the control of a harmful user instead of the rightful validator owner.
 
 #### Front-Running
-In this scenario, a malicious actor could "front-run" a genuine user trying to register a validator. The registration would appear as legitimate. To keep the attack ongoing, the attacker would cover the validator's fees.
+In this scenario, a malicious actor could "front-run" an honest user trying to register a validator. The registration would appear as legitimate. To keep the attack ongoing, the attacker would cover the validator's fees.
 
-To make any changes (such as removing or changing the cluster), the genuine user would need to exit the validator.
+To make any changes (such as removing or changing the cluster), the honest user would need to exit the validator.
 
 #### Re-registering attack
 In this case, an attacker could identify a validator that has been removed (from the SSV network) and quickly re-register it, thereby preventing the owner from transferring the validator elsewhere. Similar to the front-running scenario, the attacker would cover the validator's fees to keep the attack active.
 
-In response, the genuine user would need to exit the validator immediately.
+In response, the honest user would need to exit the validator immediately.
 
 ## Rational & Design Goals
 This SIP proposes a method to safeguard users by preventing unauthorized access to their validators by harmful entities. The proposal ensures that only the legitimate owner of a validator can enroll it in the SSV network. The process involves using the validator's private key to sign the address that is registering, along with a nonce.
@@ -25,7 +25,8 @@ The nonce is a necessary addition to prevent a unique edge case where, if a vali
 
 The BLS signature's authenticity will be confirmed by the SSV nodes, which will use the validator's public key and ensure that the nonce value is greater than the previous one. Instead of being on a validator level, the nonce will be on an account level to prevent scenarios where a validator is deregistered and re-registered by the same user.
 
-The decision regarding whether the nonce should be stored on the contract or solely on the SSV nodes still needs to be made.
+> Note: While a validator's registration may be accepted at the contract level, it could be invalidated at the node level if the BLS signature verification fails - a process the contract cannot perform. Consequently, despite its accepted registration, the validator will not be able to execute its assigned duties due to this node-level validation failure.
+
 
 ## Specification
 The specification is organized into three distinct sections:
