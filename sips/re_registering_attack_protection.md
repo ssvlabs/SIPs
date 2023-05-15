@@ -72,7 +72,6 @@ To:
         uint64[] memory operatorIds,
         bytes calldata shares,
         bytes calldata signature, //signature on the address and nonce
-        uint256 nonce,
         uint256 amount,
         Cluster memory cluster
     )
@@ -85,4 +84,12 @@ To:
 > 2. Merging signature and nonce into a single bytes array.
 > 3. Keeping all elements separate.
 
+### SSV Node
 
+Every nonce associated with registration will be stored by the SSV node.
+
+The nonce will be kept in a mapping that links addresses to their respective nonces.
+
+The SSV node will confirm the signature of the address and nonce by using the validator's public key.
+
+The nonce should be sequentially larger than the previously stored nonce.
