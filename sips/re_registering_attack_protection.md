@@ -1,6 +1,6 @@
-| Author                      | Title                           | Category | Status              |
-|-----------------------------| ------------------------------- | -------- | ------------------- |
-| Lior Rutenberg (@lior-blox) | SSV Register Cluster copied shares attack | Core     | open-for-discussion |
+| Author                      | Title                           | Category         | Status              |
+|-----------------------------| ------------------------------- |------------------| ------------------- |
+| Lior Rutenberg (@lior-blox) | SSV Register Cluster copied shares attack | Core + Contracts | open-for-discussion |
 
 ## Summary
 
