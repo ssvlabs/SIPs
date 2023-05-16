@@ -49,6 +49,8 @@ The resultant output should not only contain the current output but also the sig
 
 Changing the validator mapping to include the address in addition to the public key.
 
+Including operators in the validator structure allows for the validation of a validator's affiliation with the cluster when it's being removed. 
+
 From:
 ```solidity
     struct Validator {
@@ -78,12 +80,6 @@ To:
     )
     
 ```
-> Note: The input parameters for the registerValidator function are not yet finalized and should be evaluated in light of optimizing gas fees. 
->
-> Several potential arrangements are under consideration:
-> 1. Consolidating shares, signature, and nonce into a single bytes array.
-> 2. Merging signature and nonce into a single bytes array.
-> 3. Keeping all elements separate.
 
 ### SSV Node
 
