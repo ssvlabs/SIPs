@@ -35,8 +35,6 @@ The specification is organized into three distinct sections:
 2. Altering the validator map keys within the contract to include the address along with the public key.
 3. Implementing signature verification within the SSV nodes during the validator registration process.
 
-> Please be aware: A new contract deployment will be necessary to modify the validator map.
-> Furthermore, the uniqueness of a public key will be associated with each individual address, rather than being unique across the entire contract.
 
 ### SSV Contract
 
