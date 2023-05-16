@@ -18,7 +18,7 @@ Currently, operators wishing to offer competitive returns must be sophisticated 
 
 Operators who wish to propose blinded blocks must configure their SSV node to do so, otherwise it would only propose standard blocks and reject QBFT proposals containing blinded blocks.
 
-Therefore, validators should solely select operators with matching configuration, otherwise consensus might be unreachable.
+Therefore, validators should select operators with matching configuration.
 
 ### Validator registration
 
@@ -30,7 +30,17 @@ In the wild, some Ethereum validator clients currently publish this message ever
 
 #### Fee recipients
 
-Validators may set their preferred `fee_receipient` address by calling `setFeeRecipientAddress` in the `SSVNetwork` contract. Validators may repeat this call as their preference changes over time.
+Validators may set their preferred `fee_recipient` address by calling `setFeeRecipientAddress` in the `SSVNetwork` contract, which emits a `FeeRecipientAddressUpdated` event.
+
+```solidity
+function setFeeRecipientAddress(address feeRecipientAddress) external;
+
+event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
+```
+
+Validators may repeat this call as their preference changes over time.
+
+Operators should incorporate the `fee_recipient` address from the most recent event emitted by a specific `owner` when constructing `ValidatorRegistration` messages for validators associated with that `owner`.
 
 #### Signing
 
@@ -62,7 +72,7 @@ This SIP suggests to spread registrations between slots. For example, at every s
 
 Gas limits are set by operators rather than validators, unlike in standard validator clients.
 
-This SIP proposes to hardcode the gas limit to 30 million (which is the default in Prysm and Lighthouse), but recommends to keep watching it and modify if necessary.
+Since operators This SIP doesn't specify a gas limit, as it's (which is the default in Prysm and Lighthouse), but recommends to keep watching it and modify if necessary.
 
 ### Blinded block proposals
 
