@@ -38,13 +38,6 @@ The specification is organized into three distinct sections:
 > Please be aware: A new contract deployment will be necessary to modify the validator map.
 > Furthermore, the uniqueness of a public key will be associated with each individual address, rather than being unique across the entire contract.
 
-### SSV Keys
-Inputs for SSV keys should encompass both the validator's address and the most recent account nonce.
-
-These inputs will utilize the validator's private key to sign the address as well as the incremented nonce.
-
-The resultant output should not only contain the current output but also the signature and the incremented nonce.
-
 ### SSV Contract
 
 Changing the validator mapping to include the address in addition to the public key.
