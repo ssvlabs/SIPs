@@ -42,6 +42,8 @@ event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress
 
 Owners may repeat this call as their preference changes over time.
 
+If an owner has never set called `setFeeRecipientAddress`, their execution address would be used instead.
+
 #### Constructing `ValidatorRegistration`
 
 ```go
