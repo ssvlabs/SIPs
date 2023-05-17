@@ -22,15 +22,17 @@ Therefore, validators should select operators with matching configuration.
 
 ### Validator registration
 
-Builders require validators to publish a [`builder-specs/SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) to set their `fee_recipient` and `gas_limit` preferences.
+#### Background
 
-When building a block for a validator, builders refer only to the registration with the highest timestamp.
+Builders require validators to publish a [`SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) to set their `fee_recipient` and `gas_limit` preferences
+
+When building a block for a validator, builders pay the `fee_recipient` specified in the registration with the highest timestamp. If there is no registration, the builder would usually not build a block altogether, however nothing prevents them from building a block an arbitrary address.
 
 In the wild, some Ethereum validator clients currently publish this message every epoch.
 
-#### Fee recipients
+#### Fee recipient addresses
 
-Validators may set their preferred `fee_recipient` address by calling `setFeeRecipientAddress` in the `SSVNetwork` contract, which emits a `FeeRecipientAddressUpdated` event.
+Owners may set the preferred `fee_recipient` address for their validators by calling `setFeeRecipientAddress` in the `SSVNetwork` contract, which emits a `FeeRecipientAddressUpdated` event.
 
 ```solidity
 function setFeeRecipientAddress(address feeRecipientAddress) external;
@@ -38,13 +40,33 @@ function setFeeRecipientAddress(address feeRecipientAddress) external;
 event FeeRecipientAddressUpdated(address indexed owner, address recipientAddress);
 ```
 
-Validators may repeat this call as their preference changes over time.
+Owners may repeat this call as their preference changes over time.
 
-Operators should incorporate the `fee_recipient` address from the most recent event emitted by a specific `owner` when constructing `ValidatorRegistration` messages for validators associated with that `owner`.
+#### Constructing `ValidatorRegistration`
 
-#### Signing
+```go
+type ValidatorRegistration struct {
+	FeeRecipient bellatrix.ExecutionAddress
+	GasLimit     uint64
+	Timestamp    time.Time
+	Pubkey       phase0.BLSPubKey
+}
+```
 
-At the start of every slot, operators select their active validators with `ShouldRegisterValidatorAtSlot`, and for those, produce a [`builder-specs/SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) with their preferred `fee_recipient`.
+When constructing a `ValidatorRegistration` message for a validator, operators must populate the following fields:
+
+- `FeeRecipient`: the `fee_recipient` address from the most recent event emitted by the validator's owner.
+- `GasLimit`: determined by social consensus.
+- `Timestamp`: the time of the first slot of the current epoch.
+- `Pubkey`: the public key of the validator.
+
+Unlike in standard validator clients, in SSV, gas limits are set by operators rather than validators. Since at least `quorum` signatures are needed for BLS aggregation, it is crucial for operators to sign using the same `GasLimit`.
+
+Ideally, operators align their gas limits with the current gas limit in Ethereum and coordinate to modify it at the same time when it changes.
+
+#### Signing `ValidatorRegistration`
+
+At the start of every slot, operators select their active validators by `ShouldRegisterValidatorAtSlot`, and for each, begin a pre-consensus flow to sign the `ValidatorRegistration` message.
 
 ```go
 ValidatorRegistrationSlotInterval = 10 * SlotsPerEpoch
@@ -54,7 +76,7 @@ func ShouldRegisterValidatorAtSlot(index phase0.ValidatorIndex, slot phase0.Slot
 }
 ```
 
-#### Publishing
+#### Publishing `SignedValidatorRegistration`
 
 Every epoch, operators should publish the most recent successfully signed registration for their entire validator set.
 
@@ -65,14 +87,6 @@ This SIP suggests to spread registrations between slots. For example, at every s
 > 1. Builder is unfamiliar with the validator yet and doesn't build a block, and Beacon node falls back to locally-built block from it's execution layer.
 > 2. Builder doesn't reward the validator's `fee_recipient` because it isn't aware of it yet.
 > 3. Builder rewards a potentially different `fee_recipient` from the validator's latest registration (such as a registration prior to onboarding to SSV.)
-
-> Note: Currently, implementation publishes registration differently: right after producing signatures. We're following the performance of that, and will either revise this SIP or the implementation accordingly.
-
-#### Issue: Gas limits
-
-Gas limits are set by operators rather than validators, unlike in standard validator clients.
-
-Since operators This SIP doesn't specify a gas limit, as it's (which is the default in Prysm and Lighthouse), but recommends to keep watching it and modify if necessary.
 
 ### Blinded block proposals
 
