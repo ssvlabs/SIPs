@@ -66,7 +66,7 @@ Ideally, operators align their gas limits with the current gas limit in Ethereum
 
 #### Signing `ValidatorRegistration`
 
-At the start of every slot, operators select their active validators by `ShouldRegisterValidatorAtSlot`, and for each, begin a pre-consensus flow to sign the `ValidatorRegistration` message.
+At the start of every slot, operators select their active validators with `ShouldRegisterValidatorAtSlot`, and for those, collectively produce a [`SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) by aggregating BLS partial signatures.
 
 ```go
 ValidatorRegistrationSlotInterval = 10 * SlotsPerEpoch
