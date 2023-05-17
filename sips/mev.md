@@ -26,7 +26,7 @@ Therefore, validators should select operators with matching configuration.
 
 Builders require validators to publish a [`SignedValidatorRegistration`](https://ethereum.github.io/builder-specs/#model-SignedValidatorRegistration) to set their `fee_recipient` and `gas_limit` preferences
 
-When building a block for a validator, builders pay the `fee_recipient` specified in the registration with the highest timestamp. If there is no registration, the builder would usually not build a block altogether, however nothing prevents them from building a block an arbitrary address.
+When building a block for a validator, builders pay the `fee_recipient` specified in the registration with the highest timestamp. If there is no registration, the builder should refuse to build a block altogether.
 
 In the wild, some Ethereum validator clients currently publish this message every epoch.
 
