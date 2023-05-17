@@ -55,7 +55,7 @@ type ValidatorRegistration struct {
 
 When constructing a `ValidatorRegistration` message for a validator, operators must populate the following fields:
 
-- `FeeRecipient`: the `fee_recipient` address from the most recent event emitted by the validator's owner.
+- `FeeRecipient`: the `fee_recipient` address from the most recent event emitted by the validator's owner, or a zero address if no event was emitted.
 - `GasLimit`: determined by social consensus.
 - `Timestamp`: the time of the first slot of the current epoch.
 - `Pubkey`: the public key of the validator.
