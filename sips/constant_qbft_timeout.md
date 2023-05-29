@@ -60,9 +60,12 @@ Instead, it will wait for 2f+1 round change messages for round r+1 **OR** f+1 ro
 3) R > r+1, repeat point
 4) Received f+1 round change for R > r, process partial round change quorum
 
+**_During stop for catchup, re-broadcast round change in constant `T=2m` intervals_** 
+
 **Specification**  
 
 `8` is used as the quick timeout threshold, allowing the nodes to have a `16s` window for finalizing the duty before quick timeout period is over.
+Round `19` is used to trigger stop for catchup (on round `19`, bump to round `20` and wait for 2f+1 round changes to start timeout clock for `T=2m`) 
 
 The new timeout calculation:
 
