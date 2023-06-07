@@ -4,11 +4,15 @@
 
 
 **Summary**
-Describes how the ssv operators performs a voluntary exit for a validator.  
+Describes how zero coordination voluntary exit works.  
 <em>Important to note that a user holding the validator’s private key can sign a voluntary exit as well.</em>
 
 
 **Specification**
+
+**Contract**  
+Adds a new function accessible only by the validator's owner, pushes a voluntray exit event. 
+Can only be called once
 
 **Networking**
 A dedicated subnet for voluntary exits will be added to the network for all exit related communication between operators.
@@ -19,56 +23,31 @@ New SSV MsgType is introduced
 
 | Name       | Type    | Value | Description                          |
 |------------|---------|-------|--------------------------------------|
-| VoluntaryExitMsgType | MsgType | 4     | SSVMessage type for voluntary exit messages |
+| SSVVoluntaryExit | MsgType | 3     | SSVMessage type for voluntary exit messages |
 
 The SSVMessage Data field will encode the voluntary exit SignedMessage data structure. 
 
 ```go
-type VoluntaryExitMessage struct {
-    MsgType MsgType
-    Identifier    RequestID
-    Data    []byte
+// VoluntaryExit provides information about a voluntary exit.
+type VoluntaryExit struct {
+    Epoch          uint64
+    ValidatorIndex uint64
 }
 
-type SignedVoluntaryExitMessage struct {
-    Message   *Message
-    Signer    types.OperatorID
-    Signature types.Signature
+type ExitMessage struct {
+    ValidatorPubKey ValidatorPK `ssz-size:"48"`
+    Message         *VoluntaryExit
 }
-```
 
-Voluntary exit Message types
 
-| Name               | Type    | Value | Description                   |
-|--------------------|---------|-------|-------------------------------|
-| InitMsgType        | MsgType | 0     | Voluntary exit initial request                |
-| PartialSigMsgType    | MsgType | 1     | Partial signature for the exit request        |
-
-**RequestID**  
-Is a unique identifier for the entire voluntary exit process which is a combination of the signing eth address of the message and an incremental index.
-
-_**Requires Message.ID.GetETHAddress() == singing key**_
-
-**Signing key**  
-Messages are signed with the ECDSA key that registered the validator..
-
-**Initializing a voluntary exit**  
-```go
-// VoluntaryExitInit is the first message sent to initiate a voluntary exit signature from operators
-type VoluntaryExitInit struct {
-  ValidatorPK types.ValidatorPK
-  ExitMessage *spec.VoluntaryExit
+type SignedExitMessage struct {
+    // Signature using the ethereum address that registered the validator
+    Signature [65]byte `ssz-size:"65"`
+    Message   ExitMessage
 }
 ```
+**New Runner**  
+A new runner for voluntary exits will be created.
 
-**Partial voluntary exit signature**  
-Operators assigned to the validatorPK in the init message will respond with a partial signature message over the exit message provided in the init message. 
-```go
-// VoluntaryExitPartialSig is sent by each operator in response to VoluntaryExitInit
-type VoluntaryExitPartialSig struct {
-    Signature types.Signature
-}
-```
-
-**Signature Reconstruction**  
-The user initiating the exit request will listen on the voluntary exit topic for partial signatures, verify them and reconstruct a valid exit message signature from them to be broadcasted to the ethereum network.
+Upon exit message being parsed from EL, each node taking part in the specific cluster will broadcast SignedExitMessage including a partial signature for the voluntary exit.
+Upon a quorum of partial signatures, each node will reconstruct a valid signature and broadcast it to the beacon chain
