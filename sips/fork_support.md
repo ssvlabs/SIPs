@@ -1,6 +1,6 @@
 | Author      | Title        | Category | Status |
 |-------------|--------------|----------|--------|
-| Alon Muroch | Fork Support | Core     | open-for-discussion  |
+| Alon Muroch | Fork Support | Core     | approved  |
 
 **Summary**  
 Describes how to support forks in the SSV network.

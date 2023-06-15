@@ -1,6 +1,6 @@
-| Author      | Title                   | Category | Status |
-|-------------|-------------------------|----------|--------|
-| Alon Muroch | Change operators set | Core     | open-for-discussion  |
+| Author      | Title                   | Category | Status   |
+|-------------|-------------------------|----------|----------|
+| Alon Muroch | Change operators set | Core     | rejected |
 
 [Discussion] (https://github.com/bloxapp/SIPs/discussions/14)
 
