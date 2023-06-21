@@ -3,18 +3,19 @@
 | Alon Muroch | Instance Decided Enforcement | Core     | open-for-discussion  |
 
 **Summary** 
-Describes the remove of requiring a QBFT instance to decided to start the next one. 
+Describes the remove of requiring a QBFT instance to decided to start the next one.
+If an instance is stalled, it will be terminated after a certain round or when a new instance starts.
+The instance's height, or identifier, will be the duty's slot number.
 
-**Rational**  
-Currently QBFT instances have an incremental index for their height, starting with 0.
-For a new instance to start, the QBFT controller checks that the previous one has decided.
-Originally this was made so instance heights are predictable, synchronized and easy to sync by every node in the network.
+**Rationale**
+In our current implementation, a QBFT instance can only start if the previous one has decided.
+This is done to ensure that all nodes are synchronized and that the instance height, or identifier, is predictable.
+This is not required since we can use slots to sync decided instances and the instance's identifier can be the duty's slot number.
 
-The main reasons to drop these requirements are:
-1) Instance Height can be the duty's slot number as every duty, at most, there is 1 duty per type of duty per validator.
-2) Syncing historical decided instances can be made easy with the use of epochs, e.g. fetch decided instances for epochs 100-150.
-3) Stalled/ non decided duties have a life expectancy of, at most, 2 epochs, since past that even if executed will not gain rewards for validator (per beacon roles)
-4) There is a difficult balance between efficient constant time timeouts and liveness. There are some complex solutions but since duties have an effective expiration time and are "non-dependent" we can terminate at a certain round.
+The change will allow for more efficient constant timeouts without risking liveness. Currently, there is a liveness risk with constant timeouts.
+F + 1 nodes that stall behind the committee's rounds can delay consensus indefinitely and prevent the start of new instances.
+Since after 2 epochs, the duty will expire and will not be able to gain rewards, we can terminate the instance after a certain round.
+If a new instance starts, the previous one will be terminated. This is to reduce slashing risks in attestation duty and to save on resources. 
 
 **Spec Changes** 
 
