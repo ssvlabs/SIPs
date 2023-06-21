@@ -44,10 +44,10 @@ func (c *Controller) StartNewInstance(height Height, value []byte) error {
 	if err := c.GetConfig().GetValueCheckF()(value); err != nil {
 		return errors.Wrap(err, "value invalid")
 	}
-
-    if height <= c.Height {
-        return errors.New("invalid instance height")
-    }
+	
+	if height <= c.Height {
+		return errors.New("invalid instance height")
+	}
 	
 	// only if current height's instance exists (and decided since passed can start instance) bump
 	if c.StoredInstances.FindInstance(height) != nil {
@@ -58,8 +58,8 @@ func (c *Controller) StartNewInstance(height Height, value []byte) error {
 	newInstance.Start(value, height)
 
 	c.Height = height
-
-    c.forceStopAllInstanceExceptCurrent()
+	
+	c.forceStopAllInstanceExceptCurrent()
 
 	return nil
 }
@@ -104,9 +104,9 @@ func (i *Instance) ProcessMsg(msg *SignedMessage) (decided bool, decidedValue []
 ```
 ```go
 func (i *Instance) UponRoundTimeout() error {
-    if i.CanProcessMessages() {
-        return errors.New("instance stopped processing timeouts")
-    }
+	if i.CanProcessMessages() {
+		return errors.New("instance stopped processing timeouts")
+	}
 
 	newRound := i.State.Round + 1
 	defer func() {
