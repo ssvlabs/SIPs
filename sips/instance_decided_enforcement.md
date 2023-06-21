@@ -2,12 +2,14 @@
 |-------------|------------------------------|----------|--------|
 | Alon Muroch | Instance Decided Enforcement | Core     | open-for-discussion  |
 
-**Summary** 
+**Summary**
+
 No longer require a QBFT instance to decide in order to start the next one.
 If an instance is stalled, it will be terminated after a certain round or when a new instance starts.
 The instance's height will be the duty's slot number. This will allow for easier syncing.
 
 **Rationale**
+
 In our current implementation, a QBFT instance can only start if the previous one has decided.
 This is done to ensure that all nodes are synchronized and that the instance height is predictable.
 This is not required since we can use slots to sync decided instances and the instance's height can be the duty's slot number.
