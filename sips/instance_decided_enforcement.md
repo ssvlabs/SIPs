@@ -18,6 +18,18 @@ The main reasons to drop these requirements are:
 
 **Spec Changes** 
 
+**Timeout**
+~~~go
+var (
+	quickTimeoutThreshold = Round(8)
+    quickTimeout          = 2 * time.Second
+    slowTimeout           = 2 * time.Minute
+    // CutoffRound which round the instance should stop its timer and progress no further
+	CutoffRound = 14 // stop processing instances after 8*2+120*6 = 12.2 min
+)
+
+~~~
+
 **QBFT Controller**
 - Remove function CanStartInstance
 - Remove function canStartInstanceForValue
@@ -88,9 +100,6 @@ func (i *Instance) ProcessMsg(msg *SignedMessage) (decided bool, decidedValue []
 }
 ```
 ```go
-// CutoffRound which round the instance should stop its timer and progress no further
-const CutoffRound = 20
-
 func (i *Instance) UponRoundTimeout() error {
     if i.CanProcessMessages() {
         return errors.New("instance stopped processing timeouts")
