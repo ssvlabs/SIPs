@@ -1,6 +1,6 @@
 | Author      | Title                  | Category | Status |
 |-------------|------------------------|----------|--------|
-| Alon Muroch | ECIES Share Encryption | Core     | open-for-discussion  |
+| Alon Muroch | ECIES Share Encryption | Core     | approved  |
 
 [Discussion](https://github.com/bloxapp/SIPs/discussions/19)
 

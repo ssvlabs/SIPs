@@ -1,6 +1,6 @@
 | Author      | Title                          | Category | Status   |
 |-------------|--------------------------------|----------|----------|
-| Alon Muroch | Messages structure and encoding | Core     | open-for-discussion |
+| Alon Muroch | Messages structure and encoding | Core     | spec-merged |
 
 [Discussion](https://github.com/bloxapp/SIPs/discussions/8)
 

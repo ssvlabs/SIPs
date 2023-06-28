@@ -1,6 +1,6 @@
 | Author      | Title                 | Category | Status |
 |-------------|-----------------------|----------|--------|
-| Alon Muroch | Constant QBFT timeout | Core     | open-for-discussion  |
+| Alon Muroch | Constant QBFT timeout | Core     | rejected  |
 
 _Special thanks for Henrique Moniz for reviewing_
 
