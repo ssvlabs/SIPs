@@ -7,9 +7,7 @@ Describes how to support forks in the SSV network.
 A fork is a non backwards compatible change to the protocol, i.e., change message structs/ types/ functionality.
 
 Forks are a bit tricky in SSV as there are multiple QBFT instances running with no way of knowing when each ends.  
-For a fork to work it needs to:
-1) Clear and deterministic trigger
-2) [Consider weak subjectivity](https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/weak-subjectivity/) - If an offline node comes to life and starts syncing messages it needs to be able to validate them, pre- and post-fork.
+For a forks to work they need a clear trigger.
 
 **Triggering**  
 A fork will be triggered by a beacon epoch number as its deterministic and easy to compute independently. If epoch E is the trigger epoch then pre-fork are all messages refering epoch < E and post-fork are all messages referring epoch >= E.
@@ -20,7 +18,7 @@ Once Epoch E starts, the runner and QBFT controller change domain type from T to
 Client implementation should calculate when a new duty starts to decide if it starts with T or T', transition during duty execution is impossible. 
 
 **History Sync**  
-Sycing messages from a peer will require specifying which fork the message is signed for otherwise the receiving node will not be able to validate the signature.
+Sycing messages from a peer stays unchanged as messages have the identifier in them with domain type 
 
 [Suggested changes to SSV-Spec](https://github.com/bloxapp/ssv-spec/compare/main...alonmuroch:ssv-spec:ssv-fork-updated)
 
