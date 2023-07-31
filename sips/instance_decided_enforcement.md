@@ -45,19 +45,21 @@ func (c *Controller) StartNewInstance(height Height, value []byte) error {
 		return errors.Wrap(err, "value invalid")
 	}
 	
-	if height <= c.Height {
+	// cab't use <= because of height == 0 case
+	if height < c.Height {
 		return errors.New("invalid instance height")
 	}
 	
-	// only if current height's instance exists (and decided since passed can start instance) bump
+	// covers height == 0 case
 	if c.StoredInstances.FindInstance(height) != nil {
 		return errors.New("instance already running")
 	}
+	
+	c.Height = height
 
 	newInstance := c.addAndStoreNewInstance()
 	newInstance.Start(value, height)
 
-	c.Height = height
 	
 	c.forceStopAllInstanceExceptCurrent()
 
