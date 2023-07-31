@@ -45,7 +45,7 @@ func (c *Controller) StartNewInstance(height Height, value []byte) error {
 		return errors.Wrap(err, "value invalid")
 	}
 	
-	// cab't use <= because of height == 0 case
+	// can't use <= because of height == 0 case
 	if height < c.Height {
 		return errors.New("invalid instance height")
 	}
