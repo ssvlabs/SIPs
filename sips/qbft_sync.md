@@ -1,7 +1,7 @@
 
 | Author      | Title     | Category | Status |
 |-------------|-----------|----------|--------|
-| Alon Muroch | QBFT Sync | Core     | spec-merged  |
+| Alon Muroch | QBFT Sync | Core     | Deprecated  |
 
 [Discussion] (https://github.com/bloxapp/SIPs/discussions/12)
 
