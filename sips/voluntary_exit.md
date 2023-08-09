@@ -58,9 +58,9 @@ Upon a quorum of partial signatures, each node will reconstruct a valid signatur
 
 # Proposed solution
 
-_Validator voluntary exit_ will be a new type of duty. It'll be similar to validator registration with no consensus and no post-consensus steps (just pre-consensus).
+_Validator voluntary exit_ will be a new task that operators will need to perform. It'll be similar to validator registration with no consensus and no post-consensus steps (just pre-consensus).
 
-For this duty, operators need to create a [`SignedVoluntaryExit`](https://github.com/attestantio/go-eth2-client/blob/master/spec/phase0/signedvoluntaryexit.go#L28):
+For this, operators need to create a [`SignedVoluntaryExit`](https://github.com/attestantio/go-eth2-client/blob/b3d7ec9b3b1f9bda36f4853e48ca8ada2a7cdd91/spec/phase0/signedvoluntaryexit.go#L28):
 ```go
 type SignedVoluntaryExit struct {
 	Message   *VoluntaryExit
