@@ -21,34 +21,6 @@ Cost of such interaction is pretty minimal considering the value of a single val
 A dedicated subnet for voluntary exits will be added to the network for all exit related communication between operators.
 All operators subscribe to the network.
 
-**Messages**
-New SSV MsgType is introduced
-
-| Name       | Type    | Value | Description                          |
-|------------|---------|-------|--------------------------------------|
-| SSVVoluntaryExit | MsgType | 3     | SSVMessage type for voluntary exit messages |
-
-The SSVMessage Data field will encode the voluntary exit SignedMessage data structure. 
-
-```go
-// VoluntaryExit provides information about a voluntary exit.
-type VoluntaryExit struct {
-    Epoch          uint64
-    ValidatorIndex uint64
-}
-
-type ExitMessage struct {
-    ValidatorPubKey ValidatorPK `ssz-size:"48"`
-    Message         *VoluntaryExit
-}
-
-
-type SignedExitMessage struct {
-    // Signature using the ethereum address that registered the validator
-    Signature [65]byte `ssz-size:"65"`
-    Message   ExitMessage
-}
-```
 **New Runner**  
 A new runner for voluntary exits will be created.
 
@@ -81,7 +53,7 @@ This requires the following changes:
 - New [_VoluntaryExitCall_ on BeaconNode](#beacon-node) interface.
 - New [_PartialSigMsgType_](#partial-signature-message-type).
 - New [_BeaconRole_](#beacon-role).
-- New [Runner struct implementation](#runner) .
+- New [Runner struct implementation](#runner).
 
 
 
@@ -163,7 +135,7 @@ const (
 
 New _ValidatorVoluntaryExitRunner_ implementation of the _Runner_ abstract structure.
 
-Below, there are some functions of the new _ValidatorVoluntaryExitRunner_ runner to illustrate its behaviour.
+Below, there are some functions of the new _ValidatorVoluntaryExitRunner_ runner to illustrate its behavior.
 
 ```go
 // Duty runner for validator voluntary exit duty
