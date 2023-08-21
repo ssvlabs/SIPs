@@ -58,9 +58,9 @@ This requires the following changes:
 New call to be included to the `BeaconNode` interface (according to [attestantio/go-eth2-client:service.go](https://github.com/attestantio/go-eth2-client/blob/master/service.go#L383)).
 
 ```go
-// ValidatorVoluntaryExitCalls interface has all validator voluntary exit duty specific calls
-type ValidatorVoluntaryExitCalls interface {
-    // SubmitVoluntaryExit submits a validator voluntary exit
+// VoluntaryExitCalls interface has all voluntary exit duty specific calls
+type VoluntaryExitCalls interface {
+    // SubmitVoluntaryExit submits a voluntary exit
     SubmitVoluntaryExit(voluntaryExit *phase0.SignedVoluntaryExit, sig phase0.BLSSignature) error
 }
 
@@ -73,7 +73,7 @@ type BeaconNode interface {
 	SyncCommitteeCalls
 	SyncCommitteeContributionCalls
 	ValidatorRegistrationCalls
-    ValidatorVoluntaryExitCalls
+    VoluntaryExitCalls
 	DomainCalls
 }
 ```
@@ -99,8 +99,8 @@ const (
 	ContributionProofs
 	// ValidatorRegistrationPartialSig is a partial signature over a ValidatorRegistration object
 	ValidatorRegistrationPartialSig
-	// ValidatorVoluntaryExitPartialSig is a partial signature over a VoluntaryExit object
-	ValidatorVoluntaryExitPartialSig
+	// VoluntaryExitPartialSig is a partial signature over a VoluntaryExit object
+	VoluntaryExitPartialSig
 )
 ```
 
@@ -121,7 +121,7 @@ const (
 	BNRoleSyncCommitteeContribution
 
 	BNRoleValidatorRegistration
-    BNRoleValidatorVoluntaryExit
+    BNRoleVoluntaryExit
 )
 ```
 
@@ -129,13 +129,13 @@ const (
 
 ## Runner
 
-New _ValidatorVoluntaryExitRunner_ implementation of the _Runner_ abstract structure.
+New _VoluntaryExitRunner_ implementation of the _Runner_ abstract structure.
 
-Below, there are some functions of the new _ValidatorVoluntaryExitRunner_ runner to illustrate its behavior.
+Below, there are some functions of the new _VoluntaryExitRunner_ runner to illustrate its behavior.
 
 ```go
-// Duty runner for validator voluntary exit duty
-type ValidatorVoluntaryExitRunner struct {
+// Duty runner for voluntary exit duty
+type VoluntaryExitRunner struct {
 	BaseRunner *BaseRunner
 
 	beacon   BeaconNode
@@ -147,13 +147,13 @@ type ValidatorVoluntaryExitRunner struct {
 }
 
 
-// Validator voluntary exit duty doesn't need consensus nor post-consensus.
-// It just performs pre-consensus with ValidatorVoluntaryExitPartialSig over
+// Voluntary exit duty doesn't need consensus nor post-consensus.
+// It just performs pre-consensus with VoluntaryExitPartialSig over
 // a VoluntaryExit object to create a SignedVoluntaryExit 
-func (r *ValidatorVoluntaryExitRunner) executeDuty(duty *types.Duty) error {
+func (r *VoluntaryExitRunner) executeDuty(duty *types.Duty) error {
 	voluntaryExit, err := r.calculateVoluntaryExit()
 	if err != nil {
-		return errors.Wrap(err, "could not calculate validator voluntary exit")
+		return errors.Wrap(err, "could not calculate voluntary exit")
 	}
 
 	// get PartialSignatureMessage with voluntaryExit root and signature
@@ -163,7 +163,7 @@ func (r *ValidatorVoluntaryExitRunner) executeDuty(duty *types.Duty) error {
 	}
 
 	msgs := types.PartialSignatureMessages{
-		Type:     types.ValidatorVoluntaryExitPartialSig,
+		Type:     types.VoluntaryExitPartialSig,
 		Slot:     duty.Slot,
 		Messages: []*types.PartialSignatureMessage{msg},
 	}
@@ -200,9 +200,9 @@ func (r *ValidatorVoluntaryExitRunner) executeDuty(duty *types.Duty) error {
 }
 
 // Returns *phase0.VoluntaryExit object with current epoch and own validator index
-func (r *ValidatorVoluntaryExitRunner) calculateVoluntaryExit() (*phase0.VoluntaryExit, error) {
+func (r *VoluntaryExitRunner) calculateVoluntaryExit() (*phase0.VoluntaryExit, error) {
 	epoch := r.BaseRunner.BeaconNetwork.EstimatedEpochAtSlot(r.BaseRunner.State.StartingDuty.Slot)
-    validatorIndex := r.GetState().DecidedValue.Duty.ValidatorIndex
+    validatorIndex := r.GetState().StartingDuty.ValidatorIndex
 	return &phase0.VoluntaryExit{
         Epoch: epoch,
         ValidatorIndex: validatorIndex,
@@ -211,10 +211,10 @@ func (r *ValidatorVoluntaryExitRunner) calculateVoluntaryExit() (*phase0.Volunta
 
 // Check for quorum of partial signatures over VoluntaryExit and,
 // if has quorum, constructs SignedVoluntaryExit and submits to BeaconNode
-func (r *ValidatorVoluntaryExitRunner) ProcessPreConsensus(signedMsg *types.SignedPartialSignatureMessage) error {
+func (r *VoluntaryExitRunner) ProcessPreConsensus(signedMsg *types.SignedPartialSignatureMessage) error {
 	quorum, roots, err := r.BaseRunner.basePreConsensusMsgProcessing(r, signedMsg)
 	if err != nil {
-		return errors.Wrap(err, "failed processing validator voluntary exit message")
+		return errors.Wrap(err, "failed processing voluntary exit message")
 	}
 
 	// quorum returns true only once (first time quorum achieved)
@@ -226,7 +226,7 @@ func (r *ValidatorVoluntaryExitRunner) ProcessPreConsensus(signedMsg *types.Sign
 	root := roots[0]
 	fullSig, err := r.GetState().ReconstructBeaconSig(r.GetState().PreConsensusContainer, root, r.GetShare().ValidatorPubKey)
 	if err != nil {
-		return errors.Wrap(err, "could not reconstruct validator voluntary exit sig")
+		return errors.Wrap(err, "could not reconstruct voluntary exit sig")
 	}
 	specSig := phase0.BLSSignature{}
 	copy(specSig[:], fullSig)
@@ -238,7 +238,7 @@ func (r *ValidatorVoluntaryExitRunner) ProcessPreConsensus(signedMsg *types.Sign
     }
 
     if err := r.beacon.SubmitVoluntaryExit(signedVoluntaryExit, specSig); err != nil {
-        return errors.Wrap(err, "could not submit validator voluntary exit")
+        return errors.Wrap(err, "could not submit voluntary exit")
     }
 
 	r.GetState().Finished = true
