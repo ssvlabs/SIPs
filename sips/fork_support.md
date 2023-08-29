@@ -111,7 +111,7 @@ var (
 	ShifuTestnet   = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x0}
 	ShifuV2Testnet = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x1}
 	JatoTestnet    = DomainType{0x0, 0x0, byte(JatoNetworkID), 0x0}
-	JatoV2Testnet  = DomainType{0x0, 0x0, byte(JatoV2NetworkID), 0x0}
+	JatoV2Testnet  = DomainType{0x0, 0x0, byte(JatoV2NetworkID), 0x1}
 )
 
 // ForkData is a simple structure holding fork information for a specific chain (and its fork)
