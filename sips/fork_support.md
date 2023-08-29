@@ -98,6 +98,7 @@ const (
 	PrimusNetworkID  = NetworkID(0x1)
 	ShifuNetworkID   = NetworkID(0x2)
 	JatoNetworkID    = NetworkID(0x3)
+	JatoV2NetworkID    = NetworkID(0x4)
 )
 
 // DomainType is a unique identifier for signatures, 2 identical pieces of data signed with different domains will result in different sigs
@@ -110,7 +111,7 @@ var (
 	ShifuTestnet   = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x0}
 	ShifuV2Testnet = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x1}
 	JatoTestnet    = DomainType{0x0, 0x0, byte(JatoNetworkID), 0x0}
-	JatoV2Testnet  = DomainType{0x0, 0x0, byte(JatoNetworkID), 0x1}
+	JatoV2Testnet  = DomainType{0x0, 0x0, byte(JatoV2NetworkID), 0x0}
 )
 
 // ForkData is a simple structure holding fork information for a specific chain (and its fork)
@@ -154,7 +155,7 @@ func (networkID NetworkID) DefaultFork() *ForkData {
 }
 
 // GetCurrentFork returns the ForkData with highest Epoch smaller or equal to "epoch"
-func (networkID NetworkID) GetCurrentFork(epoch phase0.Epoch) (*ForkData, error) {
+func (networkID NetworkID) ForkAtEpoch(epoch phase0.Epoch) (*ForkData, error) {
 	// Get list of forks
 	forks := networkID.GetForksData()
 
@@ -163,9 +164,9 @@ func (networkID NetworkID) GetCurrentFork(epoch phase0.Epoch) (*ForkData, error)
 		return nil, errors.New("GetCurrentFork: fork list by GetForksData is empty.")
 	}
 
-	current_fork := forks[0]
+	var current_fork *ForkData
 	for _, fork := range forks {
-		if fork.Epoch <= epoch && fork.Epoch > current_fork.Epoch {
+		if fork.Epoch <= epoch {
 			current_fork = fork
 		}
 	}
