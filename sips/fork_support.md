@@ -210,8 +210,10 @@ func (c *Controller) StartNewInstance(height Height, value []byte, identifier []
 		return errors.New("instance already running")
 	}
 
-	c.config.SetSignatureDomainType(domainType) // <-- updates its config's DomainType
-    c.Identifier = identifier // <-- updates its identifier
+	c.config.SetSignatureDomainType(domainType) // <- updates its config's DomainType
+    
+	c.Identifier = identifier // <- updates its identifier
+	
 	c.Height = height
 	
 	newInstance := c.addAndStoreNewInstance()
