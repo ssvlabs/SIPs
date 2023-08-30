@@ -210,10 +210,12 @@ func (c *Controller) StartNewInstance(height Height, value []byte, identifier []
 		return errors.New("instance already running")
 	}
 
-    c.config.SetSignatureDomainType(domainType) // <-- updates its config's DomainType
+	c.config.SetSignatureDomainType(domainType) // <-- updates its config's DomainType
     c.Identifier = identifier // <-- updates its identifier
 	c.Height = height
+	
 	newInstance := c.addAndStoreNewInstance()
+	
 	newInstance.Start(value, height)
 
 	c.forceStopAllInstanceExceptCurrent()
@@ -222,7 +224,7 @@ func (c *Controller) StartNewInstance(height Height, value []byte, identifier []
 }
 ```
 
-The above change also requires an update in the `BaseRunner`. In the `decide` function, where `StartNewInstance` is called, an updated identifier needs to be passed as an argument as well as the new DomainType. For that, the _BaseRunner_ will have a new attribute `CurrentFork`, updated every time a new duty starts.
+The above change also requires an update in the `BaseRunner`. In the `decide` function, where `StartNewInstance` is called, an updated identifier needs to be passed as an argument as well as the new DomainType. For that, the _BaseRunner_ will calculate the `CurrentFork` using its `Share` attribute every time a new duty starts.
 
 ```go
 type BaseRunner struct {
@@ -232,19 +234,6 @@ type BaseRunner struct {
 	BeaconNetwork  types.BeaconNetwork
 	BeaconRoleType types.BeaconRole
 	highestDecidedSlot spec.Slot
-
-	// Current fork associated to Share.DomainType
-	CurrentFork *types.ForkData  // <-- new field
-}
-
-func (b *BaseRunner) baseSetupForNewDuty(duty *types.Duty) {
-
-	// Update CurrentFork
-	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(duty.Slot)
-	b.CurrentFork = b.Share.NetworkID.GetCurrentFork(epoch) // <-- update Current fork
-
-	// start new state
-	b.State = NewRunnerState(b.Share.Quorum, duty)
 }
 
 
@@ -258,13 +247,18 @@ func (b *BaseRunner) decide(runner Runner, input *types.ConsensusData) error {
 		return errors.Wrap(err, "input data invalid")
 	}
 
-	identifier := types.NewMsgID(b.CurrentFork.Domain, b.Share.ValidatorPubKey[:], b.BeaconRoleType) // <-- computes new identifier
+
+	// Get CurrentFork
+	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(duty.Slot)
+	CurrentFork := b.Share.NetworkID.GetCurrentFork(epoch)
+
+	identifier := types.NewMsgID(CurrentFork.Domain, b.Share.ValidatorPubKey[:], b.BeaconRoleType) // <-- computes new identifier
 
 	if err := runner.GetBaseRunner().QBFTController.StartNewInstance(
 		qbft.Height(input.Duty.Slot),
 		byts,
 		identifier[:], // <-- passes identifier as argument
-        b.CurrentFork.Domain, // <-- passes new domain as argument
+        CurrentFork.Domain, // <-- passes new domain as argument
 	); err != nil {
 		return errors.Wrap(err, "could not start new QBFT instance")
 	}
