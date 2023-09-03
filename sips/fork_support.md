@@ -185,35 +185,36 @@ func (f ForkData) GetRoot() ([]byte, error) {
 
 ### Structures access to types
 
-- `Share`: It's more correct for the structure to hold the information on the network that it's in, instead of the network and fork number.
+- `Share`: It's more appropriate for the structure to hold the information on the network that it's in, instead of the domain type.
     Thus, _Share_ will contain a `NetworkID` field instead of a `DomainType` field.
-- `Config`: Similarly, _Config_ should have a `NetworkID` instead of `DomainType`.
-- `Controller`: It may drop its `DomainType` field since it has access to `config` and `Share`.
 
 Regarding the indirect usage of Identifiers:
-- `Instance` must keep its identifier to send properly formed messages.
-- `Controller` may keep its identifier, but its _StartNewInstance_ method should receive as an argument the new identifier for the instance, as well as the new _DomainType_ to update its _config_. The controller, then, updates its identifier.
+- `Instance`:
+  - Must keep its identifier to send properly formed messages.
+- `Controller`:
+  - Should replace its _Identifier_ with an _IdentifierF_ getter function, passed by the Runner. With the function instead of the fixed value, it can compute the up-to-date identifier when needed.
+  - Since the controller's `config` must also be updated, the controller should also contain a _DomainTypeF_ function, instead of its fixed _DomainType_ field.
 
 ```go
-func (c *Controller) StartNewInstance(height Height, value []byte, identifier []byte, domainType types.DomainType) error { // <-- identifier as argument
-	if err := c.GetConfig().GetValueCheckF()(value); err != nil {
-		return errors.Wrap(err, "value invalid")
-	}
 
-	// can't use <= because of height == 0 case
-	if height < c.Height {
-		return errors.New("attempting to start an instance with a past height")
-	}
+type IdentifierF func() []byte // <-- new func type
+type DomainTypeF func() types.DomainType // <-- new func type
 
-	// covers height == 0 case
-	if c.StoredInstances.FindInstance(height) != nil {
-		return errors.New("instance already running")
-	}
+type Controller struct {
+	IdentifierF IdentifierF // <-- replace Identifier []byte to Identifier getter function
+	Height     Height 
+	StoredInstances InstanceContainer
+	FutureMsgsContainer map[types.OperatorID]Height
+	DomainTypeF         DomainTypeF // <-- replace Domain types.DomainType to DomainType getter function
+	Share               *types.Share
+	config              IConfig
+}
 
-	c.config.SetSignatureDomainType(domainType) // <- updates its config's DomainType
-    
-	c.Identifier = identifier // <- updates its identifier
-	
+func (c *Controller) StartNewInstance(height Height, value []byte) error {
+	// ...
+
+	c.config.SetSignatureDomainType(c.DomainTypeF()) // <-- updates its config using its new DomainF
+    	
 	c.Height = height
 	
 	newInstance := c.addAndStoreNewInstance()
@@ -224,9 +225,18 @@ func (c *Controller) StartNewInstance(height Height, value []byte, identifier []
 
 	return nil
 }
+
+func (c *Controller) addAndStoreNewInstance() *Instance {
+	i := NewInstance(c.GetConfig(), c.Share, c.IdentifierF(), c.Height) // <-- set instance's identifier as new up to date identifier
+
+	c.StoredInstances.addNewInstance(i)
+	
+	return i
+}
+
 ```
 
-The above change also requires an update in the `BaseRunner`. In the `decide` function, where `StartNewInstance` is called, an updated identifier needs to be passed as an argument as well as the new DomainType. For that, the _BaseRunner_ will calculate the `CurrentFork` using its `Share` attribute every time a new duty starts.
+An example of how the required functions for the new controller can be computed using the `BaseRunner` is shown below.
 
 ```go
 type BaseRunner struct {
@@ -238,38 +248,19 @@ type BaseRunner struct {
 	highestDecidedSlot spec.Slot
 }
 
-
-func (b *BaseRunner) decide(runner Runner, input *types.ConsensusData) error {
-	byts, err := input.Encode()
-	if err != nil {
-		return errors.Wrap(err, "could not encode ConsensusData")
+func (b *BaseRunner) GetIdentifierF() func() []byte {
+	return func() []byte {
+		currentEpoch := b.BeaconNetwork.EstimatedCurrentEpoch()
+		domainType := b.Share.NetworkID.ForkAtEpoch(currentEpoch)
+		identifier := types.NewMsgID(domainType,b.Share.ValidatorPubKey[:],b.BeaconRoleType)
+		return identifier[:]
 	}
+}
 
-	if err := runner.GetValCheckF()(byts); err != nil {
-		return errors.Wrap(err, "input data invalid")
+func (b *BaseRunner) GetDomainTypeF() func() types.DomainType {
+	return func() types.DomainType {
+		currentEpoch := b.BeaconNetwork.EstimatedCurrentEpoch()
+		return b.Share.NetworkID.ForkAtEpoch(currentEpoch)
 	}
-
-
-	// Get CurrentFork
-	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(duty.Slot)
-	CurrentFork := b.Share.NetworkID.GetCurrentFork(epoch)
-
-	identifier := types.NewMsgID(CurrentFork.Domain, b.Share.ValidatorPubKey[:], b.BeaconRoleType) // <-- computes new identifier
-
-	if err := runner.GetBaseRunner().QBFTController.StartNewInstance(
-		qbft.Height(input.Duty.Slot),
-		byts,
-		identifier[:], // <-- passes identifier as argument
-        CurrentFork.Domain, // <-- passes new domain as argument
-	); err != nil {
-		return errors.Wrap(err, "could not start new QBFT instance")
-	}
-	newInstance := runner.GetBaseRunner().QBFTController.InstanceForHeight(runner.GetBaseRunner().QBFTController.Height)
-	if newInstance == nil {
-		return errors.New("could not find newly created QBFT instance")
-	}
-
-	runner.GetBaseRunner().State.RunningInstance = newInstance
-	return nil
 }
 ```
