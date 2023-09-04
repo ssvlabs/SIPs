@@ -130,13 +130,12 @@ func (networkID NetworkID) GetForksData() []*ForkData {
 	switch networkID {
 	case MainnetNetworkID:
 		return mainnetForks()
+	case JatoNetworkID:
+		return []*ForkData{{Epoch: 0, Domain: JatoTestnet}}
+	case JatoV2NetworkID:
+		return []*ForkData{{Epoch: 0, Domain: JatoV2Testnet}}
 	default:
-		return []*ForkData{
-			{
-				Epoch:  0,
-				Domain: DomainType{0x0, 0x0, byte(networkID), 0x0},
-			},
-		}
+		return nil
 	}
 }
 
@@ -161,7 +160,7 @@ func (networkID NetworkID) ForkAtEpoch(epoch phase0.Epoch) (*ForkData, error) {
 
 	// If empty, raise error
 	if len(forks) == 0 {
-		return nil, errors.New("GetCurrentFork: fork list by GetForksData is empty.")
+		return nil, errors.New("GetCurrentFork: fork list by GetForksData is empty. Unknown Network")
 	}
 
 	var current_fork *ForkData
@@ -257,10 +256,14 @@ func (b *BaseRunner) GetIdentifierF() func() []byte {
 	}
 }
 
-func (b *BaseRunner) GetDomainTypeF() func() types.DomainType {
-	return func() types.DomainType {
+func (b *BaseRunner) GetDomainTypeF() func() (types.DomainType, error) {
+	return func() (types.DomainType, error) {
 		currentEpoch := b.BeaconNetwork.EstimatedCurrentEpoch()
-		return b.Share.NetworkID.ForkAtEpoch(currentEpoch)
+		fork, err := b.Share.NetworkID.ForkAtEpoch(currentEpoch)
+		if err != nil {
+			return nil, err
+		}
+		return fork.Domain, nil
 	}
 }
 ```
