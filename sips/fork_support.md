@@ -135,7 +135,7 @@ func (networkID NetworkID) GetForksData() []*ForkData {
 	case JatoV2NetworkID:
 		return []*ForkData{{Epoch: 0, Domain: JatoV2Testnet}}
 	default:
-		return nil
+		return []*ForkData{}
 	}
 }
 
