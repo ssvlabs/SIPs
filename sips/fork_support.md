@@ -197,7 +197,7 @@ Regarding the indirect usage of Identifiers:
 ```go
 
 type IdentifierF func() []byte // <-- new func type
-type DomainTypeF func() (types.DomainType,error) // <-- new func type
+type DomainTypeF func() (types.DomainType, error) // <-- new func type
 
 type Controller struct {
 	IdentifierF IdentifierF // <-- replace Identifier []byte to Identifier getter function
