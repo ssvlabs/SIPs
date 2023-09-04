@@ -197,14 +197,14 @@ Regarding the indirect usage of Identifiers:
 ```go
 
 type IdentifierF func() []byte // <-- new func type
-type DomainTypeF func() types.DomainType // <-- new func type
+type DomainTypeF func() (types.DomainType,error) // <-- new func type
 
 type Controller struct {
 	IdentifierF IdentifierF // <-- replace Identifier []byte to Identifier getter function
 	Height     Height 
 	StoredInstances InstanceContainer
 	FutureMsgsContainer map[types.OperatorID]Height
-	DomainTypeF         DomainTypeF // <-- replace Domain types.DomainType to DomainType getter function
+	DomainTypeF         (types.DomainType,error) // <-- replace Domain types.DomainType to DomainType getter function
 	Share               *types.Share
 	config              IConfig
 }
@@ -212,7 +212,11 @@ type Controller struct {
 func (c *Controller) StartNewInstance(height Height, value []byte) error {
 	// ...
 
-	c.config.SetSignatureDomainType(c.DomainTypeF()) // <-- updates its config using its new DomainF
+	domainType, err := c.DomainTypeF()
+	if err != nil {
+		return Errors.Wrap(err,"Coudld not get current DomainType.")
+	}
+	c.config.SetSignatureDomainType(domainType) // <-- updates its config using its new DomainF
     	
 	c.Height = height
 	
