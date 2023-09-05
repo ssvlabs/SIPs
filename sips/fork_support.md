@@ -110,7 +110,7 @@ var (
 	PrimusTestnet  = DomainType{0x0, 0x0, byte(PrimusNetworkID), 0x0}
 	ShifuTestnet   = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x0}
 	ShifuV2Testnet = DomainType{0x0, 0x0, byte(ShifuNetworkID), 0x1}
-	JatoTestnet    = DomainType{0x0, 0x0, byte(JatoNetworkID), 0x0}
+	JatoTestnet    = DomainType{0x0, 0x0, byte(JatoNetworkID), 0x1}
 	JatoV2Testnet  = DomainType{0x0, 0x0, byte(JatoV2NetworkID), 0x1}
 )
 
