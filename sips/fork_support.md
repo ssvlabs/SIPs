@@ -204,7 +204,7 @@ type Controller struct {
 	Height     Height 
 	StoredInstances InstanceContainer
 	FutureMsgsContainer map[types.OperatorID]Height
-	DomainTypeF         (types.DomainType,error) // <-- replace Domain types.DomainType to DomainType getter function
+	DomainTypeF         DomainTypeF // <-- replace Domain types.DomainType to DomainType getter function
 	Share               *types.Share
 	config              IConfig
 }
