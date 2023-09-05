@@ -160,7 +160,7 @@ func (networkID NetworkID) ForkAtEpoch(epoch phase0.Epoch) (*ForkData, error) {
 
 	// If empty, raise error
 	if len(forks) == 0 {
-		return nil, errors.New("GetCurrentFork: fork list by GetForksData is empty. Unknown Network")
+		return nil, errors.New("Fork list by GetForksData is empty. Unknown Network")
 	}
 
 	var current_fork *ForkData
