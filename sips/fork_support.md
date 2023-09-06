@@ -191,56 +191,30 @@ Regarding the indirect usage of Identifiers:
 - `Instance`:
   - Must keep its identifier to send properly formed messages.
 - `Controller`:
-  - Should replace its _Identifier_ with an _IdentifierF_ getter function, passed by the Runner. With the function instead of the fixed value, it can compute the up-to-date identifier when needed.
-  - Since the controller's `config` must also be updated, the controller should also contain a _DomainTypeF_ function, instead of its fixed _DomainType_ field.
+  - Should have its _Identifier_ and _DomainType_ updated when a new fork occurs. For that, it will have setter functions for both fields. These functions will be used by the `Runner` to update the controller.
 
 ```go
 
-type IdentifierF func() []byte // <-- new func type
-type DomainTypeF func() (types.DomainType, error) // <-- new func type
-
 type Controller struct {
-	IdentifierF IdentifierF // <-- replace Identifier []byte to Identifier getter function
+	Identifier []byte
 	Height     Height 
 	StoredInstances InstanceContainer
 	FutureMsgsContainer map[types.OperatorID]Height
-	DomainTypeF         DomainTypeF // <-- replace Domain types.DomainType to DomainType getter function
+	Domain          types.DomainType
 	Share               *types.Share
 	config              IConfig
 }
 
-func (c *Controller) StartNewInstance(height Height, value []byte) error {
-	// ...
-
-	domainType, err := c.DomainTypeF()
-	if err != nil {
-		return Errors.Wrap(err,"Coudld not get current DomainType.")
-	}
-	c.config.SetSignatureDomainType(domainType) // <-- updates its config using its new DomainF
-    	
-	c.Height = height
-	
-	newInstance := c.addAndStoreNewInstance()
-	
-	newInstance.Start(value, height)
-
-	c.forceStopAllInstanceExceptCurrent()
-
-	return nil
+func (c *Controller) SetIdentifier(identifier []byte) {
+	c.Identifier = identifier
 }
 
-func (c *Controller) addAndStoreNewInstance() *Instance {
-	i := NewInstance(c.GetConfig(), c.Share, c.IdentifierF(), c.Height) // <-- set instance's identifier as new up to date identifier
-
-	c.StoredInstances.addNewInstance(i)
-	
-	return i
+func (c *Controller) SetDomainType(domainType types.DomainType) {
+	c.Domain = domainType
 }
-
 ```
 
-An example of how the required functions for the new controller can be computed using the `BaseRunner` is shown below.
-
+An example of how the `BaseRunner` could update the controller is shown below.
 ```go
 type BaseRunner struct {
 	State          *State
@@ -251,23 +225,26 @@ type BaseRunner struct {
 	highestDecidedSlot spec.Slot
 }
 
-func (b *BaseRunner) GetIdentifierF() func() []byte {
-	return func() []byte {
-		currentEpoch := b.BeaconNetwork.EstimatedCurrentEpoch()
-		domainType := b.Share.NetworkID.ForkAtEpoch(currentEpoch)
-		identifier := types.NewMsgID(domainType,b.Share.ValidatorPubKey[:],b.BeaconRoleType)
-		return identifier[:]
+func (b *BaseRunner) baseStartNewDuty(runner Runner, duty *types.Duty) error {
+	if err := b.ShouldProcessDuty(duty); err != nil {
+		return errors.Wrap(err, "can't start duty")
 	}
+	b.baseSetupForNewDuty(duty)
+
+	// Computes new domain type based on the Duty
+	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(duty.Slot)
+	forkData := b.Share.NetworkID.ForkAtEpoch(epoch)
+	newDomainType := forkData.Domain
+
+	// Computes new identifier
+	identifier := types.NewMsgID(newDomainType, b.Share.ValidatorPubKey[:], b.BeaconRoleType) // <-- computes new identifier
+
+	// Updates controller
+	b.QBFTController.SetDomainType(newDomainType)
+	b.QBFTController.GetConfig().SetSignatureDomainType(newDomainType)
+	b.QBFTController.SetIdentifier(identifier[:])
+
+	return runner.executeDuty(duty)
 }
 
-func (b *BaseRunner) GetDomainTypeF() func() (types.DomainType, error) {
-	return func() (types.DomainType, error) {
-		currentEpoch := b.BeaconNetwork.EstimatedCurrentEpoch()
-		fork, err := b.Share.NetworkID.ForkAtEpoch(currentEpoch)
-		if err != nil {
-			return nil, err
-		}
-		return fork.Domain, nil
-	}
-}
 ```
