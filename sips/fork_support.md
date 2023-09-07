@@ -91,14 +91,14 @@ Along with the `DomainType`, we include a `NetworkID` type and a new `ForkData` 
 
 ```go
 // NetworkID are intended to separate different SSV networks. A network can have many forks in it.
-type NetworkID byte
+type NetworkID [1]byte
 
-const (
-	MainnetNetworkID = NetworkID(0x0)
-	PrimusNetworkID  = NetworkID(0x1)
-	ShifuNetworkID   = NetworkID(0x2)
-	JatoNetworkID    = NetworkID(0x3)
-	JatoV2NetworkID    = NetworkID(0x4)
+var (
+	MainnetNetworkID = NetworkID{0x0}
+	PrimusNetworkID  = NetworkID{0x1}
+	ShifuNetworkID   = NetworkID{0x2}
+	JatoNetworkID    = NetworkID{0x3}
+	JatoV2NetworkID  = NetworkID{0x4}
 )
 
 // DomainType is a unique identifier for signatures, 2 identical pieces of data signed with different domains will result in different sigs
@@ -123,13 +123,15 @@ type ForkData struct {
 }
 
 func (domainType DomainType) GetNetworkID() NetworkID {
-	return NetworkID(domainType[2])
+	return NetworkID{domainType[2]}
 }
 
 func (networkID NetworkID) GetForksData() []*ForkData {
 	switch networkID {
 	case MainnetNetworkID:
 		return mainnetForks()
+	case PrimusNetworkID:
+		return []*ForkData{{Epoch: 0, Domain: PrimusTestnet}}
 	case JatoNetworkID:
 		return []*ForkData{{Epoch: 0, Domain: JatoTestnet}}
 	case JatoV2NetworkID:
@@ -184,8 +186,10 @@ func (f ForkData) GetRoot() ([]byte, error) {
 
 ### Structures access to types
 
-- `Share`: It's more appropriate for the structure to hold the information on the network that it's in, instead of the domain type.
-    Thus, _Share_ will contain a `NetworkID` field instead of a `DomainType` field.
+- `Share`:
+  - It's more appropriate for the structure to hold the information on the network that it's in, instead of the domain type. Thus, _Share_ will contain a `NetworkID` field instead of a `DomainType` field.
+  - Also, the share structure is shared between all runners, but different runners may need different DomainTypes (e.g. a runner solving a duty pre-fork and another one solving a new duty post-fork). Therefore, it would be a problem if all the runners used the Share's DomainType as its own.
+
 
 Regarding the indirect usage of Identifiers:
 - `Instance`:
@@ -197,12 +201,11 @@ Regarding the indirect usage of Identifiers:
 
 type Controller struct {
 	Identifier []byte
-	Height     Height 
+	Height     Height
 	StoredInstances InstanceContainer
-	FutureMsgsContainer map[types.OperatorID]Height
 	Domain          types.DomainType
-	Share               *types.Share
-	config              IConfig
+	Share           *types.Share
+	config          IConfig
 }
 
 func (c *Controller) SetIdentifier(identifier []byte) {
@@ -214,37 +217,15 @@ func (c *Controller) SetDomainType(domainType types.DomainType) {
 }
 ```
 
-An example of how the `BaseRunner` could update the controller is shown below.
+For the SSV team implementing the Fork update, we advise the following runner's function to get the appropriate domain type for its controller.
 ```go
-type BaseRunner struct {
-	State          *State
-	Share          *types.Share
-	QBFTController *qbft.Controller
-	BeaconNetwork  types.BeaconNetwork
-	BeaconRoleType types.BeaconRole
-	highestDecidedSlot spec.Slot
-}
-
-func (b *BaseRunner) baseStartNewDuty(runner Runner, duty *types.Duty) error {
-	if err := b.ShouldProcessDuty(duty); err != nil {
-		return errors.Wrap(err, "can't start duty")
+// GetDomainTypeAtSlot returns the domain type for a given slot using the its BeaconNetwork and Share's NetworkID
+func (b *BaseRunner) GetDomainTypeAtSlot(slot phase0.Slot) (types.DomainType, error) {
+	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(slot)
+	fork, err := b.Share.NetworkID.ForkAtEpoch(epoch)
+	if err != nil {
+		return b.Share.NetworkID.DefaultFork().Domain, errors.Wrap(err, "Could not get fork for epoch.")
 	}
-	b.baseSetupForNewDuty(duty)
-
-	// Computes new domain type based on the Duty
-	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(duty.Slot)
-	forkData := b.Share.NetworkID.ForkAtEpoch(epoch)
-	newDomainType := forkData.Domain
-
-	// Computes new identifier
-	identifier := types.NewMsgID(newDomainType, b.Share.ValidatorPubKey[:], b.BeaconRoleType) // <-- computes new identifier
-
-	// Updates controller
-	b.QBFTController.SetDomainType(newDomainType)
-	b.QBFTController.GetConfig().SetSignatureDomainType(newDomainType)
-	b.QBFTController.SetIdentifier(identifier[:])
-
-	return runner.executeDuty(duty)
+	return fork.Domain, nil
 }
-
 ```
