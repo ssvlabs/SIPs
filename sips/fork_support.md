@@ -195,7 +195,8 @@ Regarding the indirect usage of Identifiers:
 - `Instance`:
   - Must keep its identifier to send properly formed messages.
 - `Controller`:
-  - Should have its _Identifier_ and _DomainType_ updated when a new fork occurs. For that, it will have setter functions for both fields. These functions will be used by the `Runner` to update the controller.
+  - Should have its _Identifier_ updated when a new fork occurs. For that, it will have a setter function. These functions will be used by the `Runner` to update the controller.
+  - The _Domain_ field will drop. Since the _config_ also has a _domain_, it's duplicated.
 
 ```go
 
@@ -203,17 +204,13 @@ type Controller struct {
 	Identifier []byte
 	Height     Height
 	StoredInstances InstanceContainer
-	Domain          types.DomainType
 	Share           *types.Share
 	config          IConfig
+	// No more Domain
 }
 
 func (c *Controller) SetIdentifier(identifier []byte) {
 	c.Identifier = identifier
-}
-
-func (c *Controller) SetDomainType(domainType types.DomainType) {
-	c.Domain = domainType
 }
 ```
 
