@@ -217,7 +217,7 @@ func (c *Controller) SetDomainType(domainType types.DomainType) {
 }
 ```
 
-For the SSV team implementing the Fork update, we advise the following runner's function to get the appropriate domain type for its controller.
+The following runner's function gets the appropriate domain type for its controller.
 ```go
 // GetDomainTypeAtSlot returns the domain type for a given slot using the its BeaconNetwork and Share's NetworkID
 func (b *BaseRunner) GetDomainTypeAtSlot(slot phase0.Slot) (types.DomainType, error) {
