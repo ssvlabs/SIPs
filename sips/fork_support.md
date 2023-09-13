@@ -21,7 +21,7 @@ Client implementation should calculate when a new duty starts to decide if it st
 Sycing messages from a peer stays unchanged as messages have the identifier in them with domain type 
 
 
-## Current State
+## Previous State
 
 Currently, there's **no fork change logic**. However, there's **network and fork identification** through the `DomainType`. For instance, we have
 ```go
@@ -77,10 +77,6 @@ func (b *BaseRunner) validatePartialSigMsgForSlot(...) {
 }
 ```
 
-- Indirect usage: an _Instance_ includes its _State.ID_ in messages. The _State.ID_ is initialized as the controller's _Identifier_ which contains the _DomainType_. The controller's identifier is fixed. It's used as:
-  - an argument on instance creation.
-  - to broadcast decided messages.
-  - in base validation, to verify if the message was sent to the correct controller.
 
 
 
