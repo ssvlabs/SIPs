@@ -186,11 +186,6 @@ func (f ForkData) GetRoot() ([]byte, error) {
 
 ### Structures access to types
 
-- `Share`:
-  - It's more appropriate for the structure to hold the information on the network that it's in, instead of the domain type. Thus, _Share_ will contain a `NetworkID` field instead of a `DomainType` field.
-  - Also, the share structure is shared between all runners, but different runners may need different DomainTypes (e.g. a runner solving a duty pre-fork and another one solving a new duty post-fork). Therefore, it would be a problem if all the runners used the Share's DomainType as its own.
-
-
 Regarding the indirect usage of Identifiers:
 - `Instance`:
   - Must keep its identifier to send properly formed messages.
