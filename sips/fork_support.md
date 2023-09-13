@@ -209,14 +209,14 @@ func (c *Controller) SetIdentifier(identifier []byte) {
 }
 ```
 
-The following runner's function gets the appropriate domain type for its controller.
+The following function gets the appropriate domain type, given the BeaconNetwork and the NetworkID.
 ```go
-// GetDomainTypeAtSlot returns the domain type for a given slot using the its BeaconNetwork and Share's NetworkID
-func (b *BaseRunner) GetDomainTypeAtSlot(slot phase0.Slot) (types.DomainType, error) {
-	epoch := b.BeaconNetwork.EstimatedEpochAtSlot(slot)
-	fork, err := b.Share.NetworkID.ForkAtEpoch(epoch)
+// GetDomainTypeAtSlot returns the domain type for a given slot, given a BeaconNetwork and a NetworkID
+func GetDomainTypeAtSlot(beaconNetwork types.BeaconNetwork, networkID types.NetworkID, slot phase0.Slot) (types.DomainType, error) {
+	epoch := beaconNetwork.EstimatedEpochAtSlot(slot)
+	fork, err := networkID.ForkAtEpoch(epoch)
 	if err != nil {
-		return b.Share.NetworkID.DefaultFork().Domain, errors.Wrap(err, "Could not get fork for epoch.")
+		return networkID.DefaultFork().Domain, errors.Wrap(err, "Could not get fork for epoch.")
 	}
 	return fork.Domain, nil
 }
