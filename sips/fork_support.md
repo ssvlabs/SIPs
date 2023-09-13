@@ -40,7 +40,7 @@ The node takes one of the above _DomainType_ values and **holds it until termina
 
 In the _DomainType_, the third byte corresponds to the **network** (Mainnet, Primus, etc.), and the fourth byte corresponds to the **fork or protocol version** for this network.
 
-In the actual implementation, _DomainType_ appears in the following structures:
+In the actual spec, _DomainType_ appears in the following structures:
 - `Share`
 - `Config`
 - `Controller`
