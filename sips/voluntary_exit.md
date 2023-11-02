@@ -12,7 +12,7 @@ Describes how zero coordination voluntary exit works.
 
 **Contract**  
 Adds a new function accessible only by the validator's owner, pushes a voluntray exit event. 
-Can only be called once.
+Can be called multiple times.
 
 _Why a contract interaction?_ Enable contract based applications to do contract->contract zero coordination exits.
 Cost of such interaction is pretty minimal considering the value of a single validator.
