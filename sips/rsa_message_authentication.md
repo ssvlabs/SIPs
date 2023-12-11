@@ -1,6 +1,6 @@
 |     Author     |           Title            |  Category  |       Status        |    Date    |
 | -------------- | -------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco | RSA Network Authentication | Networking | open-for-discussion | 2023-10-08 |
+| Matheus Franco | RSA Message Authentication | Networking | open-for-discussion | 2023-10-08 |
 
 ## Summary
 
@@ -17,7 +17,7 @@ The rationale behind adopting a better message authentication algorithm lies in 
 Below, it's shown the results of a benchmark test in Go 1.19 for several authentication algorithms, using 4 cores of Apple M1 Pro processors.
 
 <p align="center">
-<img src="./images/rsa_network_authentication/asymmetric_scheme_performance.png"  width="50%" height="10%">
+<img src="./images/rsa_message_authentication/asymmetric_scheme_performance.png"  width="50%" height="10%">
 </p>
 
 Besides the better performance of RSA, this scheme is also the most straightforward to implement due to the already existing operator's RSA network key.
