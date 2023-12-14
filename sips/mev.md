@@ -1,6 +1,6 @@
 | Author                    | Title                           | Category | Status              |
 | ------------------------- | ------------------------------- | -------- | ------------------- |
-| Moshe Revah (@moshe-blox) | Support externally built blocks | Core     | open-for-discussion |
+| Moshe Revah (@moshe-blox) | Support externally built blocks | Core     | approved |
 
 ## Summary
 
