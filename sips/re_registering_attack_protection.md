@@ -13,7 +13,7 @@ In this scenario, a malicious actor could "front-run" an honest user trying to r
 
 To make any changes (such as removing or changing the cluster), the honest user would need to exit the validator.
 
-#### Re-registering attack
+#### Registration replay attack
 In this case, an attacker could identify a validator that has been removed (from the SSV network) and quickly re-register it, thereby preventing the owner from transferring the validator elsewhere. Similar to the front-running scenario, the attacker would cover the validator's fees to keep the attack active.
 
 In response, the honest user would need to exit the validator immediately.
