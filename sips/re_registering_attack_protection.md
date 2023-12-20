@@ -38,9 +38,10 @@ The specification is organized into three distinct sections:
 
 ### SSV Contract
 
-Changing the validator mapping to include the address in addition to the public key.
+Changing the validator mapping to include the caller address in addition to the public key.
 
-Including operators in the validator structure allows for the validation of a validator's affiliation with the cluster when it's being removed. 
+Including operators in the validator hashed value allows for the validation of a validator's affiliation with the cluster when it's being removed.
+The last bit of the hashed value is used to indicate whether the validator is active or inactive.
 
 From:
 ```solidity
@@ -52,15 +53,10 @@ From:
 ```
 To: 
 ```solidity
-    struct Validator {
-        bytes32 hashedOperators;
-        bool active;
-    }
-    mapping(bytes32 => Validator) public validatorPKs;
+    // Maps each validator's public key to its hashed representation of: operator Ids used by the validator and active / inactive flag (uses LSB)
+    mapping(bytes32 => bytes32) validatorPKs;
     
     //example of setting the mapping
-    validatorPKs[keccak256(abi.encodePacked(publicKey, msg.sender))] = Validator({hashedOperators: keccak256(operatorIds), active: true});
-    
     function registerValidator(
         bytes calldata publicKey,
         uint64[] memory operatorIds,
@@ -68,8 +64,12 @@ To:
         bytes calldata signature, //signature on the address and nonce
         uint256 amount,
         Cluster memory cluster
-    )
-    
+    ) {
+        ...
+    bytes32 hashedPk = keccak256(abi.encodePacked(publicKey, msg.sender));
+    validatorPKs[hashedPk] = bytes32(uint256(keccak256(abi.encodePacked(operatorIds))) | uint256(0x01)); // set LSB to 1
+        ...
+    }
 ```
 
 ### SSV Node
