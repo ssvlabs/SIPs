@@ -4,7 +4,7 @@
 
 
 **Summary**  
-Changes to the constant timeouts we defined in SIP#6 that should improve performance. 
+Changes to the constant timeouts we defined in [SIP#6](https://github.com/bloxapp/SIPs/blob/main/sips/constant_qbft_timeout.md) that should improve performance. 
 
 **Rational**  
 Currently for all duties, we have a `quickTimeout` of 2 seconds before sending a `RoundChange` message and a `slowTimeout` of 2 minutes starting from the 8th round.The timer starts when the QBFT instance starts. This approach has 2 issues:
@@ -27,7 +27,9 @@ The Beacon chain has some timing assumptions regarding duty execution for maximi
 
         
 
-**Specification** 
+**Specification**
+
+From the slot start time after `baseDuration` delay wait 2 seconds before emitting a `RoundChange` message until the 8th round (inclusive). Afterwards, wait 2 minutes.
 
 ```go
 var (
@@ -36,49 +38,48 @@ var (
     slowTimeout           = 2 * time.Minute
 )
 
-
-// Timeout returns the number of seconds until next timeout for a given round.
-// When we have the proposal duty we immediately call it.
-func Timeout(r Round) time.Duration {
-    if r <= quickTimeoutThreshold {
-        return quickTimeout
-    }
-    return slowTimeout
-}
-
+// RoundTimeout returns the time in which we should send a RC message
 // Called for all beacon duties other than proposals
-func RoundTimeout(r Round, baseDuration Duration) Time {
-    if r == Round.FirstRound {
-        return baseDuration + quickTimeout
-    } else {
-        return Timeout(r)
-    }
+func RoundTimeout(r Round, dutyStartTime Time, baseDuration Duration) Time {
+   // Calculate additional timeout based on round
+	var additionalTimeout time.Duration
+	if round <= quickTimeoutThreshold {
+		additionalTimeout = time.Duration(int(round)) * slowTimeout
+	} else {
+		quickPortion := time.Duration(quickTimeoutThreshold) * quickTimeout
+		slowPortion := time.Duration(int(round-quickTimeoutThreshold)) * slowTimeout
+		additionalTimeout = quickPortion + slowPortion
+	}
+
+	// Combine base duration and additional timeout
+	timeoutDuration := baseDuration + additionalTimeout
+
+	// Get the start time of the duty
+	dutyStartTime := t.beaconNetwork.GetSlotStartTime(phase0.Slot(height))
+
+	// Calculate the time until the duty should start plus the timeout duration
+	return time.Until(dutyStartTime.Add(timeoutDuration))
 }
 ```
 
 *Proposals*
 
-No changes from SIP#6.
-
-```go
-func ProposalTimeout(r Round)
-    return Timeout(r)
-```
+No changes from [SIP#6](https://github.com/bloxapp/SIPs/blob/main/sips/constant_qbft_timeout.md). Doesn't rely on the slot/duty start time.
 
 *Attestations/Sync Committees*
 
-Once the slot starts, wait 4 seconds for a block to be produced then start the timer according to the same rules as defined in SIP#6.
+Once the slot starts, wait 4 seconds for a block to be produced then start the timer according to the new rules.
 
 ```go
-func AttestationOrSyncCommitteeTimeout(r Round)
-    return RoundTimeout(r, 4)
+func AttestationOrSyncCommitteeTimeout(r Round, dutyStartTime Time) Time
+    return RoundTimeout(r, dutyStarTime, 4)
 ```
 
 *Aggregator/Contribution*
 
-Once the slot starts, wait 8 seconds for a block to be produced then start the timer according to the same rules as defined in SIP#6.
+Once the slot starts, wait 8 seconds for a block to be produced then start the timer according to the new rules
 
 ```go
-func AggregationOrContribuitionTimeout(r Round)
-    return RoundTimeout(r, 4)
+func AggregationOrContribuitionTimeout(r Round, dutyStartTime Time) Time
+    return RoundTimeout(r, dutyStartTime 8)
 ```
