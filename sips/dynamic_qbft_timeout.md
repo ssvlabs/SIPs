@@ -81,5 +81,5 @@ Once the slot starts, wait 8 seconds for a block to be produced then start the t
 
 ```go
 func AggregationOrContribuitionTimeout(r Round, dutyStartTime Time) Time
-    return RoundTimeout(r, dutyStartTime 8)
+    return RoundTimeout(r, dutyStartTime, 8)
 ```
