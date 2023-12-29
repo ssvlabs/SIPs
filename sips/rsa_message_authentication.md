@@ -53,6 +53,16 @@ flowchart LR
   classDef bar stroke:#FFD700
 ```
 
+## Message Structure Change
+
+The previous message structure, `SSVMessage`, doesn't contain a field for an RSA signature and, therefore, it shall be encapsulated into a higher structure to support it. It can be done using the following byte message partition:
+
+| Field     | Size (Bytes) |
+|-----------|--------------|
+| Signature | 256          |
+| ID        | 8            |
+| Message   | -            |
+
 
 ## Appendix
 
