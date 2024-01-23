@@ -33,32 +33,33 @@ From the slot start time after `baseDuration` delay wait 2 seconds before emitti
 
 ```go
 var (
-    quickTimeoutThreshold = Round(8)
-    quickTimeout          = 2 * time.Second
-    slowTimeout           = 2 * time.Minute
+	// quickTimeoutThreshold is the round after which the timeout duration increases to 2 minutes
+	quickTimeoutThreshold = Round(8)
+	// quickTimeout is the timeout in seconds for the first 8 rounds
+	quickTimeout int64 = 2 // 2 seconds
+	// slowTimeout is the timeout in seconds for rounds after the first 8
+	slowTimeout int64 = 120 // 2 minutes
 )
 
-// RoundTimeout returns the time in which we should send a RC message
+// RoundTimeout returns the unix epoch time (seconds) in which we should send a RC message
 // Called for all beacon duties other than proposals
-func RoundTimeout(r Round, dutyStartTime Time, baseDuration Duration) Time {
-   // Calculate additional timeout based on round
-	var additionalTimeout time.Duration
-	if round <= quickTimeoutThreshold {
-		additionalTimeout = time.Duration(int(round)) * slowTimeout
-	} else {
-		quickPortion := time.Duration(quickTimeoutThreshold) * quickTimeout
-		slowPortion := time.Duration(int(round-quickTimeoutThreshold)) * slowTimeout
-		additionalTimeout = quickPortion + slowPortion
+func RoundTimeout(round Round, height Height, baseDuration int64, network types.BeaconNetwork) int64 {
+	// Calculate additional timeout in seconds based on round
+	var additionalTimeout int64
+	additionalTimeout = int64(min(round, quickTimeoutThreshold)) * quickTimeout
+	if round > quickTimeoutThreshold {
+		slowPortion := int64(round-quickTimeoutThreshold) * slowTimeout
+		additionalTimeout += slowPortion
 	}
 
 	// Combine base duration and additional timeout
 	timeoutDuration := baseDuration + additionalTimeout
 
-	// Get the start time of the duty
-	dutyStartTime := t.beaconNetwork.GetSlotStartTime(phase0.Slot(height))
+	// Get the unix epoch start time of the duty seconds
+	dutyStartTime := network.EstimatedTimeAtSlot(phase0.Slot(height))
 
 	// Calculate the time until the duty should start plus the timeout duration
-	return time.Until(dutyStartTime.Add(timeoutDuration))
+	return dutyStartTime + timeoutDuration
 }
 ```
 
@@ -71,8 +72,10 @@ No changes from [SIP#6](https://github.com/bloxapp/SIPs/blob/main/sips/constant_
 Once the slot starts, wait 4 seconds for a block to be produced then start the timer according to the new rules.
 
 ```go
-func AttestationOrSyncCommitteeTimeout(r Round, dutyStartTime Time) Time
-    return RoundTimeout(r, dutyStarTime, 4)
+// AttestationOrSyncCommitteeTimeout returns the unix epoch time (seconds) in which we should send a RC message
+func AttestationOrSyncCommitteeTimeout(round Round, height Height, network types.BeaconNetwork) int64 {
+	return RoundTimeout(round, height, 4, network)
+}
 ```
 
 *Aggregator/Contribution*
@@ -80,6 +83,8 @@ func AttestationOrSyncCommitteeTimeout(r Round, dutyStartTime Time) Time
 Once the slot starts, wait 8 seconds for a block to be produced then start the timer according to the new rules
 
 ```go
-func AggregationOrContribuitionTimeout(r Round, dutyStartTime Time) Time
-    return RoundTimeout(r, dutyStartTime, 8)
+// AggregationOrContributionTimeout returns the unix epoch time (seconds) in which we should send a RC message
+func AggregationOrContributionTimeout(r Round, height Height, network types.BeaconNetwork) int64 {
+	return RoundTimeout(r, height, 8, network)
+}
 ```
