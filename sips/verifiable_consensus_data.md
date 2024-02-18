@@ -84,9 +84,14 @@ func (cd VerifiableConsensusData) Validate error {
 
 In addition we do the following changes to value checks mechanisms:
 
+- `verifyProof` - Verifies that the give blockheader's root is the same as attestation data. Asserts that the block header was signed correctly by the encoded proposer.
+- `verifyAssignedBlockHeader` - Verifies that the encoded proposer in the block header was indeed assgined by the beacon chain for the slot given in the header.
+- `beaconChecks` (attestations only) - Ensures that the beacon chain will accept the attestation. See the [CL spec](https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#modified-process_attestation).
 
-```go 
-func verifyData(expectedRoot phase0.Root, proof phase0.SignedBeaconBlockHeader) error {
+
+```go
+// verifyProof verifies that the block header has the expected root and was signed by the validator encoded in the header
+func verifyProof(expectedRoot phase0.Root, proof phase0.SignedBeaconBlockHeader) error {
     beaconRoot := proof.Message.HashRoot()
     if !bytes.Equal(expectedRoot, beaconRoot) {
         return errors.New("unexpected header root")
@@ -117,9 +122,50 @@ func verifyAssignedBlockHeader(blockHeader *phase0.BeaconBlockHeader, proposerDu
     return errors.New("blockheader proof's slot is not in last 2 epochs")
 }
 
-// isSourceJustified checks against the beacon node if the source is justified
+//beaconChecks ensures that the beacon chain will accept the attestation
+func beaconChecks(cd *VerifiableConsensusData) error {
+		attestationData, headProof, targetProof, sourceProof, err := cd.GetAttestationData() // error checked in cd.validate()
+        
+		if cd.Duty.Slot != attestationData.Slot {
+			return errors.New("attestation data slot != duty slot")
+		}
+
+		if cd.Duty.CommitteeIndex != attestationData.Index {
+			return errors.New("attestation data CommitteeIndex != duty CommitteeIndex")
+		}
+
+		if attestationData.Target.Epoch < network.EstimatedCurrentEpoch()-1 {
+			return errors.New("attestation data target epoch is into far past")
+		}
+
+        // Addition
+        if attestationData.Target.Epoch != getBeaconNode().EpochFromSlot(headProof.Message.Slot) {
+            return errors.New("Target epoch should be the same as the head vote epoch")
+        }
+        
+        //Addition
+        if attestationData.Target.Epoch != getBeaconNode().EpochFromSlot(targetProof.Message.Slot) {
+            return errors.New("Target epoch doesn't match proof")
+        }
+        
+
+		if attestationData.Source.Epoch >= attestationData.Target.Epoch {
+			return errors.New("attestation data source > target")
+		}
+        
+        // Addition
+        if attestationData.Source.Epoch != getBeaconNode().EpochFromSlot(sourceProof.Message.Slot) {
+            return errors.New("Source epoch doesn't match proof")
+        }
+        
+        // Addition 
+        return isSourceJustified(attestationData.Source))
+}
+
+// isSourceJustified checks against the beacon node if the source is justified. Part of beaconChecks
 func isSourceJustified(attestationData)) error {
     currentEpoch :=  network.EstimatedCurrentEpoch() 
+    // https://ethereum.github.io/beacon-APIs/#/Beacon/getStateFinalityCheckpoints
     checkpoints := getBeaconNode().getFinalityCheckpoints()
     if attestationData.Target.Epoch == currentEpoch {
         if attestationData.Source.Root != checkpoints.data.currentJustifiedRoot {
@@ -138,6 +184,7 @@ func AttesterValueCheckF(
 	validatorPK types.ValidatorPK,
 	validatorIndex phase0.ValidatorIndex,
 	sharePublicKey []byte,
+    // obtained from the operator's beacon node, consists of duties for the last 2 epochs
     proposerDuties []ethApi.ProposerDuty 
     // obtained from the operator's beacon node
     attestationDataByts []byte,
@@ -160,39 +207,9 @@ func AttesterValueCheckF(
 			return errors.Wrap(err, "duty invalid")
 		}
 
-        // change
-		attestationData, headProof, targetProof, sourceProof, err := cd.GetAttestationData() // error checked in cd.validate()
-        
-
-		if cd.Duty.Slot != attestationData.Slot {
-			return errors.New("attestation data slot != duty slot")
-		}
-
-		if cd.Duty.CommitteeIndex != attestationData.Index {
-			return errors.New("attestation data CommitteeIndex != duty CommitteeIndex")
-		}
-
-		if attestationData.Target.Epoch < network.EstimatedCurrentEpoch()-1 {
-			return errors.New("attestation data target epoch is into far past")
-		}
-        
-        //Addition
-        if attestationData.Target.Epoch != getBeaconNode().EpochFromSlot(targetProof.Message.Slot) {
-            return errors.New("Target epoch doesn't match proof")
+        if err := beaconChecks(&cd); err != nil {
+            return errors.Wrap(err, "beacon checks failed")
         }
-        
-
-		if attestationData.Source.Epoch >= attestationData.Target.Epoch {
-			return errors.New("attestation data source > target")
-		}
-        
-        // Addition
-        if attestationData.Source.Epoch != getBeaconNode().EpochFromSlot(sourceProof.Message.Slot) {
-            return errors.New("Source epoch doesn't match proof")
-        }
-        
-        // Addition 
-        if isSourceJustified(attestationData.Source))
 
         if err := signer.IsAttestationSlashable(sharePublicKey, attestationData); err != nil {
             return err
@@ -201,15 +218,15 @@ func AttesterValueCheckF(
         // Addition
         // heavy checks should be in the end
         // can be optimized with batch verification
-        if err := verifyData(attestationData.BeaconBlockRoot, headProof); err != nil {
+        if err := verifyProof(attestationData.BeaconBlockRoot, headProof); err != nil {
             return errors.Wrap("invalid head vote proof", err)
         }
         
-        if err := verifyData(attestationData.Target.Root, targetProof); err != nil {
+        if err := verifyProof(attestationData.Target.Root, targetProof); err != nil {
             return error.Wrap("invalid target vote proof", err)
         } 
         
-        if err := verifyData(attestationData.source.Root, sourceProof); err != nil {
+        if err := verifyProof(attestationData.source.Root, sourceProof); err != nil {
             return error.Wrap("invalid target vote proof", err)
         } 
         
@@ -221,6 +238,8 @@ func AttesterValueCheckF(
 	network types.BeaconNetwork,
 	validatorPK types.ValidatorPK,
 	validatorIndex phase0.ValidatorIndex,
+    // obtained from the operator's beacon node, consists of duties for the last 2 epochs
+    proposerDuties []ethApi.ProposerDuty 
     // obtained from the operator's beacon node
     syncCommitteeBlockRoot []byte,
 ) qbft.ProposedValueCheckF {
@@ -243,8 +262,10 @@ func AttesterValueCheckF(
 		}
         
         root, proof, _, cd.GetSyncCommitteeBlockRoot \\ checked on validate
-        
-        if err := verifyData(root, headProof); err != nil {
+
+        verifyAssignedBlockHeader(headProof, proposerDuties)
+
+        if err := verifyProof(root, headProof); err != nil {
             return errors.Wrap("invalid head vote proof", err)
         }	
     }
