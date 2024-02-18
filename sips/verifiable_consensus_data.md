@@ -53,32 +53,32 @@ func (cd VerifiableConsensusData) GetAttestationData (att phase0.AttestationData
 }
 
 func (cd VerifiableConsensusData) GetSyncCommitteeBlockRoot (phase0.Root, phase0.SignedBeaconBlockHeader, error) {
-	ret := SSZ32Bytes{}
-	if err := ret.UnmarshalSSZ(cd.DataSSZ); err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal ssz")
-	}
+    ret := SSZ32Bytes{}
+    if err := ret.UnmarshalSSZ(cd.DataSSZ); err != nil {
+        return nil, errors.Wrap(err, "could not unmarshal ssz")
+    }
     proof := phase0.SignedBeaconBlockHeader
     if err := proof.UnmarshalSSZ(cd.Proof); err != nil {
         return nil, nil, errors.Wrap(err, "could not unmarshal proof ssz")
     }
-	return phase0.Root(ret), proof, nil
+    return phase0.Root(ret), proof, nil
 }
 
 func (cd VerifiableConsensusData) Validate error {
     switch cid.Duty.Type {
-	case BNRoleAttester:
+    case BNRoleAttester:
             if _, _, _, _, err := cid.GetAttestationData(); err != nil {
                 return err
             }
             return nil
-	case BNRoleSyncCommittee:
+    case BNRoleSyncCommittee:
             if _, _, err := cid.GetSyncCommitteeBlockRoot(); err != nil {
                 return err
             }
             return nil
         default:
-		return errors.New("unknown duty role")
-	}
+        return errors.New("unknown duty role")
+    }
 }
 ```
 
@@ -124,19 +124,19 @@ func verifyAssignedBlockHeader(blockHeader *phase0.BeaconBlockHeader, proposerDu
 
 //beaconChecks ensures that the beacon chain will accept the attestation
 func beaconChecks(cd *VerifiableConsensusData) error {
-		attestationData, headProof, targetProof, sourceProof, err := cd.GetAttestationData() // error checked in cd.validate()
+        attestationData, headProof, targetProof, sourceProof, err := cd.GetAttestationData() // error checked in cd.validate()
         
-		if cd.Duty.Slot != attestationData.Slot {
-			return errors.New("attestation data slot != duty slot")
-		}
+        if cd.Duty.Slot != attestationData.Slot {
+            return errors.New("attestation data slot != duty slot")
+        }
 
-		if cd.Duty.CommitteeIndex != attestationData.Index {
-			return errors.New("attestation data CommitteeIndex != duty CommitteeIndex")
-		}
+        if cd.Duty.CommitteeIndex != attestationData.Index {
+            return errors.New("attestation data CommitteeIndex != duty CommitteeIndex")
+        }
 
-		if attestationData.Target.Epoch < network.EstimatedCurrentEpoch()-1 {
-			return errors.New("attestation data target epoch is into far past")
-		}
+        if attestationData.Target.Epoch < network.EstimatedCurrentEpoch()-1 {
+            return errors.New("attestation data target epoch is into far past")
+        }
 
         // Addition
         if attestationData.Target.Epoch != getBeaconNode().EpochFromSlot(headProof.Message.Slot) {
@@ -149,9 +149,9 @@ func beaconChecks(cd *VerifiableConsensusData) error {
         }
         
 
-		if attestationData.Source.Epoch >= attestationData.Target.Epoch {
-			return errors.New("attestation data source > target")
-		}
+        if attestationData.Source.Epoch >= attestationData.Target.Epoch {
+            return errors.New("attestation data source > target")
+        }
         
         // Addition
         if attestationData.Source.Epoch != getBeaconNode().EpochFromSlot(sourceProof.Message.Slot) {
@@ -179,33 +179,33 @@ func isSourceJustified(attestationData)) error {
 }
 
 func AttesterValueCheckF(
-	signer types.BeaconSigner,
-	network types.BeaconNetwork,
-	validatorPK types.ValidatorPK,
-	validatorIndex phase0.ValidatorIndex,
-	sharePublicKey []byte,
+    signer types.BeaconSigner,
+    network types.BeaconNetwork,
+    validatorPK types.ValidatorPK,
+    validatorIndex phase0.ValidatorIndex,
+    sharePublicKey []byte,
     // obtained from the operator's beacon node, consists of duties for the last 2 epochs
     proposerDuties []ethApi.ProposerDuty 
     // obtained from the operator's beacon node
     attestationDataByts []byte,
 ) qbft.ProposedValueCheckF {
-	return func(data []byte) error {
+    return func(data []byte) error {
         // addition
         if bytes.Equal(attestationDataByts, data) {
             return nil
         }
 
-		cd := types.VerifyableConsensusData{}
-		if err := cd.Decode(data); err != nil {
-			return errors.Wrap(err, "failed decoding consensus data")
-		}
-		if err := cd.Validate(); err != nil {
-			return errors.Wrap(err, "invalid value")
-		}
+        cd := types.VerifyableConsensusData{}
+        if err := cd.Decode(data); err != nil {
+            return errors.Wrap(err, "failed decoding consensus data")
+        }
+        if err := cd.Validate(); err != nil {
+            return errors.Wrap(err, "invalid value")
+        }
 
-		if err := dutyValueCheck(&cd.Duty, network, types.BNRoleAttester, validatorPK, validatorIndex); err != nil {
-			return errors.Wrap(err, "duty invalid")
-		}
+        if err := dutyValueCheck(&cd.Duty, network, types.BNRoleAttester, validatorPK, validatorIndex); err != nil {
+            return errors.Wrap(err, "duty invalid")
+        }
 
         if err := beaconChecks(&cd); err != nil {
             return errors.Wrap(err, "beacon checks failed")
@@ -231,35 +231,35 @@ func AttesterValueCheckF(
         } 
         
         return nil
-	}
+    }
     
     func SyncCommitteeValueCheckF(
-	signer types.BeaconSigner,
-	network types.BeaconNetwork,
-	validatorPK types.ValidatorPK,
-	validatorIndex phase0.ValidatorIndex,
+    signer types.BeaconSigner,
+    network types.BeaconNetwork,
+    validatorPK types.ValidatorPK,
+    validatorIndex phase0.ValidatorIndex,
     // obtained from the operator's beacon node, consists of duties for the last 2 epochs
     proposerDuties []ethApi.ProposerDuty 
     // obtained from the operator's beacon node
     syncCommitteeBlockRoot []byte,
 ) qbft.ProposedValueCheckF {
-	return func(data []byte) error {
+    return func(data []byte) error {
         // addition
         if bytes.Equal(syncCommitteeBlockRoot, data) {
             return nil
         }
 
-		cd := types.VerifiableConsensusData{}
-		if err := cd.Decode(data); err != nil {
-			return errors.Wrap(err, "failed decoding consensus data")
-		}
-		if err := cd.Validate(); err != nil {
-			return errors.Wrap(err, "invalid value")
-		}
+        cd := types.VerifiableConsensusData{}
+        if err := cd.Decode(data); err != nil {
+            return errors.Wrap(err, "failed decoding consensus data")
+        }
+        if err := cd.Validate(); err != nil {
+            return errors.Wrap(err, "invalid value")
+        }
 
-		if err := dutyValueCheck(&cd.Duty, network, types.BNRoleSyncCommittee, validatorPK, validatorIndex); err != nil {
-			return errors.Wrap(err, "duty invalid")
-		}
+        if err := dutyValueCheck(&cd.Duty, network, types.BNRoleSyncCommittee, validatorPK, validatorIndex); err != nil {
+            return errors.Wrap(err, "duty invalid")
+        }
         
         root, proof, _, cd.GetSyncCommitteeBlockRoot \\ checked on validate
 
