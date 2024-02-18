@@ -282,14 +282,3 @@ For all beacon duties besides block proposal, it can be assumed the source of th
 ## Drawbacks
 
 Currently this adds extra BLS checks. It is manadatory to alleviate signature verification load before proceeding.
-
-
-## Open Questions
-
-1. Do operators trust their beacon node? Maybe checks shouldn't be removed? Note that even in the presence of malicious beacon nodes, doing the value check on message processing should be enough.
-2. It is possible to reject a value if it is deemed not timely by the node.. To try to force the round changes? Is it wise to do it now? Or should we wait for leaderless consensus.
-    
-
-
-
-
