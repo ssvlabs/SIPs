@@ -1,5 +1,5 @@
-| Author         | Title        | Category | Status   |
-| -------------- | ------------ | -------- | -------- |
+| Author         | Title                  | Category | Status              |
+| -------------- | ---------------------- | -------- | ------------------- |
 | Gal Rogozinski | Verifiable Attestation | Core     | open-for-discussion |
 
 ## Summary
