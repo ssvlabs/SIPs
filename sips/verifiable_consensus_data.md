@@ -83,17 +83,53 @@ func (cd VerifiableConsensusData) Validate error {
 ```
 
 In addition we do the following changes to value checks mechanisms:
+
+
 ```go 
 func verifyData(expectedRoot phase0.Root, proof phase0.SignedBeaconBlockHeader) error {
     beaconRoot := proof.Message.HashRoot()
     if !bytes.Equal(expectedRoot, beaconRoot) {
         return errors.New("unexpected header root")
     }
+
     blockEpoch := getBeaconNode().getEpochBySlot(proof.Message.slot)
     domain := GetBeaconNode().DomainData(blockEpoch, spec.DomainProposer)
     root := spec.ComputeEthSigningRoot(beaconRoot, domain)
+
+    //TODO change head to current slot?
     validator := GetBeaconNode.GetValidator("HEAD", proof.Message.ProposerIndex)
     return bls.Verify(sig, validator.PubKey, root)
+}
+
+// verifyBlockHeader verifies that the block header was created by the correctly assigned validator
+// proposerDuties should contain all the duties from the last 2 epochs.
+func verifyAssignedBlockHeader(blockHeader *phase0.BeaconBlockHeader, proposerDuties []ethApi.ProposerDuty) error {
+    for _, proposerDuty := range proposerDuties {
+        if proposerDuty.Slot == blockHeader.Slot {
+            if proposerDuty.ValidatorIndex == blockHeader.ProposerIndex {
+                return nil
+            }
+            else {
+                return errors.New("blockheader proof has unexpected proposer index")
+            }
+        }
+    }
+    return errors.New("blockheader proof's slot is not in last 2 epochs")
+}
+
+// isSourceJustified checks against the beacon node if the source is justified
+func isSourceJustified(attestationData)) error {
+    currentEpoch :=  network.EstimatedCurrentEpoch() 
+    checkpoints := getBeaconNode().getFinalityCheckpoints()
+    if attestationData.Target.Epoch == currentEpoch {
+        if attestationData.Source.Root != checkpoints.data.currentJustifiedRoot {
+            return Errors.New("source is not expected currently justified root")
+        }
+    } else if attestationData.Source.Root!= checkpoints.data.previousJustifiedRoot {
+        return Errors.New("source is not expected previously justified root")
+    }
+
+    return nil
 }
 
 func AttesterValueCheckF(
@@ -102,6 +138,7 @@ func AttesterValueCheckF(
 	validatorPK types.ValidatorPK,
 	validatorIndex phase0.ValidatorIndex,
 	sharePublicKey []byte,
+    proposerDuties []ethApi.ProposerDuty 
     // obtained from the operator's beacon node
     attestationDataByts []byte,
 ) qbft.ProposedValueCheckF {
@@ -151,9 +188,11 @@ func AttesterValueCheckF(
         
         // Addition
         if attestationData.Source.Epoch != getBeaconNode().EpochFromSlot(sourceProof.Message.Slot) {
-            return errors.New("Target epoch doesn't match proof")
+            return errors.New("Source epoch doesn't match proof")
         }
         
+        // Addition 
+        if isSourceJustified(attestationData.Source))
 
         if err := signer.IsAttestationSlashable(sharePublicKey, attestationData); err != nil {
             return err
