@@ -1,0 +1,120 @@
+|     Author     |           Title            |  Category  |       Status        |    Date    |
+| -------------- | -------------------------- | ---------- | ------------------- | ---------- |
+| Matheus Franco | Cluster consensus          | Core       | open-for-discussion | 2024-03-05 |
+
+## Summary
+
+Aggregate `Attestation` and `Sync Committee` duties based on the cluster of operators and the duties' slot. Also, merge the post-consensus partial signature messages for such duties into a single message.
+
+## Motivation
+
+With the current design, a cluster of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data.
+
+## Rationale
+
+The aggregation of duties is possible because the data that must be agreed on is independent of the validator.
+
+For example, take a look at the `AttestationData` type.
+```go
+type AttestationData struct {
+	Slot            Slot
+	Index           CommitteeIndex
+	BeaconBlockRoot Root `ssz-size:"32"`
+	Source          *Checkpoint
+	Target          *Checkpoint
+}
+```
+The only validator-dependent field is `CommitteeIndex` and it does not have to be agreed on.
+
+For the `Sync Committee` duty, operators agree on a `phase0.Root` data which is also independent of the validator.
+
+On the other hand, a post-consensus phase is still required for each duty that was previously aggregated. Thus, the partial signatures for each validator must still be shared between parties.
+
+## Improvement
+
+This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
+
+According to Monte Carlo simulations using a dataset based on the Mainnet, this proposal reduces to $21.60$% the current number of messages exchanged in the network. Note that this result includes aggregating the post-consensus messages into a single message.
+
+Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as than the number of messages reduction due to the larger post-consensus messages.
+
+Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution (notice that it also represents the number of partial signature messages merged into a single message).
+
+<p align="center">
+<img src="./images/cluster_consensus/aggregated_duties.png"  width="50%" height="10%">
+</p>
+
+## Spec changes
+
+### Design
+
+Currently, an operator manages many `Validator` objects. Each has a `DutyRunner` for a duty type, each with its own `QBFTController` with its unique ID (that is also inserted in its associated messages).
+
+<p align="center">
+<img src="./images/cluster_consensus/previous_scheme.drawio.png"  width="50%" height="10%">
+</p>
+
+For the proposed change to take place, different `Validator` objects should use the same `QBFT Instance`. For that, we propose decoupling the `QBFTController` object from the `DutyRunner`.
+
+<p align="center">
+<img src="./images/cluster_consensus/new_scheme.drawio.png"  width="50%" height="10%">
+</p>
+
+### New IDs
+
+Since a single `QBFT instance` will be responsible for several validator duties, its ID must not be dependent on a validator key but rather on a cluster of operators. For that, we propose changing the `MessageID` from
+
+```mermaid
+flowchart RL
+	subgraph MessageID
+		Domain
+		ValidatorPublicKey
+		Role
+	end
+```
+
+to
+
+
+```mermaid
+flowchart RL
+	subgraph MessageID
+		Domain
+		OperatorCluster
+		Role
+	end
+```
+
+### QBFT Controller
+
+The current `QBFTController` structure allows only one consensus instance at a time. This must change, extending the `QBFTController` into a router of messages for the different instances.
+
+### DutyRunner & QBFT Controller
+
+Since the `DutyRunner` will not have its specific `QBFTController`, it must have a way to start a consensus instance and receive its decided value. For that, we propose applying the observer design pattern by which the `DutyRunner` (observer) can be updated upon a `QBFT Instance` (observable) termination.
+
+We suggest that the `DutyRunner` holds a reference to the operator's `QBFTController` to start a `QBFT Instances` and observe it.
+
+```go
+func (r *DutyRunner) execute() {
+	r.QBFTController.StartConsensus(r.committee, r.duty, r)
+}
+
+func (c *QBFTController) StartConsensus(committee []types.Operator, duty types.Duty, observer Observer) {
+	instance := c.StartInstance(committee, duty)
+	instance.registerObserver(observer)
+}
+```
+
+## Drawbacks
+
+- Several duties will depend on the same consensus execution. Thus, its failure will imply many attestation misses. Nonetheless, this will also make the operator more scalable due to the overall reduction in exchanged messages and processing costs.
+
+## Extra improvements
+
+- If multiple partial signatures contained in a merged message refer to the same root (i.e. validators in the same Ethereum committee), the signatures can be verified using batch verification.
+
+## Open questions
+
+- What should be the maximum number of signatures a post-consensus message can contain? The trade-off here refers to reducing the number of exchanged messages versus reducing the impact of a DoS buffer attack attempt.
+
