@@ -114,6 +114,12 @@ func (c *QBFTController) StartConsensus(committee []types.Operator, duty types.D
 
 - If multiple partial signatures contained in a merged message refer to the same root (i.e. validators in the same Ethereum committee), the signatures can be verified using batch verification.
 
+## Message Validation
+
+This duties transformation requires similar changes in message validation, namely:
+- Different consensus executions are tagged by the `MessageID`. This change would be propagated with no further issues. However, the `MessageID` is used to get the validator's public key and the duty's role which are used as an ID to store the consensus state. This must be changed to use the operators' committee and the duty's role, or even simply the `MessageID`.
+- Message validation limits the number of attestation duties per validator by using the validator's public key contained in the `MessageID`. This is no longer possible. A new limitation can be accomplished by checking the number of validators a cluster of operators is assigned to. If this number is less than 32 (the number of slots in an epoch), then we can limit the number of attestation duties of such cluster per epoch. The only exception would be if such a cluster is assigned to a sync committee duty (considering that we will indeed merge attestations and sync committee duties altogether in the same consensus execution).
+
 ## Open questions
 
 - What should be the maximum number of signatures a post-consensus message can contain? The trade-off here refers to reducing the number of exchanged messages versus reducing the impact of a DoS buffer attack attempt.
