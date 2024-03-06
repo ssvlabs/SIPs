@@ -36,7 +36,7 @@ This proposal helps to decrease the number of messages exchanged in the network 
 
 According to Monte Carlo simulations using a dataset based on the Mainnet, this proposal reduces to $21.60$% the current number of messages exchanged in the network. Note that this result includes aggregating the post-consensus messages into a single message.
 
-Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as than the number of messages reduction due to the larger post-consensus messages.
+Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as the number of messages reduction due to the larger post-consensus messages.
 
 Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution (notice that it also represents the number of partial signature messages merged into a single message).
 
@@ -93,7 +93,7 @@ The current `QBFTController` structure allows only one consensus instance at a t
 
 Since the `DutyRunner` will not have its specific `QBFTController`, it must have a way to start a consensus instance and receive its decided value. For that, we propose applying the observer design pattern by which the `DutyRunner` (observer) can be updated upon a `QBFT Instance` (observable) termination.
 
-We suggest that the `DutyRunner` holds a reference to the operator's `QBFTController` to start a `QBFT Instances` and observe it.
+We suggest that the `DutyRunner` holds a reference to the operator's `QBFTController` to start a `QBFT Instance` and observe it.
 
 ```go
 func (r *DutyRunner) execute() {
@@ -117,4 +117,5 @@ func (c *QBFTController) StartConsensus(committee []types.Operator, duty types.D
 ## Open questions
 
 - What should be the maximum number of signatures a post-consensus message can contain? The trade-off here refers to reducing the number of exchanged messages versus reducing the impact of a DoS buffer attack attempt.
+- Though the number of consensus instances could be reduced to 1 (per unique operators cluster), the number of post-consensus phases is still defined by the number of validators. It remains open if it's possible to share partial signatures and re-construct all validator signatures in constant time per unique clusters.
 
