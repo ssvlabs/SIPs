@@ -28,7 +28,7 @@ The only validator-dependent field is `CommitteeIndex` and it does not have to b
 
 For the `Sync Committee` duty, operators agree on a `phase0.Root` data which is also independent of the validator.
 
-On the other hand, a post-consensus phase is still required for each duty that was previously aggregated. Thus, the partial signatures for each validator must still be shared between parties.
+On the other hand, a post-consensus phase is still required for each duty that was previously aggregated. Thus, the partial signatures for each validator must still be shared between parties. Better than sending a message for each eth duty, we recommend merging the post-consensus partial signatures into a single message.
 
 ## Improvement
 
@@ -105,6 +105,37 @@ func (c *QBFTController) StartConsensus(committee []types.Operator, duty types.D
 	instance.registerObserver(observer)
 }
 ```
+
+### Partial Signature Message
+
+The `SignedPartialSignatureMessage` may be left untouched.
+
+```go
+type SignedPartialSignatureMessage struct {
+	Message   PartialSignatureMessages
+	Signature Signature `ssz-size:"96"`
+	Signer    OperatorID
+}
+```
+
+While the `PartialSignatureMessages` and `PartialSignatureMessage` types could change as follows:
+
+```go
+type PartialSignatureMessages struct {
+	Slot     phase0.Slot
+	Messages []*PartialSignatureMessage `ssz-max:"?"` // To be defined
+}
+type PartialSignatureMessage struct {
+	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
+	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
+	Signer           OperatorID
+	ValidatorIndex 	 ValidatorIndex
+	Type     		 PartialSigMsgType
+}
+```
+
+The `PartialSignatureMessages` structure would drop the `Type` attribute since signatures for the sync committee and attestation duties could be contained in the same message. The `PartialSignatureMessage` would add attributes for the duty's validator and its type.
+
 
 ## Drawbacks
 
