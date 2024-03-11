@@ -20,6 +20,22 @@ First of all, the decided messages are useful to allow nodes to start the post-c
 
 This proposal reduces the number of messages exchanged in the network by $16$%.
 
+## Spec change
+
+Within a `SignedPartialSignatureMessage.PartialSignatureMessages`, all `PartialSignatureMessage` objects refer to the same `QBFT Instance`. Thus, we can simply add the justification to the `SignedPartialSignatureMessage` as follows:
+
+```go
+type SignedPartialSignatureMessage struct {
+	Message   PartialSignatureMessages
+	Signature Signature `ssz-size:"96"`
+	Signer    OperatorID
+    Justification *SignedMessage // Aggregated commit message (or []*SignedMessage if we ever use another asymmetric scheme that doesn't allow aggregation)
+}
+```
+
+It could also be added to the `PartialSignatureMessages` types. The difference is that this would *hold* the `SignedPartialSignatureMessage.Signature` also to the consensus justification.
+
+
 ## Drawbacks
 
 - The post-consensus messages would be bigger due to the aggregated commit message.
