@@ -41,12 +41,12 @@ Regarding condition (1), it's possible that a replica misses an event and produc
 Regarding condition (2), the operations in the transition function are well-defined and deterministic as we shall see next.
 
 In our case, there are extra assumptions that must be met depending on the nature of the model. Namely, upon an event, we say that:
-- a model has "map dependency" if it may change the assignment of other validators added previously.
-- a model has "map isolation" if it does not change the assignment of other validators added previously.
+- a model is *unstable* if it may change the assignment of other validators added previously.
+- a model is *stable* if it does not change the assignment of other validators added previously.
 
-For a model with "map isolation", the only requirement is that the operators in the new validator's committee must have already processed the event by the time a duty arrives for such validator. But this condition is also necessary for the duty execution and is already established in the implementation.
+For a *stable* model, the only requirement is that the operators in the new validator's committee must have already processed the event by the time a duty arrives for such validator. But this condition is also necessary for the duty execution and is already established in the implementation.
 
-For a model with "map dependency", since nodes use the state to communicate on the correct topic, it's fundamental that the events are processed at the same time. Due to the possibility of unstable network conditions, we can't ensure that this condition holds by the time that the assignment of a changed validator is used. A mitigation technique is to set the state to be updated on pre-defined periods and execute only events older than a certain threshold. For example, it could be set that the state updates in the last slot of an epoch (to be used for the following epoch) for all events received up to the 22nd epoch's slot.
+For an *unstable* model, since nodes use the state to communicate on the correct topic, it's fundamental that the events are processed at the same time. Due to the possibility of unstable network conditions, we can't ensure that this condition holds by the time that the assignment of a changed validator is used. A mitigation technique is to set the state to be updated on pre-defined periods and execute only events older than a certain threshold. For example, it could be set that the state updates in the last slot of an epoch (to be used for the following epoch) for all events received up to the 22nd epoch's slot.
 
 If one does not want to rely on these assumptions and mitigation techniques, it's also possible to add a consensus protocol for the entire network to agree on the replicated state machine.
 
@@ -168,7 +168,7 @@ If the committee is new, it considers it as a new topic and performs the *best a
 
 If the new validator's committee already exists, the second algorithm adds the validator to its committee's topic.
 
-If the committee is new, it finds the topic with minimal aggregation impact and insert the validator in such topic ($\mathcal{O}(t_{max})$).
+If the committee is new, it finds the topic with minimal aggregation impact and inserts the validator in such topic ($\mathcal{O}(t_{max})$).
 
 ```R
 1. procedure Add_Validator(Topics, Validator, committee)
@@ -182,11 +182,11 @@ If the committee is new, it finds the topic with minimal aggregation impact and 
 
 ### Comparison
 
-The first algorithm requires more processing time, produces a better solution in terms of non-committee messages, and forces the model to have "map dependency".
+The first algorithm requires more processing time, produces a better solution in terms of non-committee messages, and produces an *unstable* model.
 
-The second algorithm requires less processing time, produces a worse solution in terms of non-committee messages, and allows the model to have "map isolation".
+The second algorithm requires less processing time, produces a worse solution in terms of non-committee messages, and produces a *stable* model.
 
-We propose going with the second solution due to the "map isolation" feature.
+We propose going with the second solution since it produces a *stable* model.
 
 ### Removal Event
 
@@ -223,11 +223,11 @@ The second algorithm just removes the validator from its assigned topic.
 
 ### Comparison
 
-The first algorithm requires more processing time, produces a better solution in terms of non-committee messages, and forces the model to have "map dependency".
+The first algorithm requires more processing time, produces a better solution in terms of non-committee messages, and produces an *unstable* model.
 
-The second algorithm requires less processing time, produces a worse solution in terms of non-committee messages, and allows the model to have "map isolation".
+The second algorithm requires less processing time, produces a worse solution in terms of non-committee messages, and produces a *stable* model.
 
-We propose going with the second solution due to the "map isolation" feature.
+We propose going with the second solution since it produces a *stable* model.
 
 
 ## Drawbacks
