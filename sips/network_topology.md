@@ -53,7 +53,7 @@ If one does not want to rely on these assumptions and mitigation techniques, it'
 
 ## Algorithm
 
-Below, it's shown the initialization algorithm with complexity $\mathcal{O}(N + C \log C + t_{max} C)$ where $N$ is the number of validators, $C$ is the number of unique committees, and $t_{max}$ the number of topics.
+Below, it's shown the initialization algorithm in Go with complexity $\mathcal{O}(N + C \log C + t_{max} C)$ where $N$ is the number of validators, $C$ is the number of unique committees, and $t_{max}$ the number of topics.
 
 ```go
 type TopicAssignment struct {
@@ -67,6 +67,7 @@ func (t *TopicAssignment) Init(validatorCommittee map[phase0.ValidatorIndex][]ty
 	topicIndex := 1
 	for topicIndex <= t.maxTopics {
 		t.topicMap[topicIndex] = make(map[phase0.ValidatorIndex]struct{})
+		topicIndex+=1
 	}
 
 	// Init objects: existing committees and validators per committees
@@ -146,10 +147,11 @@ For the addition algorithm, there are two possible approaches.
 
 #### Addition algorithm 1
 
-If the new validator's committee already exists, the first algorithm adds the validator to its committee's topic, splits such topic and performs the *best aggregation*. The *best aggregation* operation compares the cost of doing an aggregation for each pair of committees ($\mathcal{O}(t_{max}^2)$) and performs the aggregation with minimal cost.
+If the new validator's committee already exists, the first algorithm adds the validator to its committee's topic, splits such topic and performs the *best aggregation*. The *best aggregation* operation compares the cost of doing an aggregation for each pair of committees ($\mathcal{O}(t_{max}^2)$) and performs the aggregation with minimal cost. The *split* operation creates two disjoint subsets of validators from a topic in a similar manner to the [algorithm](#algorithm) (for two meta-topics).
 
 If the committee is new, it considers it as a new topic and performs the *best aggregation* operation.
 
+Pseudo-code:
 ```R
 1. procedure Add_Validator(Topics, Validator, committee)
 2.      existsInTopic, topic <- Topics.Has(committee)
@@ -170,13 +172,14 @@ If the new validator's committee already exists, the second algorithm adds the v
 
 If the committee is new, it finds the topic with minimal aggregation impact and inserts the validator in such topic ($\mathcal{O}(t_{max})$).
 
+Pseudo-code:
 ```R
 1. procedure Add_Validator(Topics, Validator, committee)
 2.      existsInTopic, topic <- Topics.Has(committee)
 3.      if existsInTopic then
 4.          Topics.AddValidator(topic, Validator)
 5.      else
-6.          bestTopic <- Topics.FindTopicWithMinimumAggregationImpact(Validator, committee)
+6.          bestTopic <- Topics.GetTopicWithLeastImpact(committee, 1) # 1 validator
 7.          Topics.AddValidator(bestTopic, Validator)
 ```
 
@@ -196,6 +199,7 @@ For the removal algorithm, there are also two possible approaches.
 
 First, the algorithm removes the validator from the topic. Then, if the topic is not empty, the first algorithm splits the topic and performs the *best aggregation* operation ($\mathcal{O}(t_{max}^2)$). If the topic is empty, the first algorithm simply splits the topic.
 
+Pseudo-code:
 ```R
 1. procedure RemoveValidator(Validator, Topics)
 2.      committee <- Committee(Validator)
@@ -214,6 +218,7 @@ First, the algorithm removes the validator from the topic. Then, if the topic is
 
 The second algorithm just removes the validator from its assigned topic.
 
+Pseudo-code:
 ```R
 1. procedure Remove_Validator(V, Topics)
 2.      committee <- Committee(V)
@@ -233,7 +238,7 @@ We propose going with the second solution since it produces a *stable* model.
 ## Drawbacks
 
 - A bigger number of nodes in a topic increases the reliability of a node receiving a published message by propagation in the network. For example, two geographically distant nodes may have connection problems and intermediary nodes may help propagate a message.
-- Usually, more nodes in a network (or topic) represent a stronger defense against attacks. However, the model indirectly reduces the number of operators in topics, which is understood to be a trade-off of this approach.
+- Usually, more nodes in a network (or topic) represent a stronger defense against attacks. However, the model indirectly reduces the number of operators in some topics, which is understood to be a trade-off of this approach.
 
 
 
