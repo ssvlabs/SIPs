@@ -10,4 +10,4 @@
 | [6](./sips/constant_qbft_timeout.md)    | Constant QBFT timeout       | open-for-discussion |
 | [7](./sips/fork_support.md)             | Fork Support                | open-for-discussion |
 | [8](./sips/pre_consensus_livness.md)    | Pre-Consensus livness fix   | open-for-discussion |
-| [11](./sips/consensus_justification.md) | Consenuss justification     | open-for-discussion |
+| [11](./sips/consensus_justification.md) | Consensus justification     | open-for-discussion |

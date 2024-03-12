@@ -22,6 +22,10 @@ This proposal reduces the number of messages exchanged in the network by $16$%.
 
 ## Spec change
 
+### Message structure
+
+**Adding a justification in post-consensus messages**
+
 Within a `SignedPartialSignatureMessage.PartialSignatureMessages`, all `PartialSignatureMessage` objects refer to the same `QBFT Instance`. Thus, we can simply add the justification to the `SignedPartialSignatureMessage` as follows:
 
 ```go
@@ -33,7 +37,48 @@ type SignedPartialSignatureMessage struct {
 }
 ```
 
-It could also be added to the `PartialSignatureMessages` types. The difference is that this would *hold* the `SignedPartialSignatureMessage.Signature` also to the consensus justification.
+It could even be added to the `PartialSignatureMessages` types. The difference is that this would *hold* the `SignedPartialSignatureMessage.Signature` also to the consensus justification.
+
+### New post-consensus logic
+
+To implement the justification logic, once a post-consensus message is received, if the consensus has not been decided yet, we ask the consensus module to process a justification in a similar way that a decided message is processed (except y the feature of holding a state and broadcasting new decided messages). If the processing is successful, we update the runner state and continue with the current post-consensus logic.
+
+```go
+func (b *BaseRunner) basePostConsensusMsgProcessing(runner Runner, signedMsg *types.SignedPartialSignatureMessage) (bool, [][32]byte, error) {
+
+	if !b.hasRunningDuty() {
+		// do nothing
+	}
+
+	// If has not decided yet, process the justification
+	if b.State.DecidedValue == nil && b.State != nil && b.State.RunningInstance != nil {
+		// Process
+		decidedMsg, err := b.QBFTController.ProcessConsensusJustification(signedMsg.Justification)
+		if err != nil {
+			// return error
+		}
+
+		// Decode
+		decidedValue = &types.ConsensusData{}
+		// ...
+
+		// Set state
+		b.highestDecidedSlot = decidedValue.Duty.Slot
+		b.State.DecidedValue = decidedValue
+	}
+	// Follow-up with the current post-consensus processing
+}
+```
+
+The justification may be large and there's no need for it in pre-consensus messages. Thus, we also recommend adding a check in the pre-consensus processing to assert that there's no consensus justification. This is useful as a part of a protection against buffer DoS attacks.
+
+```go
+func (b *BaseRunner) basePreConsensusMsgProcessing(runner Runner, signedMsg *types.SignedPartialSignatureMessage) (bool, [][32]byte, error) {
+	if signedMsg.Justification != nil {
+		// Return error
+	}
+}
+```
 
 
 ## Drawbacks
