@@ -119,6 +119,15 @@ type SignedSSVMessage struct {
 }
 ```
 
+### Decided messages
+
+With the proposed change, a *decided* message is identified by a `SignedSSVMessage` message with multiple signers and signatures.
+
+**Creation**: To create a *decided* message, no BLS aggregation is performed anymore. Now, the commit message data is sent under `SignedSSVMessage.Data` and the quorum (or more) of signers are listed in `SignedSSVMessage.OperatorID` along with their respective signatures in `SignedSSVMessage.Signature`.
+
+**Verification**: To verify a decided message, no more BLS verification is performed. Now, the number of signatures in `SignedSSVMessage.Signature` should be greater or equal to the cluster's quorum and the n-th signature should be correct for the public key of the n-th signer of `SignedSSVMessage.OperatorID` for $n = 0, 1, ..., len(Signatures) - 1$.
+
+
 ### Consensus message processing
 
 The consensus module currently accepts `SignedMessage` messages. Now, it must accept `SignedSSVMessage` messages. `SignedSSVMessage` is required instead of the simple `Message` in order to allow the creation of messages with justifications.
@@ -145,7 +154,7 @@ Aligned to the changes on the `Validator` module, the `Runner` module should acc
 
 Message validation should stop decoding the `SignedSSVMessage` to the deprecated `SignedMessage` or `SignedPartialSignatureMessage`. To check the content of the message it must decode the message data directly to one of the `Message` or `PartialSignatureMessages` types.
 
-Message validation should only allow multiple signers in the `SignedSSVMessage` message for *decided* messages (a check that was previously done for the `SignedMessage` type). The number of signatures should be equal to the number of signers, and the n-th signature should be correct for the public key of the n-th signer for $n = 0, 1, ..., len(Signatures)-1$.
+Message validation should only allow multiple signers in the `SignedSSVMessage` message for *decided* messages (a check that was previously done for the `SignedMessage` type). It should verify it according to the [description above](#decided-messages).
 
 ## Drawbacks
 
