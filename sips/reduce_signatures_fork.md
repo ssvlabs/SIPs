@@ -2,6 +2,8 @@
 | -------------- | ------------------------ | -------- | ------------------- | ---------- |
 | Matheus Franco | Reduce Signatures - Fork | Core     | open-for-discussion | 2024-03-15 |
 
+[Discussion](https://github.com/bloxapp/SIPs/discussions/38)
+
 ## Summary
 
 Move the `FullData` of the `SignedMessage` type into the `Message` type and use a common wrapper for consensus and partial signature messages.
