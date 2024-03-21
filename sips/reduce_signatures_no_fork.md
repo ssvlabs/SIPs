@@ -2,6 +2,8 @@
 | -------------- | --------------------------- | -------- | ------------------- | ---------- |
 | Matheus Franco | Reduce Signatures - No Fork | Core     | open-for-discussion | 2024-03-19 |
 
+[Discussion](https://github.com/bloxapp/SIPs/discussions/38)
+
 ## Summary
 
 This SIP aims to reduce cryptography costs with a no-fork approach. It accomplishes that by proposing to do only one BLS verification for the quorum of partial signature messages and by stopping relying on BLS for consensus messages.
