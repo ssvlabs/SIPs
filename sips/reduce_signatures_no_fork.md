@@ -29,7 +29,7 @@ Similarly to the 2nd change, we can use fast verification for the quorum of *pre
 
 ## Improvements
 
-For the attestation duty case (the most frequent one), the new cryptography cost is reduced to $66$% of the current value, a $1.5$x boost.
+For the attestation duty case (the most frequent one), the new cryptography cost is reduced to $57$% of the current value, a $1.75$x boost.
 
 The cryptography costs of the duty's steps are shown below.
 
@@ -40,7 +40,7 @@ The cryptography costs of the duty's steps are shown below.
 
 ## Spec change
 
-### Partial signature messages processing
+### Partial signature message processing
 
 The `BaseRunner`'s `validatePartialSigMsgForSlot` function should be changed in order not to verify the BLS signatures.
 
