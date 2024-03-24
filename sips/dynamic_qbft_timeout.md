@@ -29,15 +29,15 @@ The Beacon chain has some timing assumptions regarding duty execution for maximi
 
 **Specification**
 
-From the slot start time after `baseDuration` delay wait 2 seconds before emitting a `RoundChange` message until the 8th round (inclusive). Afterwards, wait 2 minutes.
+From the slot start time after `baseDuration` delay wait 2 seconds before emitting a `RoundChange` message until the 6th round (inclusive). Afterwards, wait 2 minutes.
 
 ```go
 var (
 	// quickTimeoutThreshold is the round after which the timeout duration increases to 2 minutes
-	quickTimeoutThreshold = Round(8)
-	// quickTimeout is the timeout in seconds for the first 8 rounds
+	quickTimeoutThreshold = Round(6)
+	// quickTimeout is the timeout in seconds for the first 6 rounds
 	quickTimeout int64 = 2 // 2 seconds
-	// slowTimeout is the timeout in seconds for rounds after the first 8
+	// slowTimeout is the timeout in seconds for rounds after the first 6
 	slowTimeout int64 = 120 // 2 minutes
 )
 
