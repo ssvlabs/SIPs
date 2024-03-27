@@ -1,12 +1,12 @@
-|     Author     |            Title            | Category |       Status        |    Date    |
-| -------------- | --------------------------- | -------- | ------------------- | ---------- |
-| Matheus Franco | Reduce Signatures - No Fork | Core     | open-for-discussion | 2024-03-19 |
+|     Author     |                   Title                    | Category |       Status        |    Date    |
+| -------------- | ------------------------------------------ | -------- | ------------------- | ---------- |
+| Matheus Franco | Partial Signature Verification Aggregation | Core     | open-for-discussion | 2024-03-19 |
 
 [Discussion](https://github.com/bloxapp/SIPs/discussions/38)
 
 ## Summary
 
-This SIP aims to reduce cryptography costs with a no-fork approach. It accomplishes that by proposing to do only one BLS verification for the quorum of partial signature messages and by stopping relying on BLS for consensus messages.
+This SIP aims to reduce cryptography costs. It accomplishes that by proposing to do only one BLS verification for the quorum of partial signature messages.
 
 ## Motivation
 
@@ -18,25 +18,20 @@ Cryptography is, commonly, the biggest processing overhead in distributed system
 
 A partial signature message implies one RSA verification (in the message validation layer) and two BLS verifications (for `SignedPartialSignatureMessage` and `PartialSignatureMessage`). Notice that two signatures are used to verify that the sender is correct and one is used to verify if the (same) sender correctly signed the beacon partial signature. Therefore, we can, simply, ignore the first BLS signature since the RSA signature is already being checked.
 
-> [!NOTE]
-> Since we want a no-fork change, one must still BLS-sign twice to be compatible with the previous version.
+Notice that the operator must still BLS-sign twice for previous version compatibility.
 
 ### 2nd change
 
 For the partial signature phases, action is only triggered when a quorum of valid messages is received. It's common for systems of such nature that use BLS to take advantage of its fast verification property. So, instead of verifying each message, we verify the batch with a quorum of messages. This can be done by reconstructing the validator's signature and verifying it. If the validator's signature is wrong, then at least one of the signatures is wrong and we need to fall back. For that, one can loop the signatures and verify each, removing the incorrect ones. Once a new quorum is reached, the same procedure is done.
 
-### 3rd change
-
-Similarly to the 2nd change, we can use fast verification for the quorum of *prepare* and *commit* messages. If the quorum has some incorrect signature, we just fall back as done in the 2nd change.
-
 ## Improvements
 
-For the attestation duty case (the most frequent one), the new cryptography cost is reduced to $57$% of the current value, a $1.75$x boost.
+For the attestation duty case (the most frequent one), the new cryptography cost is reduced to $77$% of the current value, a 1.3x boost.
 
 The cryptography costs of the duty's steps are shown below.
 
 <p align="center">
-<img src="./images/reduce_signatures_no_fork/cryptography_no_fork_gantt.png"  width="50%" height="80%">
+<img src="./images/partial_signature_verification_aggregation/partial_signature_verification_aggregation_gantt.png"  width="50%" height="80%">
 </p>
 
 
@@ -116,10 +111,6 @@ func (b *BaseRunner) FallBackToVerifyingEachSignature(container PartialSigContai
 	}
 }
 ```
-
-### Consensus messages
-
-The modification required in the consensus' *prepare* and *commit* functions is equivalent to the one shown in the [partial signature messages processing section](#partial-signature-messages-processing).
 
 ## Drawbacks
 
