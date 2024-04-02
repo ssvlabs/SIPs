@@ -6,17 +6,17 @@
 
 ## Summary
 
-Remove redundant BLS verification in QBFT.
+Add an RSA signature check in the Validator level and drop the consequent redundant BLS verifications in QBFT.
 
 ## Motivation
 
-BLS verification is the most costly operation in the protocol. Thus, for scalability purposes, it's fundamental to drop all redundant verification calls.
+BLS verification is the most costly operation in the protocol. Thus, for scalability purposes, it's fundamental to search for faster alternatives to authenticate a message.
 
 ## Rationale
 
-In the Message Validation module, the RSA signature is already checked to verify that the claimed signer is really the creator of the message. This check has an equivalent purpose to the BLS check in the `SignedMessage` structure. Thus, the more costly BLS check is redundant.
+A message can be authenticated using a signature created with the operator's network public RSA key. This authentication method is considerably faster the authenticating with BLS. Thus, we can add in the `Validator.ProcessMessage` layer, an RSA check to ensure the authenticity of the received message. Notice that this check has an equivalent purpose to the BLS check in the `SignedMessage` structure. Thus, the BLS check becomes redundant.
 
-Nonetheless, the verification must be kept for two cases:
+Nonetheless, note that the BLS verification must be performed for the following two cases:
 - messages contained in justifications
 - decided messages
 
@@ -35,6 +35,8 @@ The cryptography costs of the duty's steps are shown below.
 
 
 ## Spec change
+
+### QBFT
 
 The `BaseValidation` functions of each message type can be split into a `NoVerification` and a `WithVerification` versions. The `WithVerification` calls the `NoVerification` and performs the BLS verification.
 
@@ -116,6 +118,75 @@ Notice that these changes need to be implemented for:
 The *proposal* base validation can just drop the BLS verification since it's never nested by any other messages.
 
 The *Instance*'s `BaseMessageValidation` function should call the `NoVerification` version, while to validate justifications or decided messages, the ´WithVerification` version should be called.
+
+### Validator
+
+The `Validator`'s `ProcessMessage` function now receives a `SignedSSVMessage` instead of an `SSVMessage`. The `SignedSSVMessage` has an RSA signature which will be verified inside the `Validator.ProcessMessage`. If the signature is valid, the validator will call the duty runners processing functions for the nested `SSVMessage`. If the signature is invalid, it will return an error.
+
+To handle the signature verification of `SignedSSVMessage` messages, the `Validator` will have a new `SignatureVerifier` interface.
+
+```go
+// SignatureVerifier is an interface responsible for the verification of SignedSSVMessages
+type SignatureVerifier interface {
+	// Verify verifies a SignedSSVMessage's signature using the necessary keys extracted from the list of Operators
+	Verify(msg *SignedSSVMessage, operators []*Operator) error
+}
+
+type Validator struct {
+	DutyRunners       DutyRunners
+	Network           Network
+	Beacon            BeaconNode
+	Share             *types.Share
+	Signer            types.KeyManager
+	SignatureVerifier types.SignatureVerifier // New
+}
+```
+
+The updated `ProcessMessage` function would be similar to:
+
+```go
+
+// ProcessMessage processes Network Message of all types
+func (v *Validator) ProcessMessage(signedSSVMessage *types.SignedSSVMessage) error {
+
+	// Validate message
+	if err := signedSSVMessage.Validate(); err != nil {
+		return errors.Wrap(err, "invalid SignedSSVMessage")
+	}
+
+	// Decode the nested SSVMessage
+	msg := &types.SSVMessage{}
+	if err := msg.Decode(signedSSVMessage.Data); err != nil {
+		return errors.Wrap(err, "could not decode data into an SSVMessage")
+	}
+
+	// Verify SignedSSVMessage's signature
+	if err := v.SignatureVerifier.Verify(signedSSVMessage, v.Share.Committee); err != nil {
+		return errors.Wrap(err, "SignedSSVMessage has an invalid signature")
+	}
+
+	// Get runner
+	// ...
+}
+```
+
+This requires the `Operator` structure to hold a network public key. For that, we can change the `Operator` type in the following way:
+
+```go
+// Operator represents an SSV operator node
+type Operator struct {
+	OperatorID    OperatorID
+	BeaconPubKey  []byte `ssz-size:"48"`
+	NetworkPubKey []byte `ssz-size:"294"` // New
+}
+
+// GetNetworkPublicKey returns the network public key with which the node is identified with
+func (n *Operator) GetNetworkPublicKey() []byte {
+	return n.NetworkPubKey
+}
+
+```
+
 
 ## Drawbacks
 
