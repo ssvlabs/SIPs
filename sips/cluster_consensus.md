@@ -69,7 +69,7 @@ type Cluster struct {
 	Beacon          BeaconNode
 }
 
-// ConsensusRunner is in charge of processing consensus messages and managing the consensus instance
+// ConsensusRunner is in charge of processing consensus messages and managing the consensus instance. There is one per Cluster
 type ConsensusRunner interface {
 	GetBeaconNode() BeaconNode
 	GetValCheckF() qbft.ProposedValueCheckF
@@ -93,6 +93,7 @@ type ConsensusRunner struct {
 
 }
 
+// PartialSigRunner is in charge of aggregating partial signatures and commiting signed data to the beacon node. There is one per Validator.
 type PartialSigRunner interface {
 	GetBeaconNode() BeaconNode
 	GetValCheckF() qbft.ProposedValueCheckF
@@ -113,7 +114,7 @@ type PartialSigRunner struct
 
 #### Happy Flow
 
-1. `Cluster` receives all duties that match a certain slot, starts consensus for the relevant roles, and initializes the `PartialSigRunners` for the relevant Validators.
+1. `Cluster` receives duties that match a certain slot, starts consensus for the relevant roles, and initializes the `PartialSigRunners` for the relevant Validators.
 2. `Cluster` receives consensus messages and hands them over to the `QBFTController` that has unchanged logic.
 3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will call `UponDecided(cd)` for each `PartialSigRunner` that has been initialized. This will cause an ommision of a partialSigMessage for each validator.
 4. `PartialSigRunner` will process post-consensus partial signature messages as before.
