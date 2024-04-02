@@ -1,14 +1,14 @@
 |     Author     |           Title            |  Category  |       Status        |    Date    |
 | -------------- | -------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco | Cluster consensus          | Core       | open-for-discussion | 2024-03-05 |
+| Matheus Franco, Gal Rogozinski | Cluster consensus          | Core       | open-for-discussion | 2024-03-05 |
 
 ## Summary
 
-Aggregate `Attestation` and `Sync Committee` duties based on the cluster of operators and the duties' slot. Also, merge the post-consensus partial signature messages for such duties into a single message.
+Aggregate `Attestation` and `Sync Committee` duties based on the cluster of operators and the duties' slot. 
 
 ## Motivation
 
-With the current design, a cluster of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data.
+With the current design, a cluster of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data. This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
 
 ## Rationale
 
@@ -28,17 +28,13 @@ The only validator-dependent field is `CommitteeIndex` and it does not have to b
 
 For the `Sync Committee` duty, operators agree on a `phase0.Root` data which is also independent of the validator.
 
-On the other hand, a post-consensus phase is still required for each duty that was previously aggregated. Thus, the partial signatures for each validator must still be shared between parties. Better than sending a message for each eth duty, we recommend merging the post-consensus partial signatures into a single message.
-
 ## Improvement
-
-This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
 
 According to Monte Carlo simulations using a dataset based on the Mainnet, this proposal reduces to $21.60$% the current number of messages exchanged in the network. Note that this result includes aggregating the post-consensus messages into a single message.
 
 Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as the number of messages reduction due to the larger post-consensus messages.
 
-Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution (notice that it also represents the number of partial signature messages merged into a single message).
+Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution.
 
 <p align="center">
 <img src="./images/cluster_consensus/aggregated_duties.png"  width="50%" height="10%">
@@ -48,123 +44,154 @@ Again with Monte Carlo simulations using the Mainnet dataset, the number of atte
 
 ### Design
 
-Currently, an operator manages many `Validator` objects. Each has a `DutyRunner` for a duty type, each with its own `QBFTController` with its unique ID (that is also inserted in its associated messages).
+Under the new design we will have a `Cluster` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
 
-<p align="center">
-<img src="./images/cluster_consensus/previous_scheme.drawio.png"  width="50%" height="10%">
-</p>
+The `Cluster` will hold a single `ConsensusRunner` and multiple `PartialSigRunners` for each Validator managed by the cluster.
 
-For the proposed change to take place, different `Validator` objects should use the same `QBFT Instance`. For that, we propose decoupling the `QBFTController` object from the `DutyRunner`.
+For other duty roles the old design will remain.
 
-<p align="center">
-<img src="./images/cluster_consensus/new_scheme.drawio.png"  width="50%" height="10%">
-</p>
-
-### New IDs
-
-Since a single `QBFT instance` will be responsible for several validator duties, its ID must not be dependent on a validator key but rather on a cluster of operators. For that, we propose changing the `MessageID` from
-
-```mermaid
-flowchart RL
-	subgraph MessageID
-		Domain
-		ValidatorPublicKey
-		Role
-	end
-```
-
-to
-
-
-```mermaid
-flowchart RL
-	subgraph MessageID
-		Domain
-		OperatorCluster
-		Role
-	end
-```
-
-### QBFT Controller
-
-The current `QBFTController` structure allows only one consensus instance at a time. This must change, extending the `QBFTController` into a router of messages for the different instances.
-
-### DutyRunner & QBFT Controller
-
-Since the `DutyRunner` will not have its specific `QBFTController`, it must have a way to start a consensus instance and receive its decided value. For that, we propose applying the observer design pattern by which the `DutyRunner` (observer) can be updated upon a `QBFT Instance` (observable) termination.
-
-We suggest that the `DutyRunner` holds a reference to the operator's `QBFTController` to start a `QBFT Instance` and observe it.
+#### Code
 
 ```go
-func (r *DutyRunner) execute() {
-	r.QBFTController.StartConsensus(r.committee, r.duty, r)
+type Cluster interface {
+	// startDuties starts the duties for the given slot
+	// Starts the CosnensusRunner and registers the proper SSVRunners
+	startDuties(duties []types.Duty, slot spec.Slot) error
 }
 
-func (c *QBFTController) StartConsensus(committee []types.Operator, duty types.Duty, observer Observer) {
-	if !c.HasConsensus(committee, duty) {
-		instance := c.StartInstance(committee, duty)
-	}
-	instance.registerObserver(observer)
+// Cluster is a cluster of a unique set of operators that run the same validator set
+type Cluster struct {
+	ConsensusRunner   ConsensusRunner
+	PartialSigRunners PartialSigRunners
+	Network           Network
+	Beacon            BeaconNode
 }
+
+// ConsensusRunner is in charge of processing consensus messages and managing the consensus instance. There is one per Cluster
+type ConsensusRunner interface {
+	GetBeaconNode() BeaconNode
+	GetValCheckF() qbft.ProposedValueCheckF
+	GetNetwork() Network
+
+	// StartNewConsensus starts a new consensus instance for the given roles and slot
+	StartNewConsensus(roles []types.BeaconRole, slot spec.Slot) error
+	// ProcessConsensus processes a consensus message
+	ProcessConsensus(msg *qbft.SignedMessage) (decided bool, cd *ConsensusData, error)
+	// HasRunningInstance returns true if there is a running consensus instance
+	HasRunningInstance() bool
+}
+
+type ConsensusRunner struct {
+	Share          *types.Share
+	QBFTController *qbft.Controller
+	BeaconNetwork  types.BeaconNetwork
+
+	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
+	highestDecidedSlot spec.Slot
+
+}
+
+// PartialSigRunner is in charge of aggregating partial signatures and commiting signed data to the beacon node. There is one per Validator.
+type PartialSigRunner interface {
+	GetBeaconNode() BeaconNode
+	GetValCheckF() qbft.ProposedValueCheckF
+	GetSigner() types.BeaconSigner
+	GetNetwork() Network
+
+	//UponDecided will omit a PostConsensus partial sig message
+	UponDecided(cd *ConsensusData, duty *types.Duty) error
+	ProcessPostConsensus(signedMsg *types.SignedPartialSignatureMessage) error
+}
+
+type PartialSigRunner struct
+	State          *State
+	Share          *types.Share
+	BeaconNetwork  types.BeaconNetwork
+	BeaconRoleType types.BeaconRole
+
+type PartialSigRunners map[ValidatorPublicKey]PartialSigRunner
 ```
 
-### Partial Signature Message
+#### Happy Flow
 
-The `SignedPartialSignatureMessage` may be left untouched.
+1. `Cluster` receives duties that match a certain slot, starts consensus for the relevant roles, and initializes the `PartialSigRunners` for the relevant Validators.
+2. `Cluster` receives consensus messages and hands them over to the `QBFTController` that has unchanged logic.
+3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will call `UponDecided(cd)` for each `PartialSigRunner` that has been initialized. This will cause an omission of a partialSigMessage for each validator.
+4. `PartialSigRunner` will process post-consensus partial signature messages as before.
+
+
+
+### ClusterID
+
+An identifier for cluster must be added to `MessageID`.
 
 ```go
-type SignedPartialSignatureMessage struct {
-	Message   PartialSignatureMessages
-	Signature Signature `ssz-size:"96"`
-	Signer    OperatorID
+[48]byte ClusterID
+
+// Return a 48 bytes ID for the cluster of operators
+func getClusterID(operatorIDs []OperatorID) ClusterID {
+	// Create a 16 bytes constant prefix for cluters
+	const prefix = []byte{0x00}
+
+	// return the sha256 of the sortedIDs
+	return ClusterID(prefix + sha256.Sum256(bytes(sorted(operatorIDs))))
 }
 ```
 
-While the `PartialSignatureMessages` and `PartialSignatureMessage` types could change as follows:
+In order to route consensus messages to the correct consensus runner, the `ClusterID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
+
+
+#### Prefix Rationale
+
+The 16 bytes prefix we are creating elongates the `ClusterID` to 48 bytes. The same length as `ValidatorPublicKey`. It may seem like a waste of space, but due to SSZ encoding it will actually save 16 bytes when compared to using a variable size array.
+
+### MessageID
+
+`ValidatorPublicKey` and `ClusterID` will be used interchangeably in `MessageID`. `Role` will change location because it is used to determine ID type.
 
 ```go
-type PartialSignatureMessages struct {
-	Slot     phase0.Slot
-	Messages []*PartialSignatureMessage `ssz-max:"?"` // To be defined
+const (
+	domainSize       = 4
+	domainStartPos   = 0
+	roleTypeSize     = 4
+	// CHANGE IN Positions
+	roleTypeStartPos =  domainStartPos + domainSize
+	receiverIDSize   = 48
+	receiverIDStartPos   = roleTypePos + roleTypeSize
+)
+
+// MessageID is used to identify and route messages to the right validator and Runner
+type MessageID [56]byte
+
+func (msg MessageID) GetDomain() []byte {
+	return msg[domainStartPos : domainStartPos+domainSize]
 }
-type PartialSignatureMessage struct {
-	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
-	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
-	Signer           OperatorID
-	ValidatorIndex 	 ValidatorIndex
-	Type     		 PartialSigMsgType
+
+func (msg MessageID) GetRoleType() BeaconRole {
+	roleByts := msg[roleTypeStartPos : roleTypeStartPos+roleTypeSize]
+	return BeaconRole(binary.LittleEndian.Uint32(roleByts))
+}
+
+func (msg MessageID) GetRecipientID() []byte {
+	return msg[receiverIDStartPos : receiverIDStartPos+receiverIDSize]
 }
 ```
 
-The `PartialSignatureMessages` structure would drop the `Type` attribute since signatures for the sync committee and attestation duties could be contained in the same message. The `PartialSignatureMessage` would add attributes for the duty's validator and its type.
+
+### Consensus Data
+
+We note that the data needed for a consensus execution is the same for all validators. Thus, we can create a `ConsensusData` object that will hold the data for all validators. The data needed for the `SyncCommittee` role is a subset of the data needed for the `Attestation` role. Thus we can always query the beacon node for attestation data and pass this data to relevant runners.
+
+`ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. This is because different views may cause [different shuffles](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_committee). Therefore we can rely on local view of `duty`, and keep the field empty. 
 
 ### Consensus Message Validation
 
-**How to sign the messages now?**
-
-Currently, to sign consensus messages, operators use their shared BLS key of the duty's validator. With this change, multiple validators are associated with a consensus execution. How to choose a BLS key? At least, it would need some agreed-upon deterministic selection function. This isn't so straightforward with this design because the consensus and duty execution logics are decoupled and there's no module in the spec code that handles data with a complete list of duties to be executed for the next slot. In the proposed design, different validators can trigger and observe a consensus execution in some random order, and the consensus module can not know how many validators are yet to come and subscribe (so it can't compute the selected key).
-
-The bright side is that there's a cryptography change being developed for operators to start using their network keys when signing consensus messages. This would make this problem much simpler and, therefore, we make this change as a pre-requisite for this SIP.
-
-## Drawbacks
-
-- Several duties will depend on the same consensus execution. Thus, its failure will imply many attestation misses. Nonetheless, this will also make the operator more scalable due to the overall reduction in exchanged messages and processing costs.
-
-## Extra improvements
-
-- If multiple partial signatures contained in a merged message refer to the same root (i.e. validators in the same Ethereum committee), the signatures can be verified using batch verification.
-
-## Message Validation
+## P2P Message Validation
 
 This duties transformation requires similar changes in message validation, namely:
-- Different consensus executions are tagged by the `MessageID`. This change would be propagated with no further issues. However, the `MessageID` is used to get the validator's public key and the duty's role which are used as an ID to store the consensus state. This must be changed to use the operators' committee and the duty's role, or even simply the `MessageID`.
+  - Different consensus executions are tagged by the `MessageID`. This change would be propagated with no further issues. However, the `MessageID` is used to get the validator's public key and the duty's role which are used as an ID to store the consensus state. This must be changed to use the operators' committee and the duty's role, or even simply the `MessageID`.
 - Message validation limits the number of attestation duties per validator by using the validator's public key contained in the `MessageID`. This is no longer possible. A new limitation can be accomplished by checking the number of validators a cluster of operators is assigned to. If this number is less than 32 (the number of slots in an epoch), then we can limit the number of attestation duties of such cluster per epoch. The only exception would be if such a cluster is assigned to a sync committee duty (considering that we will indeed merge attestations and sync committee duties altogether in the same consensus execution).
 
 ## Pre-requisites
 
-- A cryptography change that makes operators use their network keys to sign consensus messages.
-
-## Open questions
-
-- What should be the maximum number of signatures a post-consensus message can contain? The trade-off here refers to reducing the number of exchanged messages versus reducing the impact of a DoS buffer attack attempt.
-- Though the number of consensus instances could be reduced to 1 (per unique operators cluster), the number of post-consensus phases is still defined by the number of validators. It remains open if it's possible to share partial signatures and re-construct all validator signatures in constant time per unique clusters.
+- SIP #45
