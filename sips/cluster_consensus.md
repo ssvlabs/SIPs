@@ -16,7 +16,7 @@ According to Monte Carlo simulations using a dataset based on the Mainnet, this 
 
 Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as the number of messages reduction due to the larger post-consensus messages.
 
-Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution (notice that it also represents the number of partial signature messages merged into a single message).
+Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution.
 
 <p align="center">
 <img src="./images/cluster_consensus/aggregated_duties.png"  width="50%" height="10%">
@@ -46,7 +46,7 @@ For the `Sync Committee` duty, operators agree on a `phase0.Root` data which is 
 
 ### Design
 
-Under the new design we will have a `Cluster` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee `Role`s.
+Under the new design we will have a `Cluster` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
 
 The `Cluster` will hold a single `ConsensusRunner` and multiple `PartialSigRunners` for each Validator managed by the cluster.
 
@@ -99,6 +99,7 @@ type PartialSigRunner interface {
 	GetSigner() types.BeaconSigner
 	GetNetwork() Network
 
+	//TODO should add local duty? or use the one in cd? 
 	UponDecided(cd *ConsesusData) error
 	ProcessPostConsensus(signedMsg *types.SignedPartialSignatureMessage) error
 }
