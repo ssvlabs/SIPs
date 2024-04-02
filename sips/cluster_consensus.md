@@ -10,19 +10,6 @@ Aggregate `Attestation` and `Sync Committee` duties based on the cluster of oper
 
 With the current design, a cluster of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data. This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
 
-## Improvement
-
-According to Monte Carlo simulations using a dataset based on the Mainnet, this proposal reduces to $21.60$% the current number of messages exchanged in the network. Note that this result includes aggregating the post-consensus messages into a single message.
-
-Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as the number of messages reduction due to the larger post-consensus messages.
-
-Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution.
-
-<p align="center">
-<img src="./images/cluster_consensus/aggregated_duties.png"  width="50%" height="10%">
-</p>
-
-
 ## Rationale
 
 The aggregation of duties is possible because the data that must be agreed on is independent of the validator.
@@ -41,6 +28,17 @@ The only validator-dependent field is `CommitteeIndex` and it does not have to b
 
 For the `Sync Committee` duty, operators agree on a `phase0.Root` data which is also independent of the validator.
 
+## Improvement
+
+According to Monte Carlo simulations using a dataset based on the Mainnet, this proposal reduces to $21.60$% the current number of messages exchanged in the network. Note that this result includes aggregating the post-consensus messages into a single message.
+
+Regarding the number of bits exchanged, we estimate that this proposal will reduce the current value to, at least, $52.96$%. Notice that this reduction is not as significant as the number of messages reduction due to the larger post-consensus messages.
+
+Again with Monte Carlo simulations using the Mainnet dataset, the number of attestation duties aggregated presented the following distribution.
+
+<p align="center">
+<img src="./images/cluster_consensus/aggregated_duties.png"  width="50%" height="10%">
+</p>
 
 ## Spec changes
 
@@ -63,10 +61,10 @@ type Cluster interface {
 
 // Cluster is a cluster of a unique set of operators that run the same validator set
 type Cluster struct {
-	ConsensusRunner ConsensusRunner
-	SSVRunners      SSVRunners
-	Network         Network
-	Beacon          BeaconNode
+	ConsensusRunner   ConsensusRunner
+	PartialSigRunners PartialSigRunners
+	Network           Network
+	Beacon            BeaconNode
 }
 
 // ConsensusRunner is in charge of processing consensus messages and managing the consensus instance. There is one per Cluster
@@ -100,8 +98,8 @@ type PartialSigRunner interface {
 	GetSigner() types.BeaconSigner
 	GetNetwork() Network
 
-	//TODO should add local duty? or use the one in cd? 
-	UponDecided(cd *ConsesusData) error
+	//UponDecided will omit a PostConsensus partial sig message
+	UponDecided(cd *ConsensusData, duty *types.Duty) error
 	ProcessPostConsensus(signedMsg *types.SignedPartialSignatureMessage) error
 }
 
@@ -110,6 +108,8 @@ type PartialSigRunner struct
 	Share          *types.Share
 	BeaconNetwork  types.BeaconNetwork
 	BeaconRoleType types.BeaconRole
+
+type PartialSigRunners map[ValidatorPublicKey]PartialSigRunner
 ```
 
 #### Happy Flow
@@ -157,7 +157,7 @@ const (
 	// CHANGE IN Positions
 	roleTypeStartPos =  domainStartPos + domainSize
 	receiverIDSize   = 48
-	receiverIDPos   = roleTypePos + roleTypeSize
+	receiverIDStartPos   = roleTypePos + roleTypeSize
 )
 
 // MessageID is used to identify and route messages to the right validator and Runner
@@ -173,7 +173,7 @@ func (msg MessageID) GetRoleType() BeaconRole {
 }
 
 func (msg MessageID) GetRecipientID() []byte {
-	return msg[pubKeyStartPos : pubKeyStartPos+pubKeySize]
+	return msg[receiverIDStartPos : receiverIDStartPos+receiverIDSize]
 }
 ```
 
@@ -182,7 +182,7 @@ func (msg MessageID) GetRecipientID() []byte {
 
 We note that the data needed for a consensus execution is the same for all validators. Thus, we can create a `ConsensusData` object that will hold the data for all validators. The data needed for the `SyncCommittee` role is a subset of the data needed for the `Attestation` role. Thus we can always query the beacon node for attestation data and pass this data to relevant runners.
 
-`ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. Therefore we can rely on local view of `duty`.
+`ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. This is because different views may cause [different shuffles](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_committee). Therefore we can rely on local view of `duty`, and keep the field empty. 
 
 ### Consensus Message Validation
 
