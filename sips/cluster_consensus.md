@@ -116,7 +116,7 @@ type PartialSigRunners map[ValidatorPublicKey]PartialSigRunner
 
 1. `Cluster` receives duties that match a certain slot, starts consensus for the relevant roles, and initializes the `PartialSigRunners` for the relevant Validators.
 2. `Cluster` receives consensus messages and hands them over to the `QBFTController` that has unchanged logic.
-3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will call `UponDecided(cd)` for each `PartialSigRunner` that has been initialized. This will cause an ommision of a partialSigMessage for each validator.
+3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will call `UponDecided(cd)` for each `PartialSigRunner` that has been initialized. This will cause an omission of a partialSigMessage for each validator.
 4. `PartialSigRunner` will process post-consensus partial signature messages as before.
 
 
