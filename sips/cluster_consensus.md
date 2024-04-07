@@ -65,9 +65,20 @@ type Cluster struct {
 	ClusterRunners     map[spec.Slot]ClusterRunner
 	Network           Network
 	Beacon            BeaconNode
+	OperatorID        OperatorID
+	ClusterShares     [spec.ValidatorPubKey]ClusterShares
 	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
 	highestDecidedSlot spec.Slot
 }
+
+// Partial Validator info needed for cluster duties
+type ClusterShare struct {
+	SharePubKey           []byte      `ssz-size:"48"`
+	Committee             []*Operator `ssz-max:"13"`
+	Quorum, PartialQuorum uint64
+	Signer                BeaconSigner
+}
+
 
 // ClusterRunner manages the duty cycle for a certain slot
 type ClusterRunner interface {
