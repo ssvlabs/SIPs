@@ -112,7 +112,7 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
 
 1. `Cluster` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `ClusterRunner` for the relevant Validators.
 2. `Cluster` receives consensus messages and hands them over `ClusterRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
-3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will create a post consensus message like before.
+3. Once `ProcessConsensus` decides, the `Cluster` will create a post consensus message like before.
 4. `PartialSigRunner` will process post-consensus partial signature messages as before.
 
 ### Stopping Runs
