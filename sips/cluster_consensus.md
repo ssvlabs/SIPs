@@ -53,73 +53,77 @@ For other duty roles the old design will remain.
 #### Code
 
 ```go
+// Cluster is a cluster of a unique set of operators that run the same validator set
 type Cluster interface {
-	// startDuties starts the duties for the given slot
-	// Starts the CosnensusRunner and registers the proper SSVRunners
-	startDuties(duties []types.Duty, slot spec.Slot) error
+	// Initializes and starts the runner for the duties for the given slot
+  	Start(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
+	// ProcessMessage processes a message routed to this Cluster
+	ProcessMessage(msg *types.SSVMessage)
 }
 
-// Cluster is a cluster of a unique set of operators that run the same validator set
 type Cluster struct {
-	ConsensusRunner   ConsensusRunner
-	PartialSigRunners PartialSigRunners
+	ClusterRunners     map[spec.Slot]ClusterRunner
 	Network           Network
 	Beacon            BeaconNode
-}
-
-// ConsensusRunner is in charge of processing consensus messages and managing the consensus instance. There is one per Cluster
-type ConsensusRunner interface {
-	GetBeaconNode() BeaconNode
-	GetValCheckF() qbft.ProposedValueCheckF
-	GetNetwork() Network
-
-	// StartNewConsensus starts a new consensus instance for the given roles and slot
-	StartNewConsensus(roles []types.BeaconRole, slot spec.Slot) error
-	// ProcessConsensus processes a consensus message
-	ProcessConsensus(msg *qbft.SignedMessage) (decided bool, cd *ConsensusData, error)
-	// HasRunningInstance returns true if there is a running consensus instance
-	HasRunningInstance() bool
-}
-
-type ConsensusRunner struct {
-	Share          *types.Share
-	QBFTController *qbft.Controller
-	BeaconNetwork  types.BeaconNetwork
-
 	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
 	highestDecidedSlot spec.Slot
-
 }
 
-// PartialSigRunner is in charge of aggregating partial signatures and commiting signed data to the beacon node. There is one per Validator.
-type PartialSigRunner interface {
-	GetBeaconNode() BeaconNode
-	GetValCheckF() qbft.ProposedValueCheckF
-	GetSigner() types.BeaconSigner
-	GetNetwork() Network
-
-	//UponDecided will omit a PostConsensus partial sig message
-	UponDecided(cd *ConsensusData, duty *types.Duty) error
-	ProcessPostConsensus(signedMsg *types.SignedPartialSignatureMessage) error
+// ClusterRunner manages the duty cycle for a certain slot
+type ClusterRunner interface {
+	// Start the duty lifecycle for the given slot. Emits a message.
+    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommit	teeDuties []*types.Duty) error
+	// Processes cosensus message
+    ProcessConsensus(consensusMessage *qbft.Message) ru error
+	// Processes a post-consensus message
+	ProcessPostConsensus(msg ClusterSignaturesMessage) 
 }
 
-type PartialSigRunner struct
-	State          *State
+type ClusterRunner struct {
 	Share          *types.Share
-	BeaconNetwork  types.BeaconNetwork
-	BeaconRoleType types.BeaconRole
+	QBFTController *qbft.Controller
+	BeaconNetwork  *types.BeaconNetwork
+	Signer		   *types.BeaconSigner
+}
 
-type PartialSigRunners map[ValidatorPublicKey]PartialSigRunner
+// BeaconVote is the consensus data
+type BeaconVote struct {
+    BlockRoot         phase0.Root
+    Source            phase0.Checkpoint
+    Target            phase0.Checkpoint
+}
+
+func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
+    bits := bitfield.New(duty.CommitteeLength)
+    bits.Set(duty.ValidatorCommitteeIndex)
+
+    return Attestation{
+        Slot: duty.Slot,
+        BlockRoot: vote.BlockRoot,
+        Source: vote.Source,
+        Target: vote.Target,
+        CommiteeIndex: duty.CommitteeIndex,
+        AggregationBits: bits,
+    }
+}
 ```
 
 #### Happy Flow
 
-1. `Cluster` receives duties that match a certain slot, starts consensus for the relevant roles, and initializes the `PartialSigRunners` for the relevant Validators.
-2. `Cluster` receives consensus messages and hands them over to the `QBFTController` that has unchanged logic.
-3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will call `UponDecided(cd)` for each `PartialSigRunner` that has been initialized. This will cause an omission of a partialSigMessage for each validator.
+1. `Cluster` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `ClusterRunner` for the relevant Validators.
+2. `Cluster` receives consensus messages and hands them over `ClusterRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
+3. Once `ProcessConsensus` returns `decided = true`, the `Cluster` will create a post consensus message like before.
 4. `PartialSigRunner` will process post-consensus partial signature messages as before.
 
+### Stopping Runs
 
+Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+
+#### Sync Committee
+`CutOffRound = 4  \\ one slot`
+
+#### Attestation
+`CutOffRound = 12 \\ one epoch`
 
 ### ClusterID
 
@@ -180,7 +184,7 @@ func (msg MessageID) GetRecipientID() []byte {
 
 ### Consensus Data
 
-We note that the data needed for a consensus execution is the same for all validators. Thus, we can create a `ConsensusData` object that will hold the data for all validators. The data needed for the `SyncCommittee` role is a subset of the data needed for the `Attestation` role. Thus we can always query the beacon node for attestation data and pass this data to relevant runners.
+We note that the data needed for a consensus execution is the same for all validators. Thus, we can create a `BeaconVote` object that will hold the data for all validators. The data needed for the `SyncCommittee` role is a subset of the data needed for the `Attestation` role. Thus we can always query the beacon node for attestation data and pass this data to relevant runners.
 
 `ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. This is because different views may cause [different shuffles](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_committee). Therefore we can rely on local view of `duty`, and keep the field empty. 
 
