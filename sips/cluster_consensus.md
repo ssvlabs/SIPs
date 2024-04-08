@@ -46,7 +46,7 @@ Again with Monte Carlo simulations using the Mainnet dataset, the number of atte
 
 Under the new design we will have a `Cluster` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
 
-The `Cluster` will hold a single `ConsensusRunner` and multiple `PartialSigRunners` for each Validator managed by the cluster.
+The `Cluster` will hold a `ClusterRunner` object for each slot it is running a beacon duty for.
 
 For other duty roles the old design will remain.
 
