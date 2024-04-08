@@ -66,7 +66,7 @@ type Cluster struct {
 	Network           Network
 	Beacon            BeaconNode
 	OperatorID        OperatorID
-	ClusterShares     [spec.ValidatorPubKey]ClusterShares
+	ClusterShares     map[spec.ValidatorPubKey]ClusterShares
 	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
 	highestDecidedSlot spec.Slot
 }
