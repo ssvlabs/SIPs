@@ -281,6 +281,10 @@ The weight depends on the cap value and the maximum score for $P_2$, defined as 
 
 $$w_2 = \frac{80}{cap_2}$$
 
+#### Drawbacks
+
+- This SIP makes the validator density in topics become less uniform and, thus, the message rate also becomes less uniform. Nonetheless, $P_2$ is a positive score component and is minimal in magnitude compared to the negative components. Thus, the message rate accuracy and consequent positive score fluctuations are not significant.
+
 ## Pre-requisites
 
 - SIP #45
