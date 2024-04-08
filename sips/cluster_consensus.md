@@ -62,24 +62,27 @@ type Cluster interface {
 }
 
 type Cluster struct {
-	ClusterRunners     map[spec.Slot]ClusterRunner
+	Runners     map[spec.Slot]ClusterRunner
+    Shares      map[ValidatorPubkey]Share
 	Network           Network
 	Beacon            BeaconNode
 	OperatorID        OperatorID
-	ClusterShares     [spec.ValidatorPubKey]ClusterShares
+	QBFTParams        QBFTParams
+    
 }
 
-// ClusterShare Partial Validator info needed for cluster duties
-type ClusterShare interface {
-	getSharePubKey()      []byte
-	getCommittee()        []*Operator
-	getQuorum()           uint64
-	getPartialQuorum() 	  uint64
-	getSigner()           BeaconSigner
-	// highestAttestingSlot holds the highest slot for which attester duty ran for a validator
-	highestAttestingSlot spec.Slot
+type QBFTParams interface {
+    Operators()        []OperatorID
+    Quorum()           uint64
+    PartialQuorum() 	  uint64
 }
 
+
+type Share struct {
+    // New field:
+	// HighestAttestingSlot holds the highest slot for which attester duty ran for a validator
+    HighestAttestingSlot spec.Slot
+}
 
 // ClusterRunner manages the duty cycle for a certain slot
 type ClusterRunner interface {
@@ -88,14 +91,14 @@ type ClusterRunner interface {
 	// Processes cosensus message
     ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
-	ProcessPostConsensus(msg ClusterSignaturesMessage) 
+    ProcessPostConsensus(msg PartialSignatureMessages) 
 }
 
 type ClusterRunner struct {
-	Share          *types.Share
+	Shares          map[ValidatorPubkey]Share
+    QBFTParams     QBFTParams
 	QBFTController *qbft.Controller
 	BeaconNetwork  *types.BeaconNetwork
-	Signer		   *types.BeaconSigner
 }
 
 // BeaconVote is the consensus data
@@ -103,20 +106,6 @@ type BeaconVote struct {
     BlockRoot         phase0.Root
     Source            phase0.Checkpoint
     Target            phase0.Checkpoint
-}
-
-// PartialSignature holds the ValidatorIndex, Root, and Signature
-type PartialSignature struct {
-    ValidatorIndex phase0.ValidatorIndex
-    Root phase0.Root // TODO: is it really needed?
-    Signature phase0.BLSSignature
-}
-
-// ClusterSignaturesMessage holds all PartialSignatures
-type ClusterSignaturesMessage struct {
-    Signer types.OperatorID
-    Attestations []PartialSignature
-    SyncCommitteeMessages []PartialSignature
 }
 
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
@@ -132,7 +121,41 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
         AggregationBits: bits,
     }
 }
+
+func ConstructSyncCommittee(vote BeaconVote, duty AttesterDuty) SyncCommitteeMessage{
+    return SyncCommitteeMessage
+    {
+        Slot: duty.Slot,
+        BlockRoot: vote.BlockRoot,
+        ValidatorIndex: duty.ValidatorIndex,
+    }
+}
 ```
+#### PartialSignatureMessages
+
+The current structure that we have in code can be unchanged.
+
+```go
+type PartialSignatureMessages struct {
+	Type     PartialSigMsgType
+	Slot     phase0.Slot
+	Messages []*PartialSignatureMessage
+}
+
+// PartialSignatureMessage is a msg for partial Beacon chain related signatures
+type PartialSignatureMessage struct {
+	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
+	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
+    Signer           OperatorID // TODO: there is an optimization where we don't have to duplicate this field
+}
+```
+
+We must have the following flow:
+1. When you `calculateExpectedRootsAndDomain` (similar to `sync_committee_aggregator`). Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
+2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`
+3. When processing the messages find all the roots that have quorums, mark them, and sumbit corresponding beacon data to beacon chain.
+4. For the next message received attempt to complete quorum for other roots.
+
 
 #### Happy Flow
 
@@ -140,6 +163,7 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
 2. `Cluster` receives consensus messages and hands them over `ClusterRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
 3.  Once `ProcessConsensus` decides, the `Cluster` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
 4. `Cluster` will process post-consensus partial signature messages and submit a beacon message for each validator.
+
 
 ### Stopping Runs
 
