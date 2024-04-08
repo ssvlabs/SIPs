@@ -67,8 +67,6 @@ type Cluster struct {
 	Beacon            BeaconNode
 	OperatorID        OperatorID
 	ClusterShares     [spec.ValidatorPubKey]ClusterShares
-	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
-	highestDecidedSlot spec.Slot
 }
 
 // ClusterShare Partial Validator info needed for cluster duties
@@ -78,6 +76,8 @@ type ClusterShare interface {
 	getQuorum()           uint64
 	getPartialQuorum() 	  uint64
 	getSigner()           BeaconSigner
+	// highestAttestingSlot holds the highest slot for which attester duty ran for a validator
+	highestAttestingSlot spec.Slot
 }
 
 
@@ -86,7 +86,7 @@ type ClusterRunner interface {
 	// Start the duty lifecycle for the given slot. Emits a message.
     StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
 	// Processes cosensus message
-    ProcessConsensus(consensusMessage *qbft.Message) ru error
+    ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
 	ProcessPostConsensus(msg ClusterSignaturesMessage) 
 }
@@ -137,6 +137,10 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
 ### Stopping Runs
 
 Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+
+### Omitting Partial Signatures
+
+If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `ClusterShare's` `highestAttestingSlot`, the `ClusterRunner` will omit the post-consesnus message for this validator. 
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
