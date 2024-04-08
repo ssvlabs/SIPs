@@ -84,7 +84,7 @@ type ClusterShare interface {
 // ClusterRunner manages the duty cycle for a certain slot
 type ClusterRunner interface {
 	// Start the duty lifecycle for the given slot. Emits a message.
-    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommit	teeDuties []*types.Duty) error
+    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
 	// Processes cosensus message
     ProcessConsensus(consensusMessage *qbft.Message) ru error
 	// Processes a post-consensus message
@@ -105,17 +105,12 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
-// PArtialSignaturesMessage is the message that contains all signatures for each validator for each root
+// PartialSignaturesMessage is the message that contains all signatures for each validator for each root
 type PartialSignaturesMessage struct {
-	// Attestation Section
-    AttestationRoot phase0.Root
     ValidatorIndices []phase0.ValidatorIndex
+    Roots []phase0.Root
     Signatures []phase0.BLSSignature
-	// SyncCommittee Section
-	SyncCommitteeRoot phase0.Root
-	ValidatorIndices []phase0.ValidatorIndex
-    Signatures []phase0.BLSSignature 
-} 
+}
 
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
     bits := bitfield.New(duty.CommitteeLength)
