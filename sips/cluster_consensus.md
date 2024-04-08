@@ -212,13 +212,57 @@ We note that the data needed for a consensus execution is the same for all valid
 
 `ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. This is because different views may cause [different shuffles](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_committee). Therefore we can rely on local view of `duty`, and keep the field empty. 
 
-### Consensus Message Validation
 
-## P2P Message Validation
+## P2P
+
+### Network Topology
+
+Previously, to communicate on behalf of a certain validator, the operators computed the topic ID in the following way:
+
+```go
+topicID := hexToUint64(validatorPKHex[:10]) % subnetsCount
+```
+
+Now, the messages are related to a committee (not to a specific validator). Thus, if we were to use the committee's validators' associated topics, we would be sending multiple equal messages on the network. To avoid that, we will start to use a topic associated with the committee. It can be computed in a way similar to the following:
+
+```go
+// sort
+sort.Slice(committee, func(i, j int) bool {
+	return committee[i] < committee[j]
+})
+// Convert to bytes
+bytes := make([]byte, len(committee)*4)
+for i, v := range committee {
+	binary.BigEndian.PutUint32(bytes[i*4:], uint32(v))
+}
+// Hash
+hashed := sha256.Sum256(bytes)
+
+// Convert to uint64
+hashUint64 := binary.BigEndian.Uint64(hashed[:])
+
+// Modulus 128
+return hashUint64 % 128
+```
+
+The above computation is deterministic, so every operator can know in advance the correct topic to communicate. Plus, the hash function adds uniformity, so that the topics are evenly populated.
+
+Notice that, even though non-aggregated duties (Proposal, Aggregator, Sync committee contribution, Validator registration, and Voluntary exit) don't gain improvements from the above method, they can also use it for consistency, with no drawbacks.
+
+#### Drawbacks
+
+- The uniformity of messages in topics is affected by two reasons:
+ 1. Since $|Committees| \leq |Validators|$, it's less probable that the uniform distribution of topic assignments is achieved (because we have fewer elements to distribute).
+ 2. In the previous version, the assignment of two validators to the same topic produced the same cost independently of the validators, e.g. each one's operators would need to listen to $\approx$ 1.02 more duties per epoch. Now, two committees assigned to the same topic produce a cost that is proportional to the committees' sizes. In other words, when two big committees (in terms of associated validators) collide in the hash%128 function, each will need to listen to many more messages compared to when two small committees collide. We rely on the uniformity property of the hash function to alleviate this hurdle.
+
+
+### Message Validation
 
 This duties transformation requires similar changes in message validation, namely:
   - Different consensus executions are tagged by the `MessageID`. This change would be propagated with no further issues. However, the `MessageID` is used to get the validator's public key and the duty's role which are used as an ID to store the consensus state. This must be changed to use the operators' committee and the duty's role, or even simply the `MessageID`.
 - Message validation limits the number of attestation duties per validator by using the validator's public key contained in the `MessageID`. This is no longer possible. A new limitation can be accomplished by checking the number of validators a cluster of operators is assigned to. If this number is less than 32 (the number of slots in an epoch), then we can limit the number of attestation duties of such cluster per epoch. The only exception would be if such a cluster is assigned to a sync committee duty (considering that we will indeed merge attestations and sync committee duties altogether in the same consensus execution).
+
+### GossipSub Scoring
 
 ## Pre-requisites
 
