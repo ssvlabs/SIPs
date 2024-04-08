@@ -66,9 +66,7 @@ type Cluster struct {
 	Network           Network
 	Beacon            BeaconNode
 	OperatorID        OperatorID
-	ClusterShares     map[spec.ValidatorPubKey]ClusterShares
-	// highestDecidedSlot holds the highest decided duty slot and gets updated after each decided is reached
-	highestDecidedSlot spec.Slot
+	ClusterShares     [spec.ValidatorPubKey]ClusterShares
 }
 
 // ClusterShare Partial Validator info needed for cluster duties
@@ -78,15 +76,17 @@ type ClusterShare interface {
 	getQuorum()           uint64
 	getPartialQuorum() 	  uint64
 	getSigner()           BeaconSigner
+	// highestAttestingSlot holds the highest slot for which attester duty ran for a validator
+	highestAttestingSlot spec.Slot
 }
 
 
 // ClusterRunner manages the duty cycle for a certain slot
 type ClusterRunner interface {
 	// Start the duty lifecycle for the given slot. Emits a message.
-    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommit	teeDuties []*types.Duty) error
+    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
 	// Processes cosensus message
-    ProcessConsensus(consensusMessage *qbft.Message) ru error
+    ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
 	ProcessPostConsensus(msg ClusterSignaturesMessage) 
 }
@@ -105,17 +105,19 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
-// PArtialSignaturesMessage is the message that contains all signatures for each validator for each root
-type PartialSignaturesMessage struct {
-	// Attestation Section
-    AttestationRoot phase0.Root
-    ValidatorIndices []phase0.ValidatorIndex
-    Signatures []phase0.BLSSignature
-	// SyncCommittee Section
-	SyncCommitteeRoot phase0.Root
-	ValidatorIndices []phase0.ValidatorIndex
-    Signatures []phase0.BLSSignature 
-} 
+// PartialSignature holds the ValidatorIndex, Root, and Signature
+type PartialSignature struct {
+    ValidatorIndex phase0.ValidatorIndex
+    Root phase0.Root // TODO: is it really needed?
+    Signature phase0.BLSSignature
+}
+
+// ClusterSignaturesMessage holds all PartialSignatures
+type ClusterSignaturesMessage struct {
+    Signer types.OperatorID
+    Attestations []PartialSignature
+    SyncCommitteeMessages []PartialSignature
+}
 
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
     bits := bitfield.New(duty.CommitteeLength)
@@ -142,6 +144,10 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
 ### Stopping Runs
 
 Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+
+### Omitting Partial Signatures
+
+If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `ClusterShare's` `highestAttestingSlot`, the `ClusterRunner` will omit the post-consesnus message for this validator. 
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
