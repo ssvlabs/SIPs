@@ -264,6 +264,23 @@ This duties transformation requires similar changes in message validation, namel
 
 ### GossipSub Scoring
 
+The only two groups of the GossipSub scoring parameters that depend on the expected message rate are $P_2$ and $P_3$. $P_3$ is currently switched off, so no change needs to be done on that end. $P_2$ regards increasing a peer score for its "first delivery" messages and counts with three parameters:
+ - A decay $d_2$
+ - A cap value ($cap_2$) for the counter
+ - A weight ($w_2$) to multiply the counter value and sum the result to the topic's score.
+
+The decay $d_2$ can stay the same (0.3162277660168379, which decays 1 to 0.01 in 4 epochs). The cap value is computed using the mesh target size, $D = 8$, and the expected message rate per decay interval, and it's defined as the convergence value if one keeps sending twice the number of messages it's expected to send. In other words,
+
+$$cap_2 = \frac{2m}{D} \times \frac{1}{(1-d_2)}$$
+
+The message rate for a validator per decay interval (one epoch), used to be calculated as $600/10000 \times (32 \times 12)$. To account for all validators in a topic, we multiply this value by $\frac{V}{32}$. Then, to account for the improvement of this change, considering that the message rate will drop to 15% of the current value, we multiply it by $0.15$ and, finally, we get
+
+$$cap_2 = \left( \frac{600}{10000} \times (32 \times 12) \times \frac{V}{128} \times 0.15 \right) \times \frac{1}{1-d_2}$$
+
+The weight depends on the cap value and the maximum score for $P_2$, defined as 80, and, thus,
+
+$$w_2 = \frac{80}{cap_2}$$
+
 ## Pre-requisites
 
 - SIP #45
