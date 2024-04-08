@@ -71,12 +71,13 @@ type Cluster struct {
 	highestDecidedSlot spec.Slot
 }
 
-// Partial Validator info needed for cluster duties
-type ClusterShare struct {
-	SharePubKey           []byte      `ssz-size:"48"`
-	Committee             []*Operator `ssz-max:"13"`
-	Quorum, PartialQuorum uint64
-	Signer                BeaconSigner
+// ClusterShare Partial Validator info needed for cluster duties
+type ClusterShare interface {
+	getSharePubKey()      []byte
+	getCommittee()        []*Operator
+	getQuorum()           uint64
+	getPartialQuorum() 	  uint64
+	getSigner()           BeaconSigner
 }
 
 
