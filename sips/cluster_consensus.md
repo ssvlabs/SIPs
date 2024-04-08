@@ -105,11 +105,18 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
-// PartialSignaturesMessage is the message that contains all signatures for each validator for each root
-type PartialSignaturesMessage struct {
-    ValidatorIndices []phase0.ValidatorIndex
-    Roots []phase0.Root
-    Signatures []phase0.BLSSignature
+// PartialSignature holds the ValidatorIndex, Root, and Signature
+type PartialSignature struct {
+    ValidatorIndex phase0.ValidatorIndex
+    Root phase0.Root // TODO: is it really needed?
+    Signature phase0.BLSSignature
+}
+
+// ClusterSignaturesMessage holds all PartialSignatures
+type ClusterSignaturesMessage struct {
+    Signer types.OperatorID
+    Attestations []PartialSignature
+    SyncCommitteeMessages []PartialSignature
 }
 
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
