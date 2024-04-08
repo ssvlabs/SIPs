@@ -188,7 +188,7 @@ An identifier for cluster must be added to `MessageID`.
 
 // Return a 48 bytes ID for the cluster of operators
 func getClusterID(operatorIDs []OperatorID) ClusterID {
-	// Create a 16 bytes constant prefix for cluters
+	// Create a 16 bytes constant prefix for clusters
 	const prefix = []byte{0x00}
 
 	// return the sha256 of the sortedIDs
