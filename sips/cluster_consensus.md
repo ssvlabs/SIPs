@@ -105,6 +105,18 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
+// PArtialSignaturesMessage is the message that contains all signatures for each validator for each root
+type PartialSignaturesMessage struct {
+	// Attestation Section
+    AttestationRoot phase0.Root
+    ValidatorIndices []phase0.ValidatorIndex
+    Signatures []phase0.BLSSignature
+	// SyncCommittee Section
+	SyncCommitteeRoot phase0.Root
+	ValidatorIndices []phase0.ValidatorIndex
+    Signatures []phase0.BLSSignature 
+} 
+
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
     bits := bitfield.New(duty.CommitteeLength)
     bits.Set(duty.ValidatorCommitteeIndex)
@@ -124,12 +136,12 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
 
 1. `Cluster` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `ClusterRunner` for the relevant Validators.
 2. `Cluster` receives consensus messages and hands them over `ClusterRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
-3. Once `ProcessConsensus` decides, the `Cluster` will create a post consensus message like before.
-4. `PartialSigRunner` will process post-consensus partial signature messages as before.
+3.  Once `ProcessConsensus` decides, the `Cluster` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
+4. `Cluster` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 ### Stopping Runs
 
-Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
