@@ -211,11 +211,28 @@ func getClusterID(committee []OperatorID) ClusterID {
 In order to route consensus messages to the correct consensus runner, the `ClusterID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
 
 
-
-
 #### Prefix Rationale
 
 The 16 bytes prefix we are creating elongates the `ClusterID` to 48 bytes. The same length as `ValidatorPublicKey`. It may seem like a waste of space, but due to SSZ encoding it will actually save 16 bytes when compared to using a variable size array.
+
+### Role
+
+Now a message can include data for both Attestation and SyncCommittee roles we will unify the `BeaconRole` for both.
+
+```go
+// List of roles
+const (
+	// Changed
+	BNRoleAttesterOrSyncCommittee BeaconRole = iota
+	BNRoleAggregator
+	BNRoleProposer
+	// BNRoleSyncCommittee is removed
+	BNRoleSyncCommitteeContribution
+
+	BNRoleValidatorRegistration
+	BNRoleVoluntaryExit
+)
+```
 
 ### MessageID
 
