@@ -309,11 +309,17 @@ This duties transformation requires a propagation of changes in message validati
 Regarding syntax, the rules can stay the same.
 
 Regarding semantics,
-  - If `SSVMessage.MsgID` contains a ClusterID, it should check if the ClusterID exists in the current network.
+  - If `SSVMessage.MsgID` contains a ClusterID (i.e. the role is attestation + sync committee) and if the ClusterID doesn't exist in the current network, it should ignore the message.
+  - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the ValidatorPublicKey or the ClusterID in the MessageID, it should ignore the message.
 
-Regarding duties specific rules,
-  - We can no longer limit a validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a cluster with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensuses from a cluster in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such cluster are doing sync committee duties in such epoch.
-  - Sync committee's restrictions on consensus for round 6 limit falls due to its aggregation to attestation. And, thus, the limit for it becomes the same as for attestation (12 rounds).
+Regarding duties' general rules,
+  - The duplicated partial signature rule (same validator, slot and type but different signing root or signature) now applies only to the Proposal, Aggregate, Sync Committee Contribution, Validator Registration and Voluntary Exit duties (since attestation and sync committee partial signature messages may include the same signing root.)
+  - If the same `ValidatorIndex` appears more than 2 times in `SignedPartialSignatureMessage.Message.Messages`, the message is rejected.
+
+Regarding duties' specific rules,
+  - The attestation's and sync committee's specific rules are dropped in favor of a common set of rules for the new duty type attestation + sync committee. Namely, the higher attestation limits are used (34 slots, 12 rounds).
+  - We can no longer limit a single validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a cluster with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensuses from a cluster in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such cluster are doing sync committee duties in the epoch.
+  - For the `BNRoleAttesterOrSyncCommittee` role, the number of signatures in a `PartialSignatureMessages` is limited to $2 * V$.
 
 Regarding implementation,
   - The `ConsensusState` is currently mapped by a `ConsensusID` that uses the validator public key and the role from the `MessageID`. Since `MessageID` will have a ClusterID, instead of a validator public key, for attestations and sync committees, the mapping of `ConsensusState` will need to change. We suggest either changing `ConsensusID` to encompass also a `ClusterID` or simply mapping `ConsensusState` by `MessageID`.
