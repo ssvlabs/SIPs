@@ -211,11 +211,6 @@ func getClusterID(committee []OperatorID) ClusterID {
 
 In order to route consensus messages to the correct consensus runner, the `ClusterID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
 
-
-#### Prefix Rationale
-
-The 16 bytes prefix we are creating elongates the `ClusterID` to 48 bytes. The same length as `ValidatorPublicKey`. It may seem like a waste of space, but due to SSZ encoding it will actually save 16 bytes when compared to using a variable size array.
-
 ### Role
 
 Now a message can include data for both Attestation and SyncCommittee roles we will unify the `BeaconRole` for both.
@@ -237,7 +232,7 @@ const (
 
 ### MessageID
 
-`ValidatorPublicKey` and `ClusterID` will be used interchangeably in `MessageID`. `Role` will change location because it is used to determine ID type.
+`ValidatorPublicKey` and `ClusterID` will be used interchangeably in `MessageID`. `Role` will change location because it is used to determine ID type.  `ClusterID` is 32 bytes long so it will be encoded with a `0x00` 16 bytes prefix to make it the same length as `ValidatorPublicKey`.
 
 ```go
 const (
@@ -246,14 +241,14 @@ const (
 	roleTypeSize     = 4
 	// CHANGE IN Positions
 	roleTypeStartPos =  domainStartPos + domainSize
-	receiverIDSize   = 48
-	receiverIDStartPos   = roleTypePos + roleTypeSize
+	senderIDSize   = 48
+	senderIDStartPos   = roleTypePos + roleTypeSize
 )
 
 // MessageID is used to identify and route messages to the right validator and Runner
 type MessageID [56]byte
 
-func (msg MessageID) GetDomain() []byte {
+func (msg MessageID) GetDomain() DomainType {
 	return msg[domainStartPos : domainStartPos+domainSize]
 }
 
@@ -262,8 +257,17 @@ func (msg MessageID) GetRoleType() BeaconRole {
 	return BeaconRole(binary.LittleEndian.Uint32(roleByts))
 }
 
-func (msg MessageID) GetRecipientID() []byte {
-	return msg[receiverIDStartPos : receiverIDStartPos+receiverIDSize]
+func (msg MessageID) GetSenderID() []byte {
+	return msg[senderIDStartPos : senderIDStartPos+senderIDSize]
+}
+
+func parseMessageID(messageID MessageID) (DomainType, BeaconRole, []byte) {
+	domain := messageID.GetDomain()
+	role := messageID.GetRoleType()
+	if role == BNRoleSyncCommitteeContribution {
+		return domain, BNRoleAttesterOrSyncCommittee, messageID.GetSenderID()[16:]
+	}
+	return domain, role, messageID.GetSenderID()
 }
 ```
 
