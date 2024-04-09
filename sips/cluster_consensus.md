@@ -53,10 +53,16 @@ For other duty roles the old design will remain.
 #### Code
 
 ```go
+// ClusterDuty implements Duty
+type ClusterDuty struct {
+	Slot         spec.Slot
+	BeaconDuties []*BeaconDuty
+}
+
 // Cluster is a cluster of a unique set of operators that run the same validator set
 type Cluster interface {
 	// Initializes and starts the runner for the duties for the given slot
-  	Start(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
+  	Start(duty Duty) error
 	// ProcessMessage processes a message routed to this Cluster
 	ProcessMessage(msg *types.SSVMessage)
 }
@@ -77,7 +83,7 @@ type QBFTParams interface {
     PartialQuorum() 	  uint64
 }
 
-
+=
 type Share struct {
     // New field:
 	// HighestAttestingSlot holds the highest slot for which attester duty ran for a validator
@@ -87,7 +93,7 @@ type Share struct {
 // ClusterRunner manages the duty cycle for a certain slot
 type ClusterRunner interface {
 	// Start the duty lifecycle for the given slot. Emits a message.
-    StartDuties(slot spec.Slot, attesterDuties []*types.Duty, syncCommitteeDuties []*types.Duty) error
+    StartDuty(duty Duty) error
 	// Processes cosensus message
     ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
