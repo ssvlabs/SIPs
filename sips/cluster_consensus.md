@@ -288,9 +288,19 @@ Notice that, even though non-aggregated duties (Proposal, Aggregator, Sync commi
 
 ### Message Validation
 
-This duties transformation requires similar changes in message validation, namely:
-  - Different consensus executions are tagged by the `MessageID`. This change would be propagated with no further issues. However, the `MessageID` is used to get the validator's public key and the duty's role which are used as an ID to store the consensus state. This must be changed to use the operators' committee and the duty's role, or even simply the `MessageID`.
-- Message validation limits the number of attestation duties per validator by using the validator's public key contained in the `MessageID`. This is no longer possible. A new limitation can be accomplished by checking the number of validators a cluster of operators is assigned to. If this number is less than 32 (the number of slots in an epoch), then we can limit the number of attestation duties of such cluster per epoch. The only exception would be if such a cluster is assigned to a sync committee duty (considering that we will indeed merge attestations and sync committee duties altogether in the same consensus execution).
+This duties transformation requires a propagation of changes in message validation.
+
+Regarding syntax, the rules can stay the same.
+
+Regarding semantics,
+  - If `SSVMessage.MsgID` contains a ClusterID, it should check if the ClusterID exists in the current network.
+
+Regarding duties specific rules,
+  - We can no longer limit a validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a cluster with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensuses from a cluster in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such cluster are doing sync committee duties in such epoch.
+  - Sync committee's restrictions on consensus for round 6 limit falls due to its aggregation to attestation. And, thus, the limit for it becomes the same as for attestation (12 rounds).
+
+Regarding implementation,
+  - The `ConsensusState` is currently mapped by a `ConsensusID` that uses the validator public key and the role from the `MessageID`. Since `MessageID` will have a ClusterID, instead of a validator public key, for attestations and sync committees, the mapping of `ConsensusState` will need to change. We suggest either changing `ConsensusID` to encompass also a `ClusterID` or simply mapping `ConsensusState` by `MessageID`.
 
 ### GossipSub Scoring
 
