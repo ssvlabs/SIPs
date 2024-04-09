@@ -108,6 +108,13 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
+// PartialSignatureMessage is a msg for partial Beacon chain related signatures (like partial attestation, block, randao sigs)
+type PartialSignatureMessage struct {
+	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
+	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
+	Signer           phase0.ValidatorIndex			// Changed from OperatorID
+}
+
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
     bits := bitfield.New(duty.CommitteeLength)
     bits.Set(duty.ValidatorCommitteeIndex)
@@ -153,7 +160,7 @@ type PartialSignatureMessage struct {
 We must have the following flow:
 1. When you `calculateExpectedRootsAndDomain` (similar to `sync_committee_aggregator`). Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
 2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`
-3. When processing the messages find all the roots that have quorums, mark them, and sumbit corresponding beacon data to beacon chain.
+3. When processing the messages find all the roots that have quorums for a certain validator, mark them, and sumbit corresponding beacon data to beacon chain.
 4. For the next message received attempt to complete quorum for other roots.
 
 
@@ -184,7 +191,7 @@ If in post-consensus stage for attestation duty, the duty's slot is lower than a
 An identifier for cluster must be added to `MessageID`.
 
 ```go
-type ClusterID [48]byte
+type ClusterID [32]byte
 
 // Return a 48 bytes ID for the cluster of operators
 func getClusterID(committee []OperatorID) ClusterID {
