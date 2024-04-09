@@ -193,7 +193,7 @@ An identifier for cluster must be added to `MessageID`.
 ```go
 type ClusterID [32]byte
 
-// Return a 48 bytes ID for the cluster of operators
+// Return a 32 bytes ID for the cluster of operators
 func getClusterID(committee []OperatorID) ClusterID {
 	// sort
 	sort.Slice(committee, func(i, j int) bool {
@@ -205,13 +205,7 @@ func getClusterID(committee []OperatorID) ClusterID {
 		binary.LittleEndian.PutUint32(bytes[i*4:], uint32(v))
 	}
 	// Hash
-	hashed := sha256.Sum256(bytes)
-
-	// Create a 16 bytes constant prefix for clusters
-	prefix := [16]byte{0x00}
-
-	// return the sha256 of the sortedIDs
-	return ClusterID(append(prefix[:], hashed[:]...))
+	return ClusterID(sha256.Sum256(bytes))
 }
 ```
 
