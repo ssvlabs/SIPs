@@ -184,19 +184,33 @@ If in post-consensus stage for attestation duty, the duty's slot is lower than a
 An identifier for cluster must be added to `MessageID`.
 
 ```go
-[48]byte ClusterID
+type ClusterID [48]byte
 
 // Return a 48 bytes ID for the cluster of operators
-func getClusterID(operatorIDs []OperatorID) ClusterID {
+func getClusterID(committee []OperatorID) ClusterID {
+	// sort
+	sort.Slice(committee, func(i, j int) bool {
+		return committee[i] < committee[j]
+	})
+	// Convert to bytes
+	bytes := make([]byte, len(committee)*4)
+	for i, v := range committee {
+		binary.LittleEndian.PutUint32(bytes[i*4:], uint32(v))
+	}
+	// Hash
+	hashed := sha256.Sum256(bytes)
+
 	// Create a 16 bytes constant prefix for clusters
-	const prefix = []byte{0x00}
+	prefix := [16]byte{0x00}
 
 	// return the sha256 of the sortedIDs
-	return ClusterID(prefix + sha256.Sum256(bytes(sorted(operatorIDs))))
+	return ClusterID(append(prefix[:], hashed[:]...))
 }
 ```
 
 In order to route consensus messages to the correct consensus runner, the `ClusterID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
+
+
 
 
 #### Prefix Rationale
@@ -256,23 +270,7 @@ topicID := hexToUint64(validatorPKHex[:10]) % subnetsCount
 Now, the messages are related to a committee (not to a specific validator). Thus, if we were to use the committee's validators' associated topics, we would be sending multiple equal messages on the network. To avoid that, we will start to use a topic associated with the committee. It can be computed in a way similar to the following:
 
 ```go
-// sort
-sort.Slice(committee, func(i, j int) bool {
-	return committee[i] < committee[j]
-})
-// Convert to bytes
-bytes := make([]byte, len(committee)*4)
-for i, v := range committee {
-	binary.BigEndian.PutUint32(bytes[i*4:], uint32(v))
-}
-// Hash
-hashed := sha256.Sum256(bytes)
-
-// Convert to uint64
-hashUint64 := binary.BigEndian.Uint64(hashed[:])
-
-// Modulus 128
-return hashUint64 % 128
+ topicID := binary.LittleEndian.Uint64(getClusterID(committee)) % subnetsCount
 ```
 
 The above computation is deterministic, so every operator can know in advance the correct topic to communicate. Plus, the hash function adds uniformity, so that the topics are evenly populated.
