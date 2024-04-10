@@ -64,7 +64,7 @@ type Cluster interface {
 	// Initializes and starts the runner for the duties for the given slot
   	Start(duty Duty) error
 	// ProcessMessage processes a message routed to this Cluster
-	ProcessMessage(msg *types.SSVMessage)
+	ProcessMessage(msg *signedSSVMessage *types.SignedSSVMessage)
 }
 
 type Cluster struct {
