@@ -142,7 +142,7 @@ The message container must also stop storing `SignedMessage` objects in favor of
 
 ### Partial signature message processing
 
-Currently, the partial signature processing functions accept a `SignedPartialSignatureMessage`. Now, it should accept a `SignedSSVMessage`. Similarly to the consensus module, it should assume that the message validation module already verified the RSA signature.
+Currently, the partial signature processing functions accept a `SignedPartialSignatureMessage`. Now, it should accept a `SignedSSVMessage`. Similarly to the consensus module, it should assume that the `Validator` module already verified the RSA signature.
 
 ### Validator
 
