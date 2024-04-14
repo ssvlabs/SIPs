@@ -59,7 +59,7 @@ type ClusterDuty struct {
 	BeaconDuties []*BeaconDuty
 }
 
-// Cluster is a cluster of a unique set of operators that run the same validator set
+// Cluster is a cluster of a unique set of operators that have shared validators
 type Cluster interface {
 	// Initializes and starts the runner for the duties for the given slot
   	Start(duty Duty) error
@@ -83,7 +83,6 @@ type QBFTParams interface {
     PartialQuorum() 	  uint64
 }
 
-=
 type Share struct {
     // New field:
 	// HighestAttestingSlot holds the highest slot for which attester duty ran for a validator
@@ -118,7 +117,7 @@ type BeaconVote struct {
 type PartialSignatureMessage struct {
 	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
 	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
-	Signer           phase0.ValidatorIndex			// Changed from OperatorID
+	ValidatorIndex           phase0.ValidatorIndex			// Changed from OperatorID
 }
 
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
@@ -159,7 +158,7 @@ type PartialSignatureMessages struct {
 type PartialSignatureMessage struct {
 	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
 	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
-    Signer           OperatorID // TODO: there is an optimization where we don't have to duplicate this field
+    ValidatorIndex   types.ValidatorIndex
 }
 ```
 
@@ -242,13 +241,13 @@ const (
 
 ```go
 const (
-	domainSize       = 4
-	domainStartPos   = 0
-	roleTypeSize     = 4
+	domainSize     = 4
+	domainStartPos = 0
+	roleTypeSize   = 4
 	// CHANGE IN Positions
-	roleTypeStartPos =  domainStartPos + domainSize
-	senderIDSize   = 48
-	senderIDStartPos   = roleTypePos + roleTypeSize
+	roleTypeStartPos = domainStartPos + domainSize
+	senderIDSize     = 48
+	senderIDStartPos = roleTypeStartPos + roleTypeSize
 )
 
 // MessageID is used to identify and route messages to the right validator and Runner
