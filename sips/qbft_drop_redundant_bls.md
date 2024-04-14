@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add an RSA signature check in the Validator level and drop the consequent redundant BLS verifications in QBFT.
+Add an RSA signature check in the Validator level, allowing the drop of consequent redundant BLS verifications in QBFT, and add an RSA signing util to the runners.
 
 ## Motivation
 
@@ -38,18 +38,18 @@ The cryptography costs of the duty's steps are shown below.
 
 ### QBFT
 
-The `BaseValidation` functions of each message type can be split into a `NoVerification` and a `WithVerification` versions. The `WithVerification` calls the `NoVerification` and performs the BLS verification.
+The `BaseValidation` functions of each message type can be split into a `IgnoreSignature` and a `VerifySignature` versions. The `VerifySignature` calls the `IgnoreSignature` and performs the BLS verification.
 
 So, for example, the *commit* base validation would become:
 ```go
-func baseCommitValidationWithVerification(
+func baseCommitValidationVerifySignature(
  	config IConfig,
  	signedCommit *SignedMessage,
  	height Height,
  	operators []*types.Operator,
  ) error {
 
- 	if err := baseCommitValidationNoVerification(signedCommit, height, operators); err != nil {
+ 	if err := baseCommitValidationIgnoreSignature(signedCommit, height, operators); err != nil {
  		return err
  	}
 
@@ -61,7 +61,7 @@ func baseCommitValidationWithVerification(
 }
 
 
- func baseCommitValidationNoVerification(
+ func baseCommitValidationIgnoreSignature(
  	signedCommit *SignedMessage,
  	height Height,
 	operators []*types.Operator,
@@ -117,7 +117,7 @@ Notice that these changes need to be implemented for:
 
 The *proposal* base validation can just drop the BLS verification since it's never nested by any other messages.
 
-The *Instance*'s `BaseMessageValidation` function should call the `NoVerification` version, while to validate justifications or decided messages, the ´WithVerification` version should be called.
+The *Instance*'s `BaseMessageValidation` function should call the `IgnoreSignature` version, while to validate justifications or decided messages, the ´VerifySignature` version should be called.
 
 ### Validator
 
@@ -154,15 +154,15 @@ func (v *Validator) ProcessMessage(signedSSVMessage *types.SignedSSVMessage) err
 		return errors.Wrap(err, "invalid SignedSSVMessage")
 	}
 
+	// Verify SignedSSVMessage's signature
+	if err := v.SignatureVerifier.Verify(signedSSVMessage, v.Share.Committee); err != nil {
+		return errors.Wrap(err, "SignedSSVMessage has an invalid signature")
+	}
+
 	// Decode the nested SSVMessage
 	msg := &types.SSVMessage{}
 	if err := msg.Decode(signedSSVMessage.Data); err != nil {
 		return errors.Wrap(err, "could not decode data into an SSVMessage")
-	}
-
-	// Verify SignedSSVMessage's signature
-	if err := v.SignatureVerifier.Verify(signedSSVMessage, v.Share.Committee); err != nil {
-		return errors.Wrap(err, "SignedSSVMessage has an invalid signature")
 	}
 
 	// Get runner
@@ -170,19 +170,19 @@ func (v *Validator) ProcessMessage(signedSSVMessage *types.SignedSSVMessage) err
 }
 ```
 
-This requires the `Operator` structure to hold a network public key. For that, we can change the `Operator` type in the following way:
+This requires the `Operator` structure to hold another public key. For that, we can change the `Operator` type in the following way:
 
 ```go
 // Operator represents an SSV operator node
 type Operator struct {
 	OperatorID    OperatorID
 	BeaconPubKey  []byte `ssz-size:"48"`
-	NetworkPubKey []byte `ssz-size:"294"` // New
+	OperatorPubKey []byte `ssz-size:"294"` // New
 }
 
-// GetNetworkPublicKey returns the network public key with which the node is identified with
-func (n *Operator) GetNetworkPublicKey() []byte {
-	return n.NetworkPubKey
+// GetOperatorPublicKey returns the network public key with which the node is identified with
+func (n *Operator) GetOperatorPublicKey() []byte {
+	return n.OperatorPubKey
 }
 
 ```
