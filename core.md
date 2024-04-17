@@ -10,4 +10,5 @@
 | [6](./sips/constant_qbft_timeout.md)  | Constant QBFT timeout      | open-for-discussion  |
 | [7](./sips/fork_support.md)           | Fork Support                | open-for-discussion  |
 | [8](./sips/pre_consensus_livness.md)                    | Pre-Consensus livness fix   | open-for-discussion  |
-| [9](./sips/qbft_drop_redundant_bls.md) | Drop redundant BLS in QBFT | open-for-discussion  |
+| [9](./sips/partial_signature_verification_aggregation.md) | Partial Signature Verification Aggregation | spec-merged |
+| [10](./sips/qbft_drop_redundant_bls.md) | Drop redundant BLS in QBFT | spec-merged  |
