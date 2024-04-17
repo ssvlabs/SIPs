@@ -1,6 +1,6 @@
 |     Author     |                   Title                    | Category |       Status        |    Date    |
 | -------------- | ------------------------------------------ | -------- | ------------------- | ---------- |
-| Matheus Franco | Partial Signature Verification Aggregation | Core     | open-for-discussion | 2024-03-19 |
+| Matheus Franco | Partial Signature Verification Aggregation | Core     | spec-merged | 2024-03-19 |
 
 [Discussion](https://github.com/bloxapp/SIPs/discussions/38)
 
