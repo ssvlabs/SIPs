@@ -1,14 +1,14 @@
 |     Author     |           Title            |  Category  |       Status        |    Date    |
 | -------------- | -------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco, Gal Rogozinski | Cluster consensus          | Core       | open-for-discussion | 2024-03-05 |
+| Matheus Franco, Gal Rogozinski | Committee consensus          | Core       | open-for-discussion | 2024-03-05 |
 
 ## Summary
 
-Aggregate `Attestation` and `Sync Committee` duties based on the cluster of operators and the duties' slot. 
+Aggregate `Attestation` and `Sync Committee` duties based on the committee of operators and the duties' slot. 
 
 ## Motivation
 
-With the current design, a cluster of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data. This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
+With the current design, a committee of operators associated with several validators may end up performing more than one attestation or sync committee duties on equivalent data. This proposal helps to decrease the number of messages exchanged in the network and the processing cost.
 
 ## Rationale
 
@@ -44,31 +44,31 @@ Again with Monte Carlo simulations using the Mainnet dataset, the number of atte
 
 ### Design
 
-Under the new design we will have a `Cluster` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
+Under the new design we will have a `Committee` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
 
-The `Cluster` will hold a `ClusterRunner` object for each slot it is running a beacon duty for.
+The `Committee` will hold a `CommitteeRunner` object for each slot it is running a beacon duty for.
 
 For other duty roles the old design will remain.
 
 #### Code
 
 ```go
-// ClusterDuty implements Duty
-type ClusterDuty struct {
+// CommitteeDuty implements Duty
+type CommitteeDuty struct {
 	Slot         spec.Slot
 	BeaconDuties []*BeaconDuty
 }
 
-// Cluster is a cluster of a unique set of operators that have shared validators
-type Cluster interface {
+// Committee is a committee of a unique set of operators that have shared validators
+type Committee interface {
 	// Initializes and starts the runner for the duties for the given slot
   	Start(duty Duty) error
-	// ProcessMessage processes a message routed to this Cluster
+	// ProcessMessage processes a message routed to this Committee
 	ProcessMessage(msg *signedSSVMessage *types.SignedSSVMessage)
 }
 
-type Cluster struct {
-	Runners     map[spec.Slot]ClusterRunner
+type Committee struct {
+	Runners     map[spec.Slot]CommitteeRunner
 	Shares      map[ValidatorPubkey]Share
 	Network           Network
 	Beacon            BeaconNode
@@ -88,8 +88,8 @@ type Share struct {
     HighestAttestingSlot spec.Slot
 }
 
-// ClusterRunner manages the duty cycle for a certain slot
-type ClusterRunner interface {
+// CommitteeRunner manages the duty cycle for a certain slot
+type CommitteeRunner interface {
 	// Start the duty lifecycle for the given slot. Emits a message.
     StartDuty(duty Duty) error
 	// Processes cosensus message
@@ -98,7 +98,7 @@ type ClusterRunner interface {
     ProcessPostConsensus(msg PartialSignatureMessages) 
 }
 
-type ClusterRunner struct {
+type CommitteeRunner struct {
 	Shares          map[ValidatorPubkey]Share
     QBFTParams     QBFTParams
 	QBFTController *qbft.Controller
@@ -170,19 +170,19 @@ We must have the following flow:
 
 #### Happy Flow
 
-1. `Cluster` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `ClusterRunner` for the relevant Validators.
-2. `Cluster` receives consensus messages and hands them over `ClusterRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
-3.  Once `ProcessConsensus` decides, the `Cluster` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
-4. `Cluster` will process post-consensus partial signature messages and submit a beacon message for each validator.
+1. `Committee` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `CommitteeRunner` for the relevant Validators.
+2. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
+3.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
+4. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 
 ### Stopping Runs
 
-Previously we have letted new validator duties stop the run for the previous duty. For a cluster this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+Previously we have letted new validator duties stop the run for the previous duty. For a committee this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
 
 ### Omitting Partial Signatures
 
-If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `ClusterShare's` `highestAttestingSlot`, the `ClusterRunner` will omit the post-consesnus message for this validator. 
+If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `CommitteeShare's` `highestAttestingSlot`, the `CommitteeRunner` will omit the post-consesnus message for this validator. 
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
@@ -190,15 +190,15 @@ If in post-consensus stage for attestation duty, the duty's slot is lower than a
 #### Attestation
 `CutOffRound = 12 \\ one epoch`
 
-### ClusterID
+### CommitteeID
 
-An identifier for cluster must be added to `MessageID`.
+An identifier for committee must be added to `MessageID`.
 
 ```go
-type ClusterID [32]byte
+type CommitteeID [32]byte
 
-// Return a 32 bytes ID for the cluster of operators
-func getClusterID(committee []OperatorID) ClusterID {
+// Return a 32 bytes ID for the committee of operators
+func getCommitteeID(committee []OperatorID) CommitteeID {
 	// sort
 	sort.Slice(committee, func(i, j int) bool {
 		return committee[i] < committee[j]
@@ -209,11 +209,11 @@ func getClusterID(committee []OperatorID) ClusterID {
 		binary.LittleEndian.PutUint32(bytes[i*4:], uint32(v))
 	}
 	// Hash
-	return ClusterID(sha256.Sum256(bytes))
+	return CommitteeID(sha256.Sum256(bytes))
 }
 ```
 
-In order to route consensus messages to the correct consensus runner, the `ClusterID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
+In order to route consensus messages to the correct consensus runner, the `CommitteeID` field will be included in the `MessageID` replacing `ValidatorPublicKey`.
 
 ### Role
 
@@ -236,7 +236,7 @@ const (
 
 ### MessageID
 
-`ValidatorPublicKey` and `ClusterID` will be used interchangeably in `MessageID`. `Role` will change location because it is used to determine ID type.  `ClusterID` is 32 bytes long so it will be encoded with a `0x00` 16 bytes prefix to make it the same length as `ValidatorPublicKey`.
+`ValidatorPublicKey` and `CommitteeID` will be used interchangeably in `MessageID`. `Role` will change location because it is used to determine ID type.  `CommitteeID` is 32 bytes long so it will be encoded with a `0x00` 16 bytes prefix to make it the same length as `ValidatorPublicKey`.
 
 ```go
 const (
@@ -296,7 +296,7 @@ topicID := hexToUint64(validatorPKHex[:10]) % subnetsCount
 Now, the messages are related to a committee (not to a specific validator). Thus, if we were to use the committee's validators' associated topics, we would be sending multiple equal messages on the network. To avoid that, we will start to use a topic associated with the committee. It can be computed in a way similar to the following:
 
 ```go
- topicID := binary.LittleEndian.Uint64(getClusterID(committee)) % subnetsCount
+ topicID := binary.LittleEndian.Uint64(getCommitteeID(committee)) % subnetsCount
 ```
 
 The above computation is deterministic, so every operator can know in advance the correct topic to communicate. Plus, the hash function adds uniformity, so that the topics are evenly populated.
@@ -317,8 +317,8 @@ This duties transformation requires a propagation of changes in message validati
 Regarding syntax, the rules can stay the same.
 
 Regarding semantics,
-  - If `SSVMessage.MsgID` contains a ClusterID (i.e. the role is attestation + sync committee) and if the ClusterID doesn't exist in the current network, it should ignore the message.
-  - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the ValidatorPublicKey or the ClusterID in the MessageID, it should ignore the message.
+  - If `SSVMessage.MsgID` contains a CommitteeID (i.e. the role is attestation + sync committee) and if the CommitteeID doesn't exist in the current network, it should ignore the message.
+  - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the ValidatorPublicKey or the CommitteeID in the MessageID, it should ignore the message.
 
 Regarding duties' general rules,
   - The duplicated partial signature rule (same validator, slot and type but different signing root or signature) now applies only to the Proposal, Aggregate, Sync Committee Contribution, Validator Registration and Voluntary Exit duties (since attestation and sync committee partial signature messages may include the same signing root.)
@@ -326,11 +326,11 @@ Regarding duties' general rules,
 
 Regarding duties' specific rules,
   - The attestation's and sync committee's specific rules are dropped in favor of a common set of rules for the new duty type attestation + sync committee. Namely, the higher attestation limits are used (34 slots, 12 rounds).
-  - We can no longer limit a single validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a cluster with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensus instances from a cluster in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such cluster are doing sync committee duties in the epoch.
+  - We can no longer limit a single validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a committee with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensus instances from a committee in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such committee are doing sync committee duties in the epoch.
   - For the `BNRoleAttesterOrSyncCommittee` role, the number of signatures in a `PartialSignatureMessages` is limited to $min(2 * V, V+SYNC\_COMMITTEE\_SIZE.)$.
 
 Regarding implementation,
-  - The `ConsensusState` is currently mapped by a `ConsensusID` that uses the validator public key and the role from the `MessageID`. Since `MessageID` will have a ClusterID, instead of a validator public key, for attestations and sync committees, the mapping of `ConsensusState` will need to change. We suggest either changing `ConsensusID` to encompass also a `ClusterID` or simply mapping `ConsensusState` by `MessageID`.
+  - The `ConsensusState` is currently mapped by a `ConsensusID` that uses the validator public key and the role from the `MessageID`. Since `MessageID` will have a CommitteeID, instead of a validator public key, for attestations and sync committees, the mapping of `ConsensusState` will need to change. We suggest either changing `ConsensusID` to encompass also a `CommitteeID` or simply mapping `ConsensusState` by `MessageID`.
 
 ### GossipSub Scoring
 
