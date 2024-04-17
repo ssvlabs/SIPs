@@ -69,12 +69,11 @@ type Cluster interface {
 
 type Cluster struct {
 	Runners     map[spec.Slot]ClusterRunner
-    Shares      map[ValidatorPubkey]Share
+	Shares      map[ValidatorPubkey]Share
 	Network           Network
 	Beacon            BeaconNode
 	OperatorID        OperatorID
-	QBFTParams        QBFTParams
-    
+	QBFTParams        QBFTParams    
 }
 
 type QBFTParams interface {
