@@ -62,30 +62,71 @@ type CommitteeDuty struct {
 // Committee is a committee of a unique set of operators that have shared validators
 type Committee interface {
 	// Initializes and starts the runner for the duties for the given slot
-  	Start(duty Duty) error
+  	StartDuty(duty Duty) error
 	// ProcessMessage processes a message routed to this Committee
 	ProcessMessage(msg *signedSSVMessage *types.SignedSSVMessage)
 }
 
 type Committee struct {
-	Runners     map[spec.Slot]CommitteeRunner
-	Shares      map[ValidatorPubkey]Share
-	Network           Network
-	Beacon            BeaconNode
-	OperatorID        OperatorID
-	QBFTParams        QBFTParams    
+	Runners                 map[spec.Slot]*CommitteeRunner
+	Operator                types.Operator
+	SignatureVerifier       types.SignatureVerifier
+	CreateRunnerFn          func() *CommitteeRunner
+	// Save the highest slot a validator attested to
+	HighestAttestingSlotMap map[types.ValidatorPK]spec.Slot
 }
 
-type QBFTParams interface {
-    Operators()        []OperatorID
-    Quorum()           uint64
-    PartialQuorum() 	  uint64
+// StartDuty starts a new duty for the given slot
+func (c Committee) StartDuty(duty types.CommitteeDuty) error {
+	// do we need slot?
+	if _, exists := c.Runners[duty.Slot]; exists {
+		return errors.New(fmt.Sprintf("CommitteeRunner for slot %d already exists", duty.Slot))
+	}
+	c.Runners[duty.Slot] = c.CreateRunnerFn()
+	validatorToStopMap := make(map[spec.Slot]types.ValidatorPK)
+	duty, validatorToStopMap, c.HighestAttestingSlotMap = FilterCommitteeDuty(duty, c.HighestAttestingSlotMap)
+	c.stopDuties(validatorToStopMap)
+	c.updateAttestingSlotMap(duty)
+	return c.Runners[duty.Slot].StartNewDuty(duty)
 }
 
+// Share holds all info about the validator share
+// All the operator related data moved to operator
 type Share struct {
-    // New field:
-	// HighestAttestingSlot holds the highest slot for which attester duty ran for a validator
-    HighestAttestingSlot spec.Slot
+	ValidatorIndex  phase0.ValidatorIndex
+	ValidatorPubKey ValidatorPK      `ssz-size:"48"`
+	SharePubKey     ShareValidatorPK `ssz-size:"48"`
+	Committee       []ShareMember    `ssz-max:"13"`
+	Quorum          uint64
+	FeeRecipientAddress [20]byte   `ssz-size:"20"`
+	Graffiti            []byte     `ssz-size:"32"`
+}
+
+// Operator represents an SSV operator node that is part of a committee
+type Operator struct {
+	OperatorID        OperatorID
+	ClusterID         ssv.ClusterID
+	SSVOperatorPubKey []byte `ssz-size:"294"`
+	Quorum, PartialQuorum uint64
+	// All the members of the committee
+	Committee []*CommitteeMember `ssz-max:"13"`
+}
+
+// CommitteeMember represents all data in order to verify a committee member's identity
+type CommitteeMember struct {
+	OperatorID        OperatorID
+	SSVOperatorPubKey []byte
+}
+
+// Duty interface
+type Duty interface {
+	DutySlot() spec.Slot
+}
+
+// CommitteeDuty aggregates attesting and sync committee duties
+type CommitteeDuty struct {
+	Slot         spec.Slot
+	BeaconDuties []*BeaconDuty
 }
 
 // CommitteeRunner manages the duty cycle for a certain slot
@@ -98,9 +139,11 @@ type CommitteeRunner interface {
     ProcessPostConsensus(msg PartialSignatureMessages) 
 }
 
+// Committee runner implements the old runner interface
 type CommitteeRunner struct {
+	// Important fields only
 	Shares          map[ValidatorPubkey]Share
-    QBFTParams     QBFTParams
+    Operator        Operator
 	QBFTController *qbft.Controller
 	BeaconNetwork  *types.BeaconNetwork
 }
@@ -144,7 +187,7 @@ func ConstructSyncCommittee(vote BeaconVote, duty AttesterDuty) SyncCommitteeMes
 ```
 #### PartialSignatureMessages
 
-The current structure that we have in code can be unchanged.
+The current structure that we have in code can be kept with small changes.
 
 ```go
 type PartialSignatureMessages struct {
@@ -153,16 +196,17 @@ type PartialSignatureMessages struct {
 	Messages []*PartialSignatureMessage
 }
 
-// PartialSignatureMessage is a msg for partial Beacon chain related signatures
+// PartialSignatureMessage is a msg for partial Beacon chain related signatures (like partial attestation, block, randao sigs)
 type PartialSignatureMessage struct {
 	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
 	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
-    ValidatorIndex   types.ValidatorIndex
+	Signer         OperatorID
+	ValidatorIndex phase0.ValidatorIndex	// addition
 }
 ```
 
 We must have the following flow:
-1. When you `calculateExpectedRootsAndDomain` (similar to `sync_committee_aggregator`). Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
+1. When you `calculateExpectedRootsAndBeaconObjects` (similar to `sync_committee_aggregator`). Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
 2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`
 3. When processing the messages find all the roots that have quorums for a certain validator, mark them, and sumbit corresponding beacon data to beacon chain.
 4. For the next message received attempt to complete quorum for other roots.
@@ -170,7 +214,45 @@ We must have the following flow:
 
 #### Happy Flow
 
-1. `Committee` receives duties that match a certain slot. If the slot is higher then `highestDecidedSlot` starts consensus for the relevant roles, and initializes a `CommitteeRunner` for the relevant Validators.
+1. `Committee` receives duties that match a certain slot. They `StartDuty` and filter the validators who have a higher `HighestAttestingSlot`. A `CommitteeRunner` for the relevant Validators and slot is initialized. For each validator that we start, mark its old beacon duties as stopped.
+```go
+// StartDuty starts a new duty for the given slot
+func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
+	if _, exists := c.Runners[duty.Slot]; exists {
+		return errors.New(fmt.Sprintf("CommitteeRunner for slot %d already exists", duty.Slot))
+	}
+	c.Runners[duty.Slot] = c.CreateRunnerFn()
+	validatorToStopMap := make(map[spec.Slot]types.ValidatorPK)
+	// Filter old duties based on highest attesting slot
+	duty, validatorToStopMap, c.HighestAttestingSlotMap = FilterCommitteeDuty(duty, c.HighestAttestingSlotMap)
+	// Stop validators with old duties
+	c.stopDuties(validatorToStopMap)
+	c.updateAttestingSlotMap(duty)
+	return c.Runners[duty.Slot].StartNewDuty(duty)
+}
+
+// FilterCommitteeDuty filters the committee duty. It returns the new duty, the validators to stop and the highest attesting slot map
+func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
+	*types.CommitteeDuty,
+	map[spec.Slot]types.ValidatorPK,
+	map[types.ValidatorPK]spec.Slot) {
+	validatorsToStop := make(map[spec.Slot]types.ValidatorPK)
+
+	for i, beaconDuty := range duty.BeaconDuties {
+		validatorPK := types.ValidatorPK(beaconDuty.PubKey)
+		slot, exists := slotMap[validatorPK]
+		if exists {
+			if slot < beaconDuty.Slot {
+				validatorsToStop[beaconDuty.Slot] = validatorPK
+				slot = beaconDuty.Slot
+			} else { // else don't run duty with old slot
+				duty.BeaconDuties[i] = nil
+			}
+		}
+	}
+	return duty, validatorsToStop, slotMap
+}
+```
 2. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
 3.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
 4. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
@@ -178,11 +260,14 @@ We must have the following flow:
 
 ### Stopping Runs
 
-Previously we have letted new validator duties stop the run for the previous duty. For a committee this is not a good idea and instead we will count on a tuned `CutOffRound` per duty to stop the instance.
+Previously we have letted new validator duties stop the run for the previous duty. Now we don't stop the runner but just mark certain validators as stopped and omit the partial sig emission for them.
 
 ### Omitting Partial Signatures
 
-If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `CommitteeShare's` `highestAttestingSlot`, the `CommitteeRunner` will omit the post-consesnus message for this validator. 
+If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `highestAttestingSlot`, the `CommitteeRunner` will omit the post-consesnus message for this validator. 
+
+### Cutoff Round
+We will also create a better Cutoff Round.
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
@@ -217,20 +302,22 @@ In order to route consensus messages to the correct consensus runner, the `Commi
 
 ### Role
 
-Now a message can include data for both Attestation and SyncCommittee roles we will unify the `BeaconRole` for both.
+This is used to route the message to the correct runner. Since `CommitteeRunner` has several beacone roles we will create a new `RunnerRole` in the MessageID.
 
 ```go
-// List of roles
-const (
-	// Changed
-	BNRoleAttesterOrSyncCommittee BeaconRole = iota
-	BNRoleAggregator
-	BNRoleProposer
-	// BNRoleSyncCommittee is removed
-	BNRoleSyncCommitteeContribution
+// TODO since this is on wire no real need to take 32 bits
+type RunnerRole int32
 
-	BNRoleValidatorRegistration
-	BNRoleVoluntaryExit
+const (
+	RoleCommittee RunnerRole = iota
+	RoleAggregator
+	RoleProposer
+	RoleSyncCommitteeContribution
+
+	RoleValidatorRegistration
+	RoleVoluntaryExit
+
+	RoleUnknown = -1
 )
 ```
 
@@ -256,7 +343,7 @@ func (msg MessageID) GetDomain() DomainType {
 	return msg[domainStartPos : domainStartPos+domainSize]
 }
 
-func (msg MessageID) GetRoleType() BeaconRole {
+func (msg MessageID) GetRoleType() RunnerRole {
 	roleByts := msg[roleTypeStartPos : roleTypeStartPos+roleTypeSize]
 	return BeaconRole(binary.LittleEndian.Uint32(roleByts))
 }
