@@ -155,13 +155,6 @@ type BeaconVote struct {
     Target            phase0.Checkpoint
 }
 
-// PartialSignatureMessage is a msg for partial Beacon chain related signatures (like partial attestation, block, randao sigs)
-type PartialSignatureMessage struct {
-	PartialSignature Signature `ssz-size:"96"` // The Beacon chain partial Signature for a duty
-	SigningRoot      [32]byte  `ssz-size:"32"` // the root signed in PartialSignature
-	ValidatorIndex           phase0.ValidatorIndex			// Changed from OperatorID
-}
-
 func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
     bits := bitfield.New(duty.CommitteeLength)
     bits.Set(duty.ValidatorCommitteeIndex)
