@@ -407,7 +407,7 @@ Regarding duties' general rules,
 Regarding duties' specific rules,
   - The attestation's and sync committee's specific rules are dropped in favor of a common set of rules for the new duty type attestation + sync committee. Namely, the higher attestation limits are used (34 slots, 12 rounds).
   - We can no longer limit a single validator to two attestation attempts per epoch. If we were to count only attestation, we could limit a committee with $V$ validators to do $2 \times V$ consensus per epoch. However, the fact the sync committee duties use the same consensus instances as attestations can force us to tolerate 32 consensus instances from a committee in an epoch. Thus, we suggest limiting by $2 \times V$ executions only with a condition check that no validators of such committee are doing sync committee duties in the epoch.
-  - For the `BNRoleAttesterOrSyncCommittee` role, the number of signatures in a `PartialSignatureMessages` is limited to $min(2 * V, V+SYNC\_COMMITTEE\_SIZE.)$.
+  - For the `RoleCommittee` role, the number of signatures in a `PartialSignatureMessages` is limited to $min(2 * V, V+SYNC\_COMMITTEE\_SIZE.)$.
 
 Regarding implementation,
   - The `ConsensusState` is currently mapped by a `ConsensusID` that uses the validator public key and the role from the `MessageID`. Since `MessageID` will have a CommitteeID, instead of a validator public key, for attestations and sync committees, the mapping of `ConsensusState` will need to change. We suggest either changing `ConsensusID` to encompass also a `CommitteeID` or simply mapping `ConsensusState` by `MessageID`.
