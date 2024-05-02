@@ -199,8 +199,8 @@ type PartialSignatureMessage struct {
 ```
 
 We must have the following flow:
-1. When you `calculateExpectedRootsAndBeaconObjects` (similar to `sync_committee_aggregator`). Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
-2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`
+1. Calculate `expectedRootsAndBeaconObjects()`. Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
+2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`, and `root` to `beaconObject`.
 3. When processing the messages find all the roots that have quorums for a certain validator, mark them, and submit corresponding beacon data to beacon chain.
 4. For the next message received attempt to complete quorum for other roots.
 
