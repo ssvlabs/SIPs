@@ -62,9 +62,9 @@ type CommitteeDuty struct {
 // Committee is a committee of a unique set of operators that have shared validators
 type Committee interface {
 	// Initializes and starts the runner for the duties for the given slot
-  	StartDuty(duty Duty) error
+  	StartDuty(duty CommitteeDuty) error
 	// ProcessMessage processes a message routed to this Committee
-	ProcessMessage(msg *signedSSVMessage *types.SignedSSVMessage)
+	ProcessMessage(msg *types.SignedSSVMessage)
 }
 
 type Committee struct {
