@@ -78,7 +78,6 @@ type Committee struct {
 
 // StartDuty starts a new duty for the given slot
 func (c Committee) StartDuty(duty types.CommitteeDuty) error {
-	// do we need slot?
 	if _, exists := c.Runners[duty.Slot]; exists {
 		return errors.New(fmt.Sprintf("CommitteeRunner for slot %d already exists", duty.Slot))
 	}
