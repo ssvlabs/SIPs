@@ -365,7 +365,7 @@ We note that the data needed for a consensus execution is the same for all valid
 
 ### Value Check
 
-Now that consensus handles value for multiple validators there is the issue that a value may be considered to be slashable by some validators but not by others. This can happen if some operators have different views of the ethereum chain. During the consensus value-check process we check whether a value is considered slashable by at least one of the validators. If so the check fails. Since we use one value for all validators, the `CommitteeIndex` takes a value of -1 to indicate this ambiguous state.
+Now that consensus handles value for multiple validators there is the issue that a value may be considered to be slashable by some validators but not by others. This can happen if some operators have different views of the ethereum chain. During the consensus value-check process we check whether a value is considered slashable by at least one of the validators. If so the check fails. Since we use one value for all validators, the `CommitteeIndex` takes a value of `MaxUInt64` to indicate this ambiguous state.
 
 ```go
 func BeaconVoteValueCheckF(
@@ -391,9 +391,9 @@ func BeaconVoteValueCheckF(
 		attestationData := &phase0.AttestationData{
 			Slot: slot,
 			// Consensus data is unaware of CommitteeIndex
-			// We use -1 to not run into issues with the duplicate value slashing check:
+			// We use MaxUInt64 to not run into issues with the duplicate value slashing check:
 			// (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch)
-			Index:           -1,
+			Index:           math.MaxUInt64,
 			BeaconBlockRoot: bv.BlockRoot,
 			Source:          bv.Source,
 			Target:          bv.Target,
