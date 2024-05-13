@@ -363,6 +363,53 @@ We note that the data needed for a consensus execution is the same for all valid
 `ConsensusData` currently holds the `duty` field to make sure that all committee members agree on committee information. However, if there is a difference between committee members there is no guarantee that a run will be triggered on the first place. This is because different views may cause [different shuffles](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#compute_committee). Therefore we can rely on local view of `duty`, and keep the field empty. 
 
 
+
+### Value Check
+
+Now that consensus handles value for multiple validators there is the issue that a value may be considered to be slashable by some validators but not by others. This can happen if some operators have different views of the ethereum chain. During the consensus value-check process we check whether a value is considered slashable by at least one of the validators. If so the check fails. Since we use one value for all validators, the `CommitteeIndex` takes a value of -1 to indicate this ambiguous state.
+
+```go
+func BeaconVoteValueCheckF(
+	signer types.BeaconSigner,
+	slot phase0.Slot,
+	sharePublicKeys []types.ShareValidatorPK,
+	estimatedCurrentEpoch phase0.Epoch,
+) qbft.ProposedValueCheckF {
+	return func(data []byte) error {
+		bv := types.BeaconVote{}
+		if err := bv.Decode(data); err != nil {
+			return errors.Wrap(err, "failed decoding beacon vote")
+		}
+
+		if bv.Target.Epoch > estimatedCurrentEpoch+1 {
+			return errors.New("attestation data target epoch is into far future")
+		}
+
+		if bv.Source.Epoch >= bv.Target.Epoch {
+			return errors.New("attestation data source >= target")
+		}
+
+		attestationData := &phase0.AttestationData{
+			Slot: slot,
+			// Consensus data is unaware of CommitteeIndex
+			// We use -1 to not run into issues with the duplicate value slashing check:
+			// (data_1 != data_2 and data_1.target.epoch == data_2.target.epoch)
+			Index:           -1,
+			BeaconBlockRoot: bv.BlockRoot,
+			Source:          bv.Source,
+			Target:          bv.Target,
+		}
+
+		for _, sharePublicKey := range sharePublicKeys {
+			if err := signer.IsAttestationSlashable(sharePublicKey, attestationData); err != nil {
+				return errors.Wrap(err, "slashable attestation")
+			}
+		}
+		return nil
+	}
+}
+```
+
 ## P2P
 
 ### Network Topology
