@@ -53,6 +53,40 @@ For other duty roles the old design will remain.
 #### Code
 
 ```go
+// Share holds all info about the validator share
+// All the operator related data moved to operator
+type Share struct {
+	ValidatorIndex  phase0.ValidatorIndex
+	ValidatorPubKey ValidatorPK      `ssz-size:"48"`
+	SharePubKey     ShareValidatorPK `ssz-size:"48"`
+	Committee       []ShareMember    `ssz-max:"13"`
+	Quorum          uint64
+	FeeRecipientAddress [20]byte   `ssz-size:"20"`
+	Graffiti            []byte     `ssz-size:"32"`
+}
+
+// ShareMember holds ShareValidatorPK and ValidatorIndex
+type ShareMember struct {
+	SharePubKey ShareValidatorPK `ssz-size:"48"`
+	Signer      OperatorID
+}
+
+// Operator represents an SSV operator node that is part of a committee
+type Operator struct {
+	OperatorID        OperatorID
+	CommitteeID         ssv.CommitteeID
+	SSVOperatorPubKey []byte `ssz-size:"294"`
+	Quorum, PartialQuorum uint64
+	// All the members of the committee
+	Committee []*CommitteeMember `ssz-max:"13"`
+}
+
+// CommitteeMember represents all data in order to verify a committee member's identity
+type CommitteeMember struct {
+	OperatorID        OperatorID
+	SSVOperatorPubKey []byte
+}
+
 // CommitteeDuty implements Duty
 type CommitteeDuty struct {
 	Slot         spec.Slot
@@ -83,38 +117,14 @@ func (c Committee) StartDuty(duty types.CommitteeDuty) error {
 	}
 	c.Runners[duty.Slot] = c.CreateRunnerFn()
 	validatorToStopMap := make(map[spec.Slot]types.ValidatorPK)
+	// FilterCommitteeDuty filters the committee duties by the slots given per validator.
+	// It stops the duties of the validators that have a slot lower than the one in the duty.
+	// It updates the slot map with the highest slot of the duties.
+	// It returns the filtered duties, the validators to stop and updated slot map.
 	duty, validatorToStopMap, c.HighestAttestingSlotMap = FilterCommitteeDuty(duty, c.HighestAttestingSlotMap)
 	c.stopDuties(validatorToStopMap)
 	c.updateAttestingSlotMap(duty)
 	return c.Runners[duty.Slot].StartNewDuty(duty)
-}
-
-// Share holds all info about the validator share
-// All the operator related data moved to operator
-type Share struct {
-	ValidatorIndex  phase0.ValidatorIndex
-	ValidatorPubKey ValidatorPK      `ssz-size:"48"`
-	SharePubKey     ShareValidatorPK `ssz-size:"48"`
-	Committee       []ShareMember    `ssz-max:"13"`
-	Quorum          uint64
-	FeeRecipientAddress [20]byte   `ssz-size:"20"`
-	Graffiti            []byte     `ssz-size:"32"`
-}
-
-// Operator represents an SSV operator node that is part of a committee
-type Operator struct {
-	OperatorID        OperatorID
-	ClusterID         ssv.ClusterID
-	SSVOperatorPubKey []byte `ssz-size:"294"`
-	Quorum, PartialQuorum uint64
-	// All the members of the committee
-	Committee []*CommitteeMember `ssz-max:"13"`
-}
-
-// CommitteeMember represents all data in order to verify a committee member's identity
-type CommitteeMember struct {
-	OperatorID        OperatorID
-	SSVOperatorPubKey []byte
 }
 
 // Duty interface
