@@ -87,33 +87,24 @@ type Operator struct {
 	SSVOperatorPubKey []byte
 }
 
-// CommitteeDuty implements Duty
-// Aggregates all beacon duties for a committee
+// CommitteeDuty aggregates all beacon duties for a committee
 type CommitteeDuty struct {
 	Slot         spec.Slot
 	BeaconDuties []*BeaconDuty
 }
 
+	
 // Committee is a committee of a unique set of operators that have shared validators
-type Committee interface {
-	// Initializes and starts the runner for the duties for the given slot
-  	StartDuty(duty CommitteeDuty) error
-	// ProcessMessage processes a message routed to this Committee
-	ProcessMessage(msg *types.SignedSSVMessage)
-}
-
 type Committee struct {
 	Runners                 map[spec.Slot]*CommitteeRunner
 	CommitteeMember          types.CommitteeMember
 	SignatureVerifier       types.SignatureVerifier
 	CreateRunnerFn          func() *CommitteeRunner
-	// Save the highest slot a validator attested to
-	HighestAttestingSlotMap map[types.ValidatorPK]spec.Slot
-}
 
-// Duty interface
-type Duty interface {
-	DutySlot() spec.Slot
+	// Initializes and starts the runner for the duties for the given slot
+  	StartDuty(duty CommitteeDuty) error
+	// ProcessMessage processes a message routed to this Committee
+	ProcessMessage(msg *types.SignedSSVMessage)
 }
 
 // CommitteeDuty aggregates attesting and sync committee duties
@@ -123,22 +114,19 @@ type CommitteeDuty struct {
 }
 
 // CommitteeRunner manages the duty cycle for a certain slot
-type CommitteeRunner interface {
-	// Start the duty lifecycle for the given slot. Emits a message.
-    StartDuty(duty Duty) error
-	// Processes cosensus message
-    ProcessConsensus(consensusMessage *qbft.Message) error
-	// Processes a post-consensus message
-    ProcessPostConsensus(msg PartialSignatureMessages) 
-}
-
-// Committee runner implements the old runner interface
 type CommitteeRunner struct {
 	// Important fields only
 	Shares          map[ValidatorPubkey]Share
     CommitteeMember CommitteeMember
 	QBFTController  *qbft.Controller
 	BeaconNetwork   *types.BeaconNetwork
+
+	// Start the duty lifecycle for the given slot. Emits a message.
+    StartDuty(duty CommitteeDuty) error
+	// Processes cosensus message
+    ProcessConsensus(consensusMessage *qbft.Message) error
+	// Processes a post-consensus message
+    ProcessPostConsensus(msg PartialSignatureMessages) 
 }
 
 // BeaconVote is the consensus data
@@ -200,7 +188,7 @@ We must have the following flow:
 
 #### Happy Flow
 
-1. `Committee` receives duties that match a certain slot. Then `StartDuty` and filter the validators who have a higher `HighestAttestingSlot`. Initialize a `CommitteeRunner` for the relevant Validators and slot. For each validator that we start, mark its old beacon duties as stopped.
+1. `Committee` receives duties that match a certain slot. Then `StartDuty` and initialize a `CommitteeRunner` for the relevant Validators and slot. 
 ```go
 // StartDuty starts a new duty for the given slot
 func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
@@ -208,52 +196,12 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 		return errors.New(fmt.Sprintf("CommitteeRunner for slot %d already exists", duty.Slot))
 	}
 	c.Runners[duty.Slot] = c.CreateRunnerFn()
-	validatorToStopMap := make(map[spec.Slot]types.ValidatorPK)
-	// Filter old duties based on highest attesting slot
-	duty, validatorToStopMap, c.HighestAttestingSlotMap = FilterCommitteeDuty(duty, c.HighestAttestingSlotMap)
-	// Stop validators with old duties
-	c.stopDuties(validatorToStopMap)
-	c.updateAttestingSlotMap(duty)
 	return c.Runners[duty.Slot].StartNewDuty(duty)
 }
 
-// FilterCommitteeDuty filters the committee duties by the slots given per validator.
-// It stops the duties of the validators that have a slot lower than the one in the duty.
-// It updates the slot map with the highest slot of the duties.
-// It returns the filtered duties, the validators to stop and updated slot map.
-func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
-	*types.CommitteeDuty,
-	map[spec.Slot]types.ValidatorPK,
-	map[types.ValidatorPK]spec.Slot) {
-	validatorsToStop := make(map[spec.Slot]types.ValidatorPK)
-
-	for i, beaconDuty := range duty.BeaconDuties {
-		validatorPK := types.ValidatorPK(beaconDuty.PubKey)
-		slot, exists := slotMap[validatorPK]
-		if exists {
-			if slot < beaconDuty.Slot {
-				validatorsToStop[beaconDuty.Slot] = validatorPK
-				slot = beaconDuty.Slot
-			} else { // else don't run duty with old slot
-				duty.BeaconDuties[i] = nil
-			}
-		}
-	}
-	return duty, validatorsToStop, slotMap
-}
-```
-2. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
-3.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
-4. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
-
-
-### Stopping Runs
-
-Previously we have letted new validator duties stop the run for the previous duty. Now we don't stop the runner but just mark certain validators as stopped and omit the partial sig emission for them.
-
-### Omitting Partial Signatures
-
-If in post-consensus stage for attestation duty, the duty's slot is lower than a validator's `highestAttestingSlot`, the `CommitteeRunner` will omit the post-consesnus message for this validator. 
+1. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
+2.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
+3. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 ### Cutoff Round
 We will also create a better Cutoff Round.
