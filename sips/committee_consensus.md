@@ -129,7 +129,7 @@ type CommitteeRunner struct {
     ProcessPostConsensus(msg PartialSignatureMessages) 
 }
 
-// BeaconVote is the consensus data
+// BeaconVote is the consensus data that is proposed by the QBFT leader for a CommitteeDuty
 type BeaconVote struct {
     BlockRoot         phase0.Root
     Source            phase0.Checkpoint
@@ -204,7 +204,8 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 3. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 ### Cutoff Round
-We will also create a better Cutoff Round.
+Previously new duties stopped consensus intsances. We cannot do that anymore since duties don't neccesarily map to specific validators. So we create a better Cutoff Round that will stop the consensus instance in a more sensible time. If the Sync Committee beacon message is longer than a slot tehn it won't enter the beacon chain.
+An Attestation has at most 2 epochs to be included. However since after round 8 we use a slow timeout, if after 4 additional change rounds the instance didn't decide then the chances of it deciding are very low.
 
 #### Sync Committee
 `CutOffRound = 4  \\ one slot`
