@@ -292,7 +292,6 @@ In order to route consensus messages to the correct consensus runner, the `Commi
 This is used to route the message to the correct runner. Since `CommitteeRunner` has several beacone roles we will create a new `RunnerRole` in the MessageID.
 
 ```go
-// TODO since this is on wire no real need to take 32 bits
 type RunnerRole int32
 
 const (
