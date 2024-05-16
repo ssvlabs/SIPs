@@ -72,22 +72,23 @@ type ShareMember struct {
 }
 
 // Operator represents an SSV operator node that is part of a committee
-type Operator struct {
+type CommitteeMember struct {
 	OperatorID        OperatorID
 	CommitteeID         ssv.CommitteeID
 	SSVOperatorPubKey []byte `ssz-size:"294"`
 	Quorum, PartialQuorum uint64
 	// All the members of the committee
-	Committee []*CommitteeMember `ssz-max:"13"`
+	Committee []*Operator `ssz-max:"13"`
 }
 
-// CommitteeMember represents all data in order to verify a committee member's identity
-type CommitteeMember struct {
+// Operator represents all data in order to verify a operator's identity
+type Operator struct {
 	OperatorID        OperatorID
 	SSVOperatorPubKey []byte
 }
 
 // CommitteeDuty implements Duty
+// Aggregates all beacon duties for a committee
 type CommitteeDuty struct {
 	Slot         spec.Slot
 	BeaconDuties []*BeaconDuty
@@ -103,7 +104,7 @@ type Committee interface {
 
 type Committee struct {
 	Runners                 map[spec.Slot]*CommitteeRunner
-	Operator                types.Operator
+	CommitteeMember          types.CommitteeMember
 	SignatureVerifier       types.SignatureVerifier
 	CreateRunnerFn          func() *CommitteeRunner
 	// Save the highest slot a validator attested to
@@ -135,9 +136,9 @@ type CommitteeRunner interface {
 type CommitteeRunner struct {
 	// Important fields only
 	Shares          map[ValidatorPubkey]Share
-    Operator        Operator
-	QBFTController *qbft.Controller
-	BeaconNetwork  *types.BeaconNetwork
+    CommitteeMember CommitteeMember
+	QBFTController  *qbft.Controller
+	BeaconNetwork   *types.BeaconNetwork
 }
 
 // BeaconVote is the consensus data
@@ -219,7 +220,8 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 // FilterCommitteeDuty filters the committee duties by the slots given per validator.
 // It stops the duties of the validators that have a slot lower than the one in the duty.
 // It updates the slot map with the highest slot of the duties.
-// It returns the filtered duties, the validators to stop and updated slot map.func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
+// It returns the filtered duties, the validators to stop and updated slot map.
+func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
 	*types.CommitteeDuty,
 	map[spec.Slot]types.ValidatorPK,
 	map[types.ValidatorPK]spec.Slot) {
