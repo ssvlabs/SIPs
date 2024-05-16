@@ -110,23 +110,6 @@ type Committee struct {
 	HighestAttestingSlotMap map[types.ValidatorPK]spec.Slot
 }
 
-// StartDuty starts a new duty for the given slot
-func (c Committee) StartDuty(duty types.CommitteeDuty) error {
-	if _, exists := c.Runners[duty.Slot]; exists {
-		return errors.New(fmt.Sprintf("CommitteeRunner for slot %d already exists", duty.Slot))
-	}
-	c.Runners[duty.Slot] = c.CreateRunnerFn()
-	validatorToStopMap := make(map[spec.Slot]types.ValidatorPK)
-	// FilterCommitteeDuty filters the committee duties by the slots given per validator.
-	// It stops the duties of the validators that have a slot lower than the one in the duty.
-	// It updates the slot map with the highest slot of the duties.
-	// It returns the filtered duties, the validators to stop and updated slot map.
-	duty, validatorToStopMap, c.HighestAttestingSlotMap = FilterCommitteeDuty(duty, c.HighestAttestingSlotMap)
-	c.stopDuties(validatorToStopMap)
-	c.updateAttestingSlotMap(duty)
-	return c.Runners[duty.Slot].StartNewDuty(duty)
-}
-
 // Duty interface
 type Duty interface {
 	DutySlot() spec.Slot
@@ -233,8 +216,10 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 	return c.Runners[duty.Slot].StartNewDuty(duty)
 }
 
-// FilterCommitteeDuty filters the committee duty. It returns the new duty, the validators to stop and the highest attesting slot map
-func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
+// FilterCommitteeDuty filters the committee duties by the slots given per validator.
+// It stops the duties of the validators that have a slot lower than the one in the duty.
+// It updates the slot map with the highest slot of the duties.
+// It returns the filtered duties, the validators to stop and updated slot map.func FilterCommitteeDuty(duty *types.CommitteeDuty, slotMap map[types.ValidatorPK]spec.Slot) (
 	*types.CommitteeDuty,
 	map[spec.Slot]types.ValidatorPK,
 	map[types.ValidatorPK]spec.Slot) {
