@@ -182,13 +182,15 @@ type PartialSignatureMessage struct {
 We must have the following flow:
 1. Calculate `expectedRootsAndBeaconObjects()`. Use the `duty` objects to reconstruct the proper beacon data objects (i.e. `Attestation`).
 2. The above calculation can be used to create a mapping of `ValidatorIndex` to `root`, and `root` to `beaconObject`.
-3. When processing the messages find all the roots that have quorums for a certain validator, mark them, and submit corresponding beacon data to beacon chain.
+3. When processing the messages find all the roots that have quorums for a certain validator, mark them, and submit corresponding beacon data to the beacon chain.
 4. For the next message received attempt to complete quorum for other roots.
 
+For the `CommitteeRunner`, we will have a different validation of partial signature messages than for other runners. Runners like `ProposerRunner` and `AggregatorRunner` can validate the `SigningRoot` since they know exactly its expected value. For the `CommitteeRunner`, the number of roots depends on the number of validators that the committee has. Such a state may be divergent between operators because we assume no synchronization on validator sets. Thus, we limit ourselves to the standard validation (e.g. correct identifier, the maximum possible number of roots and so on).
 
 #### Happy Flow
 
-1. `Committee` receives duties that match a certain slot. Then `StartDuty` and initialize a `CommitteeRunner` for the relevant Validators and slot. 
+1. `Committee` receives duties that match a certain slot. Then `StartDuty` and initialize a `CommitteeRunner` for the relevant Validators and slot.
+
 ```go
 // StartDuty starts a new duty for the given slot
 func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
@@ -198,10 +200,11 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 	c.Runners[duty.Slot] = c.CreateRunnerFn()
 	return c.Runners[duty.Slot].StartNewDuty(duty)
 }
+```
 
-1. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
-2.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
-3. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
+2. `Committee` receives consensus messages and hands them over `CommitteeRunner` that hands them over to the `QBFTController` that has unchanged logic. The only difference is `BeaconVote` is used as the ConsensusData object.
+3.  Once `ProcessConsensus` decides, the `Committee` will create a post consensus of PartialSignatureMessage that aggregates the beacon partial signature for all relevant validators.
+4. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 ### Cutoff Round
 Previously new duties stopped consensus intsances. We cannot do that anymore since duties don't neccesarily map to specific validators. So we create a better Cutoff Round that will stop the consensus instance in a more sensible time. If the Sync Committee beacon message is longer than a slot tehn it won't enter the beacon chain.
