@@ -57,17 +57,17 @@ For other duty roles the old design will remain.
 // All the operator related data moved to operator
 type Share struct {
 	ValidatorIndex  phase0.ValidatorIndex
-	ValidatorPubKey ValidatorPK      `ssz-size:"48"`
-	SharePubKey     ShareValidatorPK `ssz-size:"48"`
-	Committee       []ShareMember    `ssz-max:"13"`
+	ValidatorPubKey ValidatorPK      
+	SharePubKey     ShareValidatorPK
+	Committee       []ShareMember
 	Quorum          uint64
-	FeeRecipientAddress [20]byte   `ssz-size:"20"`
-	Graffiti            []byte     `ssz-size:"32"`
+	FeeRecipientAddress [20]byte
+	Graffiti            []byte
 }
 
 // ShareMember holds ShareValidatorPK and ValidatorIndex
 type ShareMember struct {
-	SharePubKey ShareValidatorPK `ssz-size:"48"`
+	SharePubKey ShareValidatorPK
 	Signer      OperatorID
 }
 
@@ -75,10 +75,11 @@ type ShareMember struct {
 type CommitteeMember struct {
 	OperatorID        OperatorID
 	CommitteeID         ssv.CommitteeID
-	SSVOperatorPubKey []byte `ssz-size:"294"`
+	SSVOperatorPubKey []byte
+	DomainType          DomainType
 	Quorum, PartialQuorum uint64
 	// All the members of the committee
-	Committee []*Operator `ssz-max:"13"`
+	Committee []*Operator
 }
 
 // Operator represents all data in order to verify a operator's identity
@@ -122,7 +123,7 @@ type CommitteeRunner struct {
 	BeaconNetwork   *types.BeaconNetwork
 
 	// Start the duty lifecycle for the given slot. Emits a message.
-    StartDuty(duty CommitteeDuty) error
+    StartDuty(duty CommitteeDuty, quorum uint64) error
 	// Processes cosensus message
     ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
