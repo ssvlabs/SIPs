@@ -88,13 +88,6 @@ type Operator struct {
 	SSVOperatorPubKey []byte
 }
 
-// CommitteeDuty aggregates all beacon duties for a committee
-type CommitteeDuty struct {
-	Slot         spec.Slot
-	BeaconDuties []*BeaconDuty
-}
-
-	
 // Committee is a committee of a unique set of operators that have shared validators
 type Committee struct {
 	Runners                 map[spec.Slot]*CommitteeRunner
