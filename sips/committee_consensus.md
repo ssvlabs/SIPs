@@ -407,15 +407,66 @@ The only two groups of the GossipSub scoring parameters that depend on the expec
  - A cap value ($cap_2$) for the counter
  - A weight ($w_2$) to multiply the counter value and sum the result to the topic's score.
 
-The decay $d_2$ can stay the same (0.3162277660168379, which decays 1 to 0.01 in 4 epochs). The cap value is computed using the mesh target size, $D = 8$, and the expected message rate per decay interval, and it's defined as the convergence value if one keeps sending twice the number of messages it's expected to send. In other words,
+The decay $d_2$ can stay the same (0.3162277660168379, which decays 1 to 0.01 in 4 epochs). The cap value is defined as the convergence value if one keeps sending twice the number of messages it's expected to send. Thus, it's computed using the mesh target size, $D = 8$, and the expected message rate per decay interval. In other words,
 
 $$cap_2 = \frac{2m}{D} \times \frac{1}{(1-d_2)}$$
 
-The message rate for a validator per decay interval (one epoch), used to be calculated as $600/10000 \times (32 \times 12)$. To account for all validators in a topic, we multiply this value by $\frac{V}{128}$. Then, to account for the improvement of this change, considering that the message rate will drop to 15% of the current value, we multiply it by $0.15$ and, finally, we get
+The message rate for a validator per decay interval (one epoch), used to be calculated as $600/10000 \times (32 \times 12)$. To account for all validators in a topic, we used to multiply this value by $\frac{V}{128}$. However, now, the number of validators in a topic is not uniform (so we can't use the $\frac{V}{128}$ estimation) and the message rate should be regarded as "by committee" instead of "by validator" since the number of messages depends on the aggregation of the committee's validators duties.
 
-$$cap_2 = \frac{2}{D} \times \left( \frac{600}{10000} \times (32 \times 12) \times \frac{V}{128} \times 0.15 \right) \times \frac{1}{1-d_2}$$
+Therefore, to compute the message rate for a certain topic, we need to get, as input, the list of committees and validators present in such a topic and adjust the calculation as the following script:
 
-The weight depends on the cap value and the maximum score for $P_2$, defined as 80, and, thus,
+```go
+// Expected number of committee duties per epoch due to attestation beacon duties given
+// the number of validators in the committee
+func expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators int) float64 {
+	k := float64(numValidators)
+	n := 32.0
+	return n * (1 - math.Pow((n-1)/n, k))
+}
+
+// Expected number of committee duties per epoch due to only
+// sync committee beacon duties (no attestations) given the
+// number of validators in the committee
+func expectedNumberOfSingleSCCommitteeDutiesPerEpoch(numValidators int) float64 {
+	chanceOfNotBeingInSyncCommittee := 1 - syncCommitteeProbability()
+	chanceThatAllValidatorsAreNotInSyncCommittee := math.Pow(chanceOfNotBeingInSyncCommittee, float64(numValidators))
+	chanceOfAtLeastOneValidatorBeingInSyncCommittee := 1 - chanceThatAllValidatorsAreNotInSyncCommittee
+
+	expectedSlotsWithNoDuty := 32 - expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators)
+
+	return chanceOfAtLeastOneValidatorBeingInSyncCommittee * expectedSlotsWithNoDuty
+}
+
+// Main: Expected message rate per epoch for a topic given the map: Committee -> Number of validators
+func expectedEpochMessageRate(committeeToNumberOfValidatorsMap map[Committee]int) float64 {
+	totalEpochMessageRate := float64(0)
+
+	for committee, numValidators := range committeeToNumberOfValidatorsMap {
+		committeeSize := committee.NumberOfOperators()
+
+		// Attestation
+		totalEpochMessageRate += expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators) * numMessagesForDutyWithoutPreConsensus(committeeSize)
+
+		// Sync committee
+		totalEpochMessageRate += expectedNumberOfSingleSCCommitteeDutiesPerEpoch(numValidators) * numMessagesForDutyWithoutPreConsensus(committeeSize)
+
+		// Aggregator
+		totalEpochMessageRate += float64(numValidators) * aggregatorProbability() * numMessagesForDutyWithPreConsensus(committeeSize)
+
+		// Proposal
+		totalEpochMessageRate += float64(numValidators) * 32 * proposalProbability() * numMessagesForDutyWithPreConsensus(committeeSize)
+
+		// Sync committee aggregator
+		totalEpochMessageRate += float64(numValidators) * 32 * syncCommitteeAggregatorProbability() * numMessagesForDutyWithPreConsensus(committeeSize)
+	}
+
+	return totalEpochMessageRate
+}
+```
+
+The above function will return the expected epoch message rate for the topic, $m$, which allows us to compute $cap_2$.
+
+The weight, $w_2$, depends on the cap value and the maximum score for $P_2$ (defined as 80). It's computed as:
 
 $$w_2 = \frac{80}{cap_2}$$
 
