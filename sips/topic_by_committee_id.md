@@ -48,7 +48,11 @@ func getCommitteeID(committee []OperatorID) CommitteeID {
 	// Hash
 	return CommitteeID(sha256.Sum256(bytes))
 }
-topicID := binary.LittleEndian.Uint64(getCommitteeID(committee)) % subnetsCount
+func CommitteeSubnet(cid spectypes.CommitteeID) int {
+    subnet := new(big.Int).Mod(new(big.Int).SetBytes(cid[:]), new(big.Int).SetUint64(subnetsCount))
+    return int(subnet.Int64())
+}
+topicID := CommitteeSubnet(getCommitteeID(committee))
 ```
 
 ## Performance impacts
