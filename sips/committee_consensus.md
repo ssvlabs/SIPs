@@ -43,12 +43,18 @@ Again with Monte Carlo simulations using the Mainnet dataset, the number of atte
 ## Spec changes
 
 ### Design
-
 Under the new design we will have a `Committee` object that will be the top level object in charge of processing consensus messages and partial signature messages for the attestation and sync committee roles.
 
 The `Committee` will hold a `CommitteeRunner` object for each slot it is running a beacon duty for.
 
 For other duty roles the old design will remain.
+
+### New Domain
+This is a fork and new domains must be added:
+
+```go
+	AlanMainnet    = DomainType{0x0, 0x0, MainnetNetworkID.Byte(), 0x1}
+	
 
 #### Code
 
