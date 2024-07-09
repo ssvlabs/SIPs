@@ -425,21 +425,41 @@ Therefore, to compute the message rate for a certain topic, we need to get, as i
 // Expected number of committee duties per epoch due to attestation beacon duties given
 // the number of validators in the committee
 func expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators int) float64 {
-	k := float64(numValidators)
-	n := 32.0
-	return n * (1 - math.Pow((n-1)/n, k))
+	k := float64(numValidators) // number of validators
+	n := 32.0 // slots
+	// Probability that all validators are not assigned to slot i
+	probabilityAllNotOnSlotI := math.Pow((n-1)/n, k)
+	// Probability that at least one validator is assigned to slot i
+	probabilityAtLeastOneOnSlotI := 1 - probabilityAllNotOnSlotI
+	// Expected value for duty existence ({0,1}) on slot i
+	expectedDutyExistenceOnSlotI := 0 * probabilityAllNotOnSlotI + 1 * probabilityAtLeastOneOnSlotI
+	// Expected number of duties per epoch
+	expectedNumberOfDutiesPerEpoch := n * expectedDutyExistenceOnSlotI
+
+	return expectedNumberOfDutiesPerEpoch
 }
 
 // Expected number of committee duties per epoch due to only
 // sync committee beacon duties (no attestations) given the
 // number of validators in the committee
 func expectedNumberOfSingleSCCommitteeDutiesPerEpoch(numValidators int) float64 {
+	// Probability that a validator is not in sync committee
 	chanceOfNotBeingInSyncCommittee := 1 - syncCommitteeProbability()
+	// Probability that all validators are not in sync committee
 	chanceThatAllValidatorsAreNotInSyncCommittee := math.Pow(chanceOfNotBeingInSyncCommittee, float64(numValidators))
+	// Probability that at least one validator is in sync committee
 	chanceOfAtLeastOneValidatorBeingInSyncCommittee := 1 - chanceThatAllValidatorsAreNotInSyncCommittee
 
-	expectedSlotsWithNoDuty := 32 - expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators)
+	// Number of committee duties if at least one validator is in sync committee
+	committeeDutiesPerEpochIfOneValidatorIsInSyncCommittee := 32
 
+	// Expected number of committee duties due to attestation
+	expectedCommitteeDutiesPerEpochDueToAttestation := expectedNumberOfCommitteeDutiesPerEpochDueToAttestation(numValidators)
+
+	// Number of committee duties per epoch created due to only sync committee duties
+	expectedCommitteeDutiesDueToOnlySyncCommittee := committeeDutiesPerEpochIfOneValidatorIsInSyncCommittee - expectedCommitteeDutiesPerEpochDueToAttestation
+
+	// Expected number of committee duties per epoch created due to only sync committee duties
 	return chanceOfAtLeastOneValidatorBeingInSyncCommittee * expectedSlotsWithNoDuty
 }
 
