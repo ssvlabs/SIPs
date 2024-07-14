@@ -53,7 +53,7 @@ For other duty roles the old design will remain.
 This is a fork and new domains must be added:
 
 ```go
-	AlanMainnet    = DomainType{0x0, 0x0, MainnetNetworkID.Byte(), 0x1}
+	AlanMainnet = DomainType{0x0, 0x0, MainnetNetworkID.Byte(), 0x1}
 ```
 
 #### Code
