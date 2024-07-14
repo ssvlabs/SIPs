@@ -43,7 +43,7 @@ func getCommitteeID(committee []OperatorID) CommitteeID {
 	// Convert to bytes
 	bytes := make([]byte, len(committee)*4)
 	for i, v := range committee {
-		binary.LittleEndian.PutUint32(bytes[i*4:], uint32(v))
+		binary.LittleEndian.PutUint64(bytes[i*4:], uint64(v))
 	}
 	// Hash
 	return CommitteeID(sha256.Sum256(bytes))
