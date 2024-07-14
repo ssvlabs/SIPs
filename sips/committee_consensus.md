@@ -71,7 +71,7 @@ type Share struct {
 	Graffiti            []byte
 }
 
-// ShareMember holds ShareValidatorPK and ValidatorIndex
+// ShareMember holds ShareValidatorPK and OperatorID
 type ShareMember struct {
 	SharePubKey ShareValidatorPK
 	Signer      OperatorID
