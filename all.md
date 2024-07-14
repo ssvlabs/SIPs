@@ -13,3 +13,4 @@
 | [9](./sips/partial_signature_verification_aggregation.md) | Partial Signature Verification Aggregation | spec-merged |
 | [10](./sips/qbft_drop_redundant_bls.md) | Drop redundant BLS in QBFT | spec-merged  |
 | [11](./sips/eliminate_bls.md) | Eliminate BLS out of QBFT and change message structure    | spec-merged |
+| [12](./sips/topic_by_committe_id.md) | Eliminate BLS out of QBFT and change message structure    | spec-merged |
