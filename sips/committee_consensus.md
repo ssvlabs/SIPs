@@ -77,7 +77,7 @@ type ShareMember struct {
 	Signer      OperatorID
 }
 
-// Operator represents an SSV operator node that is part of a committee
+// CommitteeMember represents an SSV operator node that is part of a committee
 type CommitteeMember struct {
 	OperatorID        OperatorID
 	CommitteeID         ssv.CommitteeID
