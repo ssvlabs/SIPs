@@ -359,31 +359,6 @@ func BeaconVoteValueCheckF(
 
 ## P2P
 
-### Network Topology
-
-Previously, to communicate on behalf of a certain validator, the operators computed the topic ID in the following way:
-
-```go
-topicID := hexToUint64(validatorPKHex[:10]) % subnetsCount
-```
-
-Now, the messages are related to a committee (not to a specific validator). Thus, if we were to use the committee's validators' associated topics, we would be sending multiple equal messages on the network. To avoid that, we will start to use a topic associated with the committee. It can be computed in a way similar to the following:
-
-```go
- topicID := binary.LittleEndian.Uint64(getCommitteeID(committee)) % subnetsCount
-```
-
-The above computation is deterministic, so every operator can know in advance the correct topic to communicate. Plus, the hash function adds uniformity, so that the topics are evenly populated.
-
-Notice that, even though non-aggregated duties (Proposal, Aggregator, Sync committee contribution, Validator registration, and Voluntary exit) don't gain improvements from the above method, they can also use it for consistency, with no drawbacks.
-
-#### Drawbacks
-
-- The uniformity of messages in topics is affected by two reasons:
- 1. Since $|Committees| \leq |Validators|$, it's less probable that the uniform distribution of topic assignments is achieved (because we have fewer elements to distribute).
- 2. In the previous version, the assignment of two validators to the same topic produced the same cost independently of the validators, e.g. each one's operators would need to listen to $\approx$ 1.02 more duties per epoch. Now, two committees assigned to the same topic produce a cost that is proportional to the committees' sizes. In other words, when two big committees (in terms of associated validators) collide in the hash%128 function, each will need to listen to many more messages compared to when two small committees collide. We rely on the uniformity property of the hash function to alleviate this hurdle.
-
-
 ### Message Validation
 
 This duties transformation requires a propagation of changes in message validation.
