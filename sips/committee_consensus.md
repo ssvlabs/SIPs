@@ -60,7 +60,7 @@ This is a fork and new domains must be added:
 
 ```go
 // Share holds all info about the validator share
-// All the operator related data moved to operator
+// NOTE: All the operator related data moved to operator
 type Share struct {
 	ValidatorIndex  phase0.ValidatorIndex
 	ValidatorPubKey ValidatorPK      
