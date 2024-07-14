@@ -209,11 +209,8 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 ### Cutoff Round
 Previously new duties stopped consensus intsances. We cannot do that anymore since duties don't neccesarily map to specific validators. So we create a better Cutoff Round that will stop the consensus instance in a more sensible time. If the Sync Committee beacon message is longer than a slot tehn it won't enter the beacon chain.
 An Attestation has at most 2 epochs to be included. However since after round 8 we use a slow timeout, if after 4 additional change rounds the instance didn't decide then the chances of it deciding are very low.
+Since consensus for data of both duties happen in a single process, the larger cutoff is chosen. 
 
-#### Sync Committee
-`CutOffRound = 4  \\ one slot`
-
-#### Attestation
 `CutOffRound = 12 \\ one epoch`
 
 ### CommitteeID
