@@ -21,58 +21,45 @@ Do not perform duties if the validator's effective balance is greater by more th
 
 ## Specification
 
-### Contract
-When registering new validators, add a new parameter to indicate the current effective balance of the validator being added. This will be used to update operators' [snapshots](https://github.com/ssvlabs/ssv-network/blob/583b7b7cb1c1abc5d4c3b13bafca59bf315113b6/contracts/interfaces/ISSVNetworkCore.sol#L10) with the right amounts, calculate the network fee applied to the validator, and emit the event with this information to allow the node confirm it.
+### Contract - track maxeb per cluster
 
+When registering new validators, add a new parameter to indicate the current effective balance of the total amount of validators being added. This will be used to update operators' [snapshots](https://github.com/ssvlabs/ssv-network/blob/583b7b7cb1c1abc5d4c3b13bafca59bf315113b6/contracts/interfaces/ISSVNetworkCore.sol#L10) with the right amounts, calculate the network fee applied to the cluster, and emit the event with this information to allow the node confirm it.
 
 #### Adapted functions
 
-```solidity
+```ts
 function registerValidator(
     bytes calldata publicKey,
     uint64[] memory operatorIds,
     bytes calldata sharesData,
-    uint256 ethEffectiveBalance, \\ This is new
+    uint256 clusterEB, // This is new
     uint256 amount,
     Cluster memory cluster
 ) external
 ```
-```solidity
+```ts
 function bulkRegisterValidator(
     bytes[] memory publicKeys,
     uint64[] memory operatorIds,
     bytes[] calldata sharesData,
-    uint256[] ethEffectiveBalance, \\ This is new
-    uint256 amount,
+    uint256 clusterEB, // This is new
+    uint256 amount, // SSV
     Cluster memory cluster
 ) external
 ```
 
-
-    
-#### Adapted event
-```solidity
-event ValidatorAdded(
-    address indexed owner,
-    uint64[] operatorIds,
-    bytes publicKey,
-    bytes shares,
-    uint256 ethEffectiveBalance, //This is new
-    Cluster cluster);
-```
 
 ### New functions
 
-```solidity
-// Function to update the effective balance for a set of validators
+```ts
+// Function to update the effective balance for a cluster
 function updateEthEffectiveBalance(
-    bytes[] memory publicKeys,
     uint64[] memory operatorIds,
-    uint256[] newEffectiveBalance,
+    uint256 clusterEB, // check lower type
     Cluster memory cluster
 ) external
 ```
-```solidity
+```ts
 // Function to update the maximum deviation allowed for the ETH 
 // balance declared by validator owners
 // @dev Using 10000 to represent 2 digit precision: 100% = 10000, 10% = 1000
@@ -80,24 +67,21 @@ function updateEthEffectiveBalance(
 function updateAllowedBalanceDeviation(uint64 percentage) external onlyOwner
 ```
 
-```solidity
+```ts
 // Function to get the maximum ETH balance deviation
 function getAllowedBalanceDeviation() 
     external view returns(uint64 percentage)
 ```
 
-
 ### New events
-  
-```solidity
-event ValidatorEffectiveBalanceUpdated(
+```ts
+event ebUpdated(
     address indexed owner,
     uint64[] operatorIds,
-    bytes publicKey,
-    uint256 newEffectiveBalance,
-    Cluster cluster);
+    uint256 clustereb);
 ```
-```solidity
+
+```ts
 event AllowedBalanceDeviationUpdated(uint64 percentage);
 ```
 
@@ -110,7 +94,7 @@ Operator earnings formula since snapshot:
 
 ### New implementation
 
-Earning for last snpashot + fees for one block
+Operator earnings for last snpashot + fees for one block.
 
 `((currentBlock - snapshotBlock) * (snapshotTotalETH / 32) * operatorFee)`
 
@@ -127,15 +111,60 @@ Where`snapshotTotalETH`: The total ETH declared by the validators managed by thi
 
 #### User should always report effective balance when depositing SSVs
 
-```solidity
+```ts
 function deposit(
     address clusterOwner,
     uint64[] calldata operatorIds,
     uint256 amount,
-    uint256 newEffectiveBalance,
+    uint256 clusterEB,
     Cluster memory cluster
 ) external
 ```
+
+### Fee management migration
+Each 32 ETH declared when registering new validators, removing, etc. can be taken as a fee unit of the current validators count for operators and network.
+
+These are the data structures to manage operator and network fees:
+```ts
+/// @notice Represents an SSV operator
+struct Operator {
+    /// @dev The number of validators associated with this operator
+    uint32 validatorCount;
+    /// @dev The fee charged by the operator
+    uint64 fee;
+    ...
+}
+
+/// @notice The count of validators governed by the DAO
+uint32 daoValidatorCount;
+/// @notice The current network fee value
+uint64 networkFee;
+```
+
+Using the formulas described before to calculate operator and network earnings, we can conclude that:
+
+`(snapshotTotalETH / 32)` is a representation of the actual `Operator.validatorCount` and `daoValidatorCount`. So 32 ETH declared is 1 fee unit.
+
+##### Register validators example
+Instead of using the number of keys being registered to update operators' and network snapshots and cluster metadata, the result of `declared maxEB / 32` will be used to calculate the fee units.
+
+##### Proposed naming changes
+```ts
+/// @notice Represents an SSV operator
+struct Operator {
+    /// @dev The number of fee units associated with this operator
+    uint32 feeUnits;
+    /// @dev The fee charged by the operator
+    uint64 fee;
+    ...
+}
+
+/// @notice The number of fee units governed by the DAO
+uint32 daoFeeUnits;
+/// @notice The current network fee value
+uint64 networkFee;
+```
+
 
 ### Node
 
