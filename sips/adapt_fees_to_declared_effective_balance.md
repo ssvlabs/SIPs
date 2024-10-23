@@ -165,25 +165,28 @@ uint32 daoFeeUnits;
 uint64 networkFee;
 ```
 
-
 ### Node
 
-Node should keep a table of the validator's effective balances reported by the contract's `AllowedDeviationUpdated` events.
+Node should keep a table of the validator's effective balances reported by the contract's `ebUpdated` events.
 This table is updated upon contract events reporting balance updates.
 
-When fetching duties for a validator, query the Eth node for its balance in the `Finalized` state. If the difference between the true balance and the effective balance reported by the user is larger than the allowed deviation do not execute the duty.
+When fetching duties for a validator, query the Eth node for its cluster balance in the `Finalized` state. If the difference between the true balance and the effective balance reported by the user is larger than the allowed deviation do not execute the duty.
 
 
 ```python
   def skipDuties(valPK ValidatorPublicKey, deviation_percentage float)
-    true_balance = GET /eth/v1/beacon/states/finalized/validator_balances?valPK
-    reported_eff_balance = getFromEvent(valPK)
-    true_balance = min(2048 ETH, true_balance)
+    // can be found from validator added event
+    ownerID, opIDs, valPks = getClusterAccordingToValidator(valPk)
+    true_balances = GET /eth/v1/beacon/states/finalized/validator_balances?valPKs
+    cluster_balance = sum(true_balances)
+    //get from ebUpdated Event
+    reported_cluster_balance = getReportedClusterBalance(ownerID, opIDs)
+    eff_cluster_balance = min(2048 ETH*sizeof(valPks), cluster_balance)
     # Skip duties if this statement hold
-    return RoundDown(true_balance) - reported_eff_balance > deviation_percentage * reported_eff_balance
+    return RoundDown(eff_cluster_balance) - reported_cluster_balance > deviation_percentage * reported_cluster_balance
 ```
 
-A committee consensus process should only be skipped if all paritciapting validators should be skipped.
+A committee consensus process should only be skipped if all participating validators should be skipped.
 
 Note: we use the actual balance and not effective balance since it is easy to query.
 
