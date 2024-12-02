@@ -21,7 +21,14 @@ To understand the performance impact, we compared two settings with the same num
 | Maximum operator message rate      | 30% lower  |
 | Average operator message rate      | 22% lower  |
 
-This behavior is expected. More validators per operator reduce the number of required operators and allow Committee Consensus to aggregate more duties. This promotes a reduction in the number of exchanged messages and non-committee message ratios. On the other hand, since the partial signature phase is the heaviest influence on the cryptography cost, increasing the cap from 500 to 1k inevitably increases the cryptography cost.
+This behavior is expected. More validators per operator reduce the number of required operators and allow Committee Consensus to aggregate more duties.
+This promotes a reduction in the number of exchanged messages and non-committee message ratios.
+On the other hand, since the partial signature phase is the heaviest influence on the cryptography cost,
+increasing the cap from 500 to 1k inevitably increases the cryptography cost.
+
+The difference between 20% (average between operators) and 80% (maximum operator) in the cryptography cost increase is due to the effects of Committee Consensus.
+Small and medium operators don't gain much from Committee Consensus, since the number of consensus instances increases linearly for a small number of validators.
+On the other hand, for large operators, the number of consensus instances stays fixed at 32 per epoch (despite the increase of validators).
 
 > [!NOTE]
 > With the Pectra fork, dropping the `CommitteeIndex` field in the attestation beacon object will allow an operator to verify all post-consensus signatures in constant time. In other terms, currently, due to different `CommitteeIndex`s, the complexity of signatures verification on the post-consensus phase is $\mathcal{O}(d)$, where $d$ is the number of duties. After the Pectra fork, it will become $\mathcal{O}(1)$, significantly reducing the overall cryptography cost.
