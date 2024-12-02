@@ -39,7 +39,7 @@ Letting $v$ as the number of validators per operator, to account for attestation
 
 $$v + max(512, v)$$
 
-Before we had $500 + max(512,500) = 1000$, now, we have $1000 + max(512,1000) = 1512$.
+Before we had $500 + min(512,500) = 1000$, now, we have $1000 + min(512,1000) = 1512$.
 
 Thus, we need to change the `PartialSignatureMessages` structure in the following way:
 
