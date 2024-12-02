@@ -44,7 +44,7 @@ Post-consensus messages may increase their average and maximum sizes as shown in
 The proposed change influences the number of signatures a post-consensus message may have.
 Letting $v$ as the number of validators per operator, to account for attestation and sync committee duties, the maximum number of signatures per message is computed as
 
-$$v + max(512, v)$$
+$$v + min(512, v)$$
 
 Before we had $500 + min(512,500) = 1000$, now, we have $1000 + min(512,1000) = 1512$.
 
