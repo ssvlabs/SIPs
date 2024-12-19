@@ -1,6 +1,6 @@
-|     Author     |               Title               | Category  |       Status        |    Date    |
-| -------------- | --------------------------------- | --------- | ------------------- | ---------- |
-| Matheus Franco | 1K cap on validators per operator | Contracts | open-for-discussion | 2024-11-28 |
+|     Author     |               Title               | Category  |   Status    |    Date    |
+| -------------- | --------------------------------- | --------- | ----------- | ---------- |
+| Matheus Franco | 1K cap on validators per operator | Contracts | spec-merged | 2024-11-28 |
 
 ## Summary
 
