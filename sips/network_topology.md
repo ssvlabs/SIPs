@@ -59,12 +59,11 @@ Regarding topics population, we have the following results.
 
 | Greedy vs. Topic by Committee ID | Mean        | Median   | Max        | Min     | 95th Percentile | 99th Percentile |
 |----------------------------------|-------------|----------|------------|---------|-----------------|-----------------|
-| Operators per topic              | 21 vs. 19   | 8 vs. 18 | 907 vs. 46 | 4 vs. 0 | 50 vs. 35       | 175 vs. 39      |
-| Topics per operator              | 2.5 vs. 2.3 | 1 vs. 1  | 89 vs. 66  | 1 vs. 1 | 5 vs. 5         | 45 vs. 39       |
+| Operators per topic              | 9.5 vs. 19   | 8 vs. 18 | 52 vs. 46 | 4 vs. 0 | 21 vs. 35       | 41 vs. 40      |
+| Topics per operator              | 1.2 vs. 2.3 | 1 vs. 1  | 6 vs. 66  | 1 vs. 1 | 2 vs. 5         | 4.4 vs. 40       |
 
-While, on average, the number of operators per topic is similar, the greedy's model median topic have less operators (8 vs. 18).
-The greedy model produces surprisingly big topics, with a maximum of 907 operators, in contrast to 46 of the current model.
-Also, on average, the greedy model makes operators listen to more topics.
+The proposed model produces a smaller topics on average (9.5 vs. 19) as well as a smaller median topic (8 vs. 18).
+Also, the proposed model makes operators listen to less topics.
 
 ### Scalability
 
