@@ -55,6 +55,17 @@ In the following table we summarizes the statistics comparison about these sampl
 We see that the mean and maximum costs were reduced, while the minimum one was increased.
 This behaviour is expected by the greedy model as it spreads the cost of over-compromised operators to idle ones.
 
+Regarding topics population, we have the following results.
+
+| Greedy vs. Topic by Committee ID | Mean        | Median   | Max        | Min     | 95th Percentile | 99th Percentile |
+|----------------------------------|-------------|----------|------------|---------|-----------------|-----------------|
+| Operators per topic              | 21 vs. 19   | 8 vs. 18 | 907 vs. 46 | 4 vs. 0 | 50 vs. 35       | 175 vs. 39      |
+| Topics per operator              | 2.5 vs. 2.3 | 1 vs. 1  | 89 vs. 66  | 1 vs. 1 | 5 vs. 5         | 45 vs. 39       |
+
+While, on average, the number of operators per topic is similar, the greedy's model median topic have less operators (8 vs. 18).
+The greedy model produces surprisingly big topics, with a maximum of 907 operators, in contrast to 46 of the current model.
+Also, on average, the greedy model makes operators listen to more topics.
+
 ### Scalability
 
 The biggest gain of the proposed model comes from the fact that the maximum operator cost doesn't increase much as the network increases (both in validators and operators), in contrast to the current model that degrades linearly.
