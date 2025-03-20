@@ -2,6 +2,23 @@
 | -------------- | -------------------------- | ---------- | ------------------- | ---------- |
 | Matheus Franco | Network Topology           | Network    | open-for-discussion | 2024-03-06 |
 
+## Table of Contents <!-- omit from toc -->
+- [Summary](#summary)
+- [Motivation](#motivation)
+- [Rationale](#rationale)
+- [Improvement](#improvement)
+	- [Scalability](#scalability)
+- [Algorithm](#algorithm)
+	- [Code](#code)
+	- [Committee Addition](#committee-addition)
+	- [Committee Removal](#committee-removal)
+- [Viability](#viability)
+- [History dependence and degradation](#history-dependence-and-degradation)
+- [Small topics mitigation techniques](#small-topics-mitigation-techniques)
+	- [Random participation](#random-participation)
+- [Open questions](#open-questions)
+
+
 ## Summary
 
 Modify the committee-topic assignment function using a greedy algorithm to minimize the number of non-committee messages an operator receives.
@@ -104,7 +121,10 @@ The second term corresponds to the fact that each topic operator not in the comm
 
 The algorithm follows in a greedy pattern inserting committees in topics with minimum cost.
 
-To initially fill in the topics, the algorithm sorts the committees according to their number of validators, and puts the spread the biggest 128 committees into the 128 topics. Then, it follows by adding each committee in a way that minimizes the cost function.
+To initially fill in the topics, the algorithm sorts the committees according to their number of validators, and puts the spread the biggest 128 committees into the 128 topics.
+Then, it follows by adding each committee in a way that minimizes the cost function.
+
+### Code
 
 Below, it's shown the algorithm in Go with complexity $\mathcal{O}(C \log C + T \times C)$ where $C$ is the number of committees, and $T$ the number of topics.
 
