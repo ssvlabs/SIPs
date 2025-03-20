@@ -294,11 +294,52 @@ This is already included in the implementation which sets the events to be proce
 
 Regarding condition (2), the operations in the transition function are well-defined and deterministic as seen above.
 
+## History dependence and degradation
+
 We must highlight that the model is not "history independent".
 I.e., it's not determined by the current state, but rather on the initial one and all events after it.
 I.e., letting $S_0$ be a state, $E$ an event, and $S_f = S_0 + E$, the algorithm doesn't necessarily provide the same output when executed on $S_f$ as when executed on $S_0$, and, then, processed $E$.
+This forces new users to be able to retrieve the initial state and process all new events after it, even if the same committee was added and later removed.
+
+A deeper observation is that this dependency is associated with a degrading performance.
+The algorithm's result on $S_0 + E_1 + E_2 + ... E_n$ is likely to be worse than its result if applied on the final state $S_f$, as the ordering done in the initialization would take into account removed committees.
+
+Both of these problems motivates us to, periodically, fully re-start the algorithm.
+Thus, we propose that every 100 epochs (or whenever the epoch number modulo 100 is 0), the previous epoch's state is considered as the initial state
+and the algorithm is re-started.
+The window of 100 epochs was choosen because the operation is costly and, thus, can't be too frequent.
+The previous epoch's state was chosen because the re-start epoch's state may be inconsistent between nodes.
+The operations between the previous epoch and the re-start epoch should be executed as normal operations.
+
+## Small topics mitigation techniques
+
+Similarly to the current model, the proposed model has the issue of producing very small topics, for example with 4 operators.
+A bigger topic is advisable as it increases the reliability of a node receiving a message.
+For example, two geographically distant nodes may have connection problems and intermediary nodes may help propagate a message.
+Moreover, more nodes in a network (or topic) usually represent a stronger defense against common attacks.
+Therefore, we present a technique to artifically increase the size of topics.
+
+### Random participation
+
+A possible solution to increase topics' size is to make each operator subscribe to a pre-defined number of extra random topics.
+Notice that this operation is done locally by each operator and no agreement on a certain state is required.
+
+The following charts show the result when each operator subscribe to 1 extra topic.
+
+<p align="center">
+<img src="./images/network_topology/greedy_with_random_cryptography_cost.png"  width="60%" height="30%">
+<img src="./images/network_topology/greedy_with_random_message_rate.png"  width="60%" height="30%">
+<img src="./images/network_topology/greedy_with_random_operators_per_topic.png"  width="60%" height="30%">
+</p>
+
+We can see that the maximum cryptography cost and message rate don't deviate much from the model's result,
+while the number of operators per topic is bigger and similar to the current model.
+A drawback is that, on average, the cryptography cost and message rate become considerably higher than the model's result.
 
 ## Open questions
 
 - Is there an efficient algorithm that is "history independent", i.e. only depends on the current state?
 - Are there more optimized addition and removal functions that are "stable" (i.e., doesn't impact other committees' assingments)?
+  - In short, we have more addition and removal alternatives that produce better results but they are not "stable", making the coordination an even more important problem.
+- Are there more mitigation techniques with better results?
+  - In short, we already have some better techniques but they require even further agreement on state.
