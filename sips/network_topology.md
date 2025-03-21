@@ -6,7 +6,7 @@
 - [Summary](#summary)
 - [Motivation](#motivation)
 - [Rationale](#rationale)
-- [Improvement](#improvement)
+- [Comparison](#comparison)
 	- [Scalability](#scalability)
 - [Algorithm](#algorithm)
 	- [Code](#code)
@@ -58,7 +58,7 @@ func GetCommitteeID(committee []OperatorID) CommitteeID {
 
 To avoid the hurdles of the random model, this SIP proposels a greedy model that attempts to put committees with similar operators on the same topic.
 
-## Improvement
+## Comparison
 
 We compared both models on the current Mainnet state which has 76k validators, 1k operators and 638 committees.
 As metrics, the cryptography cost and listened message rate were measured for each operator in both models.
@@ -82,6 +82,11 @@ Regarding topics population, we have the following results.
 The proposed model produces a smaller topics on average (9.5 vs. 19) as well as a smaller median topic (8 vs. 18).
 Also, the proposed model makes operators listen to less topics.
 
+A drawback of the proposed model is it requires maintaining a state. Even though state updates (due to committee adition or removal) are cheap, the initialization is a costly operation.
+The current model, on the other hand, simply requires a hash operation and no state is needed.
+To provide numbers, according to the simulation, the current model computed all topics in 0.002 ms, while the proposed model took 996 ms to initialize the state.
+
+
 ### Scalability
 
 The biggest gain of the proposed model comes from the fact that the maximum operator cost doesn't increase much as the network increases (both in validators and operators), in contrast to the current model that degrades linearly.
@@ -103,6 +108,14 @@ The next chart shows the increase of message rate for both models.
 According to the charts, the proposed model matches the original mean value for a network twice as big.
 Looking at the maximum statistics, the proposed model matches the original for a network 8x bigger.
 On the other hand, the minimum cost for the greedy model is always bigger due to its balancing nature.
+
+The execution time (in ms) of each simulation is shown in the next table.
+
+| Validators            | 76k   | 152k  | 228k   | 304k   | 456k   | 608k   |
+|-----------------------|-------|-------|--------|--------|--------|--------|
+| Topic by committee ID | 0.002 | 0.002 | 0.004  | 0.002  | 0.006  | 0.003  |
+| Greedy                | 996   | 4,780 | 12,221 | 23,457 | 48,426 | 91,626 |
+
 
 ## Algorithm
 
