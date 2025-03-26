@@ -21,7 +21,6 @@ The [commit-boost API](https://commit-boost.github.io/commit-boost-client/api) i
 type CommitBoostAPI interface {
     HandleGetPubkeys() ([]byte, error)
     HandleRequestSignature(keyType string, pubkey phase0.BLSPubKey, objectRoot phase0.Root) (phase0.BLSSignature, error)
-    // GetBlockHeader is for proposer duty
     HandleGenerateProxyKey(pubkey phase0.BLSPubKey, scheme string) ([]byte, error)
 }
 ```
@@ -32,9 +31,23 @@ type CommitBoostAPI interface {
 
 `HandleGenerateProxyKey()` returns a proxy key for a given proxy pubkey.
 
-This SIP considers only `HandleRequestSignature()`, which introduces a new commit boost signing duty.
+This SIP considers only `HandleRequestSignature()`, which introduces a new commit boost signing duty. `HandleGetPubkeys()` simply returns the public key of the validator, and `HandleGenerateProxyKey()` will be rejected.
 
 ## Specification
+### CommitBoostPartialSignatureMsgType MsgType
+The existing `msgID` used for route messages for other runners does not work for commit-boost signing runner, because the `msgID` assumes there is only one duty per slot per validator, which is not the case for commit-boost signing requests.
+
+Due to this reason, a new message type `CommitBoostPartialSignatureMsgType` is introduced on the wire to identify `CBPartialSignatures` for commit-boost signing duty runners. 
+```go
+type CBPartialSignatures struct {
+	RequestRoot phase0.Root `ssz-size:"32"`
+	PartialSig  PartialSignatureMessages
+}
+```
+
+The message contains a `PartialSignatureMessages` as other runners use, in addition, it contains the request root routing the message to the correct commit-boost signing duty runner. 
+
+
 ### Commit-Boost Signing Duty Runner
 This duty handles commit boost signing requests sent from the commit-boost API. 
 
@@ -46,31 +59,43 @@ type CBSigningRunner struct {
 	network        Network
 	signer         types.BeaconSigner
 	operatorSigner *types.OperatorSigner
+	valCheck       qbft.ProposedValueCheckF
 
 	requestRoot phase0.Root
+	requestSig  chan phase0.BLSSignature
 }
 ```
 
-The duty starts when a signing request is received at the operators' local commit boost module. All operators are expected to receive the same requests from the commit boost module at the same time. 
+When a runner is initialized, the `requestRoot` is set. One runner is only created to process one signing request. Once the runner finishes the duty and has the complete signature, `requestSig` will be filled.
 
 ```go
-func (r *PreconfRunner) executeDuty(duty types.CBSingingDuty) error {
-	r.requestRoot = duty.request.Root
+func (r *CBSigningRunner) executeDuty(duty types.Duty) error {
+	cbSigningDuty := types.CBSigningDuty{}
+	if cb, ok := duty.(*types.CBSigningDuty); ok {
+		cbSigningDuty = *cb
+	} else if cb, ok := duty.(types.CBSigningDuty); ok {
+		cbSigningDuty = cb
+	} else {
+		return errors.New("duty is not a CBSigningDuty")
+	}
+	request := cbSigningDuty.Request
 
-	msg, err := r.BaseRunner.signBeaconObject(r, r.BaseRunner.State.StartingDuty.(*types.ValidatorDuty), &r.requestRoot,
+	r.requestRoot = request.Root
+
+	msg, err := r.BaseRunner.signBeaconObject(r, &cbSigningDuty.Duty, &request,
 		duty.DutySlot(),
 		types.DomainCommitBoost)
 	if err != nil {
-		return errors.Wrap(err, "failed signing object root")
+		return errors.Wrap(err, "failed signing attestation data")
 	}
-    
+
 	preConsensusMsg := &types.PartialSignatureMessages{
-		Type:     types.PreconfPartialSig,
+		Type:     types.CBSigningPartialSig,
 		Slot:     duty.DutySlot(),
 		Messages: []*types.PartialSignatureMessage{msg},
 	}
 
-	CBPreConsensusMsg := &types.CBPartialSignature{
+	CBPreConsensusMsg := &types.CBPartialSignatures{
 		RequestRoot: r.requestRoot,
 		PartialSig:  *preConsensusMsg,
 	}
@@ -83,7 +108,7 @@ func (r *PreconfRunner) executeDuty(duty types.CBSingingDuty) error {
 	}
 
 	ssvMsg := &types.SSVMessage{
-		MsgType: types.SSVPartialSignatureMsgType,
+		MsgType: types.CommitBoostPartialSignatureMsgType,
 		MsgID:   msgID,
 		Data:    encodedMsg,
 	}
@@ -106,16 +131,14 @@ func (r *PreconfRunner) executeDuty(duty types.CBSingingDuty) error {
 }
 ```
 
-The request root is stored by the runner as the commit boost API request the root when submitting the signed request.
-
 As shown above, when the signing root (request root + commit boost domain) is broadcasted to other operators, the request root is also included in the message, in order to route the message to the correct runner.
 
 The runner uses the pre consensus phase to aggregate and return signed request.
 ```go
-func (r *PreconfRunner) ProcessPreConsensus(signedMsg *types.PartialSignatureMessages) error {
+func (r *CBSigningRunner) ProcessPreConsensus(signedMsg *types.PartialSignatureMessages) error {
 	quorum, roots, err := r.BaseRunner.basePreConsensusMsgProcessing(r, signedMsg)
 	if err != nil {
-		return errors.Wrap(err, "failed processing preconfirmation message")
+		return errors.Wrap(err, "failed processing commit-boost signing message")
 	}
 
 	if !quorum {
@@ -133,12 +156,9 @@ func (r *PreconfRunner) ProcessPreConsensus(signedMsg *types.PartialSignatureMes
 	specSig := phase0.BLSSignature{}
 	copy(specSig[:], fullSig)
 
-	if err := r.ReturnCommitment(specSig); err != nil {
-		return errors.Wrap(err, "could not answer signing request")
-	}
+	r.requestSig <- specSig
 
 	r.GetState().Finished = true
-	r.requestRoot = phase0.Root{}
 	return nil
 }
 ```
@@ -159,18 +179,51 @@ type ValidatorCommitBoost struct {
 }
 ```
 
+The duty starts when a signing request is received at the operators' local commit boost module. All operators are expected to receive the same requests from the commit boost module at the same time. 
+
+```go
+func (v *ValidatorCommitBoost) HandleRequestSignature(keyType string, pubkey types.ValidatorPK, objectRoot phase0.Root) (phase0.BLSSignature, error) {
+	// Proxy key is not supported currently
+	if keyType != "consensus" {
+		return phase0.BLSSignature{}, errors.New("invalid key type")
+	}
+
+	if pubkey != v.Share.ValidatorPubKey {
+		return phase0.BLSSignature{}, errors.New("invalid pubkey")
+	}
+
+	var signingDuty = types.CBSigningDuty{
+		Request: types.CBSigningRequest{
+			Root: objectRoot,
+		},
+		Duty: types.ValidatorDuty{
+			Slot:           v.BeaconNetwork.EstimatedCurrentSlot(),
+			ValidatorIndex: v.Share.ValidatorIndex,
+		},
+	}
+
+	err := v.StartDuty(signingDuty)
+	if err != nil {
+		return phase0.BLSSignature{}, errors.Wrap(err, "failed to start duty")
+	}
+
+	dutyRunner, exist := v.CBSigningRunners[objectRoot]
+	if !exist {
+		return phase0.BLSSignature{}, errors.Errorf("could not get duty runner for request %s", objectRoot.String())
+	}
+	sig := dutyRunner.GetSignature()
+
+	return sig, nil
+}
+```
+
 Unlike the `Validator` duty manager that routes duty to the an existing runner, the `ValidatorCommitBoost` duty manager creates a new commit-boost signing runner on receiving new signing request.
 
 ```go
-type PreconfDuty struct {
-	RequestRoot phase0.Root `ssz-size:"32"`
-	Slot        phase0.Slot `ssz-size:"8"`
-}
-
-func (v *ValidatorCommitBoost) StartDuty(duty types.PreconfDuty) error {
-	_, exist := v.PreconfRunners[duty.RequestRoot]
+func (v *ValidatorCommitBoost) StartDuty(duty types.CBSigningDuty) error {
+	_, exist := v.CBSigningRunners[duty.Request.Root]
 	if exist {
-		return errors.Errorf("duty runner for request %s already exists", duty.RequestRoot.String())
+		return errors.Errorf("duty runner for request %s already exists", duty.Request.Root.String())
 	}
 	shareMap := make(map[phase0.ValidatorIndex]*types.Share)
 	shareMap[v.Share.ValidatorIndex] = v.Share
@@ -178,7 +231,7 @@ func (v *ValidatorCommitBoost) StartDuty(duty types.PreconfDuty) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create new commit-boost signing runner")
 	}
-	v.CBSigningRunners[duty.RequestRoot] = dutyRunner
+	v.CBSigningRunners[duty.Request.Root] = dutyRunner
 	return dutyRunner.StartNewDuty(duty, v.CommitteeMember.GetQuorum())
 }
 ```
