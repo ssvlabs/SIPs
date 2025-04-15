@@ -18,6 +18,9 @@
 	- [Q3: What is the best performing viable model?](#q3-what-is-the-best-performing-viable-model)
 	- [Q4: What are the expected trade-offs of the best solution to the current model?](#q4-what-are-the-expected-trade-offs-of-the-best-solution-to-the-current-model)
 - [Conclusion](#conclusion)
+- [Greedy: Further Analysis](#greedy-further-analysis)
+	- [Processing Time Profile](#processing-time-profile)
+	- [Variations](#variations)
 
 
 ## Summary
@@ -242,3 +245,39 @@ For scalability on increasing solely the number of validators, the duties cost o
 
 Even though the model requires the maintainance of a state, it consists of cheap operations that shouldn't counter balance the improvements.
 As the model is unstable (in rare ocasions), synchronization issues on network events should be mitigated by the described techniques in this [section](#q2-what-is-the-viability-of-each-model).
+
+## Greedy: Further Analysis
+
+### Processing Time Profile
+
+The greedy algorithm is composed of two steps:
+- sorting the committees list ($O (C \times log C)$)
+- inserting each committee computing the cost for every topic ($O (C \times T)$)
+
+The next table shows the execution time profiling, in ms, for these two steps:
+
+| Scalability factor | 1    | 2    | 3    | 4    | 6    | 8    |
+|--------------------|------|------|------|------|------|------|
+| Sorting            | 0.69 | 1.54 | 2.73 | 3.3  | 4.9  | 8.5  |
+| Insertion          | 95   | 315  | 706  | 1250 | 2737 | 4846 |
+
+The insertion time completely dominates the sorting time.
+This is reasonable since $log(C) ~ 9$ against $T = 128$, and the insertion cost calculation is more costly than a comparison of committees.
+
+### Variations
+
+We analysed two variations in terms of how cost is computed:
+- `Cost:|Committees|`: the cost function takes into account the number of committees, instead of the number of validators. For insertion, this variation doesn't need to track the validators of a committee requiring less data to be stored, though the number of validators is used in the sorting phase.
+- `Cost:RealEstimation`: instead of the numebr of validators, the cost function uses the estimated non-committee cost of all committees given their number of validators and operators, taking into account committee consensus as well as single validator duties.
+
+`Cost:|Validators|` shall denote the original version of the greedy algorithm.
+
+<p align="center">
+<img src="./images/network_topology/greedy_variations/total_cryptography_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_variations/total_message_rate.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_variations/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_variations/initialization_time.png"  width="45%" height="30%">
+</p>
+
+- `Cost:RealEstimation` performs similarly to the original model, showing that the extra cost estimation step may be unnecessary.
+- `Cost:|Committees|` has a worse performance, close to `MaxReach`, probably due to the lack of information on the committees' sizes.
