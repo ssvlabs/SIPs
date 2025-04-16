@@ -16,7 +16,6 @@
 	- [Q1: How each model compares to the current model on cryptography cost, message rate, and topic size for increasing network sizes?](#q1-how-each-model-compares-to-the-current-model-on-cryptography-cost-message-rate-and-topic-size-for-increasing-network-sizes)
 	- [Q2: What is the viability of each model?](#q2-what-is-the-viability-of-each-model)
 	- [Q3: What is the best performing viable model?](#q3-what-is-the-best-performing-viable-model)
-	- [Q4: What are the expected trade-offs of the best solution to the current model?](#q4-what-are-the-expected-trade-offs-of-the-best-solution-to-the-current-model)
 - [Conclusion](#conclusion)
 - [Greedy: Further Analysis](#greedy-further-analysis)
 	- [Processing Time Profile](#processing-time-profile)
@@ -70,7 +69,6 @@ To guide the analysis, we defined the following questions:
 1. [How each model compares to the current model on cryptography cost, message rate, and topic size for increasing network sizes?](#q1-how-each-model-compares-to-the-current-model-on-cryptography-cost-message-rate-and-topic-size-for-increasing-network-sizes)
 2. [What is the viability of each model?](#q2-what-is-the-viability-of-each-model)
 3. [What is the best performing viable model?](#q3-what-is-the-best-performing-viable-model)
-4. [What are the expected trade-offs of the best solution to the current model?](#q4-what-are-the-expected-trade-offs-of-the-best-solution-to-the-current-model)
 
 ## Solution Classes
 
@@ -182,7 +180,7 @@ Then, we "copied and pasted" the network to create bigger samples, with 2x, 3x, 
 
 - Taking maximum cryptography cost as the scalability barrier, the greedy algorithm is the best performing one with a scalability factor of 8x. The MaxReach algorithm is the second best with a scalability factor of 5x. The same holds for message rate.
 - MaxReach and LowestID produce bigger topics when compared to the greedy algorithm, though they show empty topics until a network 4 times bigger.
-- The greedy algorithm is by far the most costly one due to its $O(C\, log C)$ complexity, where $C$ is the number of committees.
+- The greedy algorithm is the most costly one due to its $O(C\, log C + C \times T)$ complexity, where $C$ is the number of committees and $T$ the number of topics. However, the processing time is considerably low for the upcoming network sizes. For example, for a network twice as big, the processing time is equivalent to 8 BLS verifications.
 
 ### Q2: What is the viability of each model?
 
@@ -195,56 +193,26 @@ This is already included in the implementation which sets the events to be proce
 The greedy algorithm is history independent, and it would force new users to be able to retrieve the initial state and process all new events after it, even if the same committee was added and later removed.
 A deeper observation is that this dependency is associated with a degrading performance.
 The algorithm's result on $S_0 + E_1 + E_2 + ... + E_n$ is likely to be worse than its result if applied on the final state $S_f$, as the ordering done in the initialization would take into account removed committees.
-Both of these problems motivates a periodical re-initialization of the algorithm.
-For example, every 100 epochs, the previous epoch's state is considered as the initial state
-and the algorithm is restarted.
-A big window size is necessary because the initialization is a costly operation and, so, it shouldn't be too frequent.
-The previous epoch's state was chosen because the restart epoch's state may be inconsistent between nodes.
-The operations between the previous epoch and the restart epoch should be executed as normal operations.
+Both of these problems motivates a periodical re-initialization of the algorithm, i.e. setting a newest state as the initial state checkpoint.
+The simplest solution is to re-initialize every epoch.
+If this complexity is undesirable, idle periods can wait longer, e.g. 100 epochs, until the intial state is reset.
+As the new initial state, the previous epoch's state was chosen because the restarting epoch's state may be inconsistent between nodes.
 
 ### Q3: What is the best performing viable model?
 
-While the greedy algorithm is the best performing model, it also imposes high processing costs associated to its periodical re-initialization due to its history dependence and performance degradation.
+While the greedy algorithm is the best performing model, but it also imposes periodical re-initialization due to its history dependence and performance degradation.
 
-The MaxReach model, on the other hand, provides a decent performance with a fast processing.
-Its state maintaince requirement should be easily matched with the proposed mitigation for synchronization issues,
-and its unstability is considered rare as well as non-damaging due to the syncing assumptions.
-
-### Q4: What are the expected trade-offs of the best solution to the current model?
-
-We compared the MaxReach model against the current one on the default dataset with 76k validators.
-The metrics' improvements are summarized in the next table.
-
-| MaxReach / Current | Mean | Median | Max | Min  | 95th Percentile | 99th Percentile |
-|--------------------|------|--------|-----|------|-----------------|-----------------|
-| Cryptography cost  | 92%  | 92%    | 34% | 147% | 80%             | 59%             |
-| Message rate       | 75%  | 98%    | 33% | 292% | 113%            | 34%             |
-
-We see that the mean and maximum costs were reduced, while the minimum one was increased.
-This behaviour is expected as similar committees are grouped even if a committee has only 1 validator against another one with 1000.
-In the current model, these committees wouldn't necessarily be put together as the assignment is randomized.
-
-Regarding topics population, we have the following results.
-
-| Greedy vs. Topic by Committee ID | Mean        | Median   | Max        | Min     | 95th Percentile | 99th Percentile |
-|----------------------------------|-------------|----------|------------|---------|-----------------|-----------------|
-| Operators per topic              | 11 vs. 19   | 8 vs. 18 | 59 vs. 46 | 0 vs. 0 | 36 vs. 35       | 48 vs. 40      |
-| Topics per operator              | 1.3 vs. 2.3 | 1 vs. 1  | 12 vs. 66  | 1 vs. 1 | 3 vs. 5         | 10 vs. 40       |
-
-The MaxReach model produces a smaller topics on average (11 vs. 19) and makes operators listen to less topics.
-On the other hand, it creates a bigger maximum topic possibly due to an operator that participates in many committees.
-
-While the current model doesn't require state maintainance, the MaxReach model took 0.6 ms to create the state.
-As this is a one cost operation, and updates should be cheap, this is not considered a significant disadvantage.
+The MaxReach model, on the other hand, provides a decent performance with a faster processing, while not being history dependent, i.e. doesn't having to to re-initializations.
+Its unstability may be considered rare as well as non-damaging due to the syncing assumptions.
 
 ## Conclusion
 
-In order to solve the issues raised by the random assignment function, we propose the [MaxReach](#maxreach) model as it provides a 5x scalability boost.
+In order to solve the issues raised by the random assignment function,
+we propose the [Greedy](#greedy-algorithm) model as it provides a ~8x scalability boost.
 Note that this scalability dimension regards the network increase both in number of validators and operators.
 For scalability on increasing solely the number of validators, the duties cost on operators increases linearly and no network topology model can have an effect on it.
 
-Even though the model requires the maintainance of a state, it consists of cheap operations that shouldn't counter balance the improvements.
-As the model is unstable (in rare ocasions), synchronization issues on network events should be mitigated by the described techniques in this [section](#q2-what-is-the-viability-of-each-model).
+Even though the model requires the maintainance of a state, it consists of relatively cheap operations that shouldn't counter balance the improvements.
 
 ## Greedy: Further Analysis
 
@@ -254,14 +222,9 @@ The greedy algorithm is composed of two steps:
 - sorting the committees list ($O (C \times log C)$)
 - inserting each committee computing the cost for every topic ($O (C \times T)$)
 
-The next table shows the execution time profiling, in ms, for these two steps:
+From the execution time profile, the insertion time completely dominates the sorting one.
+For example, for a network 8x bigger, the sorting time was 300 $\mu s$ and the insertion took ~42 ms.
 
-| Scalability factor | 1    | 2    | 3    | 4    | 6    | 8    |
-|--------------------|------|------|------|------|------|------|
-| Sorting            | 0.69 | 1.54 | 2.73 | 3.3  | 4.9  | 8.5  |
-| Insertion          | 95   | 315  | 706  | 1250 | 2737 | 4846 |
-
-The insertion time completely dominates the sorting time.
 This is reasonable since $log(C) ~ 9$ against $T = 128$, and the insertion cost calculation is more costly than a comparison of committees.
 
 ### Variations
@@ -276,7 +239,6 @@ We analysed two variations in terms of how cost is computed:
 <img src="./images/network_topology/greedy_variations/total_cryptography_cost.png"  width="80%" height="30%">
 <img src="./images/network_topology/greedy_variations/total_message_rate.png"  width="80%" height="30%">
 <img src="./images/network_topology/greedy_variations/operators_per_topic.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_variations/initialization_time.png"  width="45%" height="30%">
 </p>
 
 - `Cost:RealEstimation` performs similarly to the original model, showing that the extra cost estimation step may be unnecessary.
