@@ -20,6 +20,8 @@
 - [Greedy: Further Analysis](#greedy-further-analysis)
 	- [Processing Time Profile](#processing-time-profile)
 	- [Variations](#variations)
+	- [Performance Degradation With Events](#performance-degradation-with-events)
+	- [Topic-Update Variant](#topic-update-variant)
 
 
 ## Summary
@@ -225,13 +227,14 @@ The greedy algorithm is composed of two steps:
 From the execution time profile, the insertion time completely dominates the sorting one.
 For example, for a network 8x bigger, the sorting time was 300 $\mu s$ and the insertion took ~42 ms.
 
-This is reasonable since $log(C) ~ 9$ against $T = 128$, and the insertion cost calculation is more costly than a comparison of committees.
+This is reasonable since $log(C) \approx 9$ against $T = 128$, and the insertion cost calculation is more costly than a comparison of committees.
 
 ### Variations
 
-We analysed two variations in terms of how cost is computed:
+We analysed three variations:
 - `Cost:|Committees|`: the cost function takes into account the number of committees, instead of the number of validators. For insertion, this variation doesn't need to track the validators of a committee requiring less data to be stored, though the number of validators is used in the sorting phase.
-- `Cost:RealEstimation`: instead of the numebr of validators, the cost function uses the estimated non-committee cost of all committees given their number of validators and operators, taking into account committee consensus as well as single validator duties.
+- `Cost:RealEstimation`: instead of the number of validators, the cost function uses the estimated non-committee cost of all committees given their number of validators and operators, taking into account committee consensus as well as single validator duties.
+- `Cost:NoSorting`: removes the sorting phase, jumping straight to the insertion phase.
 
 `Cost:|Validators|` shall denote the original version of the greedy algorithm.
 
@@ -243,3 +246,41 @@ We analysed two variations in terms of how cost is computed:
 
 - `Cost:RealEstimation` performs similarly to the original model, showing that the extra cost estimation step may be unnecessary.
 - `Cost:|Committees|` has a worse performance, close to `MaxReach`, probably due to the lack of information on the committees' sizes.
+- `Cost:NoSorting` has a slight worse performance until factor 6. The maximum topic size was considerably higher though. Since the sorting phase is cheap, it's worth maintaining it.
+
+### Performance Degradation With Events
+
+We evaluate the degradation of the greedy algorithm due to its history dependence.
+`Greedy` denotes the greedy algorithm executed considering the final system state as initial state, i.e. with no events.
+`G-YY` denotes the stable greedy algorithm executed considering the initial state as the one at the beginning of year `YY`, with the remaining state changes as events.
+Both on validator addition and removal, the stable greedy algorithm doesn't change the committee's topic assignment, unless the committee becomes empty (in the removal case).
+
+<p align="center">
+<img src="./images/network_topology/greedy_degradation/total_cryptography_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_degradation/total_message_rate.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_degradation/operators_per_topic.png"  width="80%" height="30%">
+</p>
+
+- Defining an initial state closer to the current date produces a better result.
+- Specifically, 2025 provides the best improvement gap. Also, it's the only one showing a better result against `MaxReach`.
+
+### Topic-Update Variant
+
+We also consider an variation, denoted `GU`, that attempts to improve on the state's change at the cost of changing the committee's assignment.
+When a validator is added to a committee, the committee's is removed from its original topic and re-assigned to the best one.
+The processing of a validator removal is left unchanged.
+Note that the algorithm doesn't become *unstable* since it only changes the topic assignment of the event's committee.
+
+The following shows simulations for increasing network sizes.
+
+<p align="center">
+<img src="./images/network_topology/greedy_topic_update/total_cryptography_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_topic_update/total_message_rate.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_topic_update/operators_per_topic.png"  width="80%" height="30%">
+</p>
+
+- `GU` provides a closer performance to `Greedy`, even with increasing network sizes.
+- In contrast to the higher maximum cryptography cost, `GU` provides a better performance for the minimum and average operators.
+- Regarding topics' sizes, `GU` creates bigger topics both for the maximum and minimum cases.
+
+
