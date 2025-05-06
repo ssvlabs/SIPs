@@ -5,41 +5,38 @@
 ## Table of Contents <!-- omit from toc -->
 - [Summary](#summary)
 - [Motivation](#motivation)
-- [Rationale](#rationale)
-- [Research Questions](#research-questions)
+- [Goal](#goal)
+- [Key Questions](#key-questions)
 - [Solution Classes](#solution-classes)
-- [Models](#models)
-	- [Greedy Algorithm](#greedy-algorithm)
-	- [MaxReach](#maxreach)
-	- [LowestID](#lowestid)
+- [Proposed Models](#proposed-models)
+	- [1. Greedy Algorithm](#1-greedy-algorithm)
+	- [2. MaxReach](#2-maxreach)
+	- [3. LowestID](#3-lowestid)
 - [Analysis](#analysis)
-	- [Q1: How each model compares to the current model on cryptography cost, message rate, and topic size for increasing network sizes?](#q1-how-each-model-compares-to-the-current-model-on-cryptography-cost-message-rate-and-topic-size-for-increasing-network-sizes)
-	- [Q2: What is the viability of each model?](#q2-what-is-the-viability-of-each-model)
-	- [Q3: What is the best performing viable model?](#q3-what-is-the-best-performing-viable-model)
-- [Conclusion](#conclusion)
-- [Greedy: Further Analysis](#greedy-further-analysis)
-	- [Processing Time Profile](#processing-time-profile)
-	- [Variations](#variations)
-	- [Performance Degradation With Events](#performance-degradation-with-events)
-	- [Topic-Update Variant](#topic-update-variant)
+	- [Q1: Performance](#q1-performance)
+	- [Q2: Viability](#q2-viability)
+		- [Greedy: Event Processing Performance](#greedy-event-processing-performance)
+		- [Greedy With Updates (`GU`)](#greedy-with-updates-gu)
+		- [Scalability of `GU`](#scalability-of-gu)
+- [Final Evaluation](#final-evaluation)
 
 
 ## Summary
 
-Modify the committee-topic assignment function to reduce the number of non-committee messages an operator receives.
+This SIP proposes a new method for assigning committees to topics, aiming to reduce the number of irrelevant (non-committee) messages operators must process.
 
 ## Motivation
 
-Currently, committees are assigned to topics in a random way.
-The function starts by taking as input the `CommitteeID` of the committee, which is the hash of the byte array that represents the committee's operators.
-Then, it converts the ID to an integer and returns it modulo 128.
+Currently, committee-to-topic assignment is random, using a hash of committee operators modulo 128:
 
 ```go
+// Bytes -> Int -> Modulo 128
 func CommitteeSubnet(cid spectypes.CommitteeID) uint64 {
 	subnet := new(big.Int).Mod(new(big.Int).SetBytes(cid[:]), bigIntSubnetsCount)
 	return subnet.Uint64()
 }
 
+// Operators -> Bytes -> Hash
 func GetCommitteeID(committee []OperatorID) CommitteeID {
 	// sort
 	sort.Slice(committee, func(i, j int) bool {
@@ -55,232 +52,201 @@ func GetCommitteeID(committee []OperatorID) CommitteeID {
 }
 ```
 
-Due to the hashing operation, this function behaves similarly to a random model.
-This causes operators participating in many committees to listen to several topics, having to process a considerable fraction of non-committee messages.
-Even though non-committee messages require less cryptographic processing, in total, they may represent a scalability barrier.
+This randomness forces operators active in many committees to listen to multiple topics and process many irrelevant messages, which limits scalability.
 
-## Rationale
+## Goal
 
-To solve the stated issue, the proposed model should take into account the similarity between committees, i.e. committees that share operators should be grouped together.
+Substitute for a model that groups committees that share operators into the same topics, so operators process fewer non-committee messages.
 
-## Research Questions
+## Key Questions
 
-In the following sections, we explore several models and compare them to the current one.
-To guide the analysis, we defined the following questions:
 <!-- no toc -->
-1. [How each model compares to the current model on cryptography cost, message rate, and topic size for increasing network sizes?](#q1-how-each-model-compares-to-the-current-model-on-cryptography-cost-message-rate-and-topic-size-for-increasing-network-sizes)
-2. [What is the viability of each model?](#q2-what-is-the-viability-of-each-model)
-3. [What is the best performing viable model?](#q3-what-is-the-best-performing-viable-model)
+1. [How do new models compare in cryptography cost, message rate, and topic sizes as the network scales?](#q1-performance)
+2. [Are the models practical?](#q2-viability)
+3. [Which model performs best overall?](#final-evaluation)
 
 ## Solution Classes
 
-Before proceeding to the proposed models, first, we have define important classes of solutions that will dictate the viability of the models.
+We classify models along three classes:
 
-The first classification regards the dependence on the whole state of the network:
-- *Stateless*: the assignemnt of a committee is independent of any other committee, i.e. it's independent of an state.
-- *Stateful*: the assignment of a committee is dependent on the other committees that belong to the network.
+- **Stateless vs Stateful**: Does the assignment depend only on the committee ID (stateless) or the whole network state (stateful)?
+- **Stable vs Unstable**: Does an event only affect its own committee assignment (stable) or others too (unstable)?
+- **History Independent vs Dependent**: Is the final assignment consistent regardless of event order?
 
-Committees may be created, destroyed, or have their number of validators changed.
-Therefore, we're faced with a dynamical problem, meaning that the assignment of committees are not final and may change over time.
-This gives rise to two classes of solutions:
-- *Stable*: the processing of an event will only change the assignment of the event's committee.
-- *Unstable*: events may change the assignemnt of other committees.
+## Proposed Models
 
-Another important property is whether processing events in different orders produce different outputs.
-This is encompassed in the following two classes:
-- *History independence*: the final state of the assignment function is only dependent on the current system's state. I.e. the initial system state and the order by which new events are processed are irrelevant.
-- *History dependence*: the final state of the assignment function depends on the initial system's state and the order by which new events are processed.
+### 1. Greedy Algorithm
 
-## Models
-
-### Greedy Algorithm
-
-This algorithm is based on a cost function that represents the burden on adding a committee to a topic. Let:
+This stateful algorithm minimizes assignment cost using an objective function. Let:
 - $v_c$ be the number of validators in the committee
 - $v_t$ be the number of validators in the topic
 - $O_c$ be the set of operators in the committee
 - $O_t$ be the set of operators in the topic
 
-The cost of adding the committee to such a topic is computed as:
+The cost to add a committee is:
 
 $$| O_c \setminus O_t | \times v_t + | O_t \setminus O_c | \times v_c$$
 
-The first term corresponds to the fact that each committee operator not in the topic will need to listen to all validators already added to the topic.
-The second term corresponds to the fact that each topic operator not in the committee will need to listen to all committee validators.
+This represents:
+- **1st term**: each committee operator - not in the topic - will need to listen to all validators already added to the topic.
+- **2nd term**: each topic operator not in the committee will need to listen to all committee validators.
 
-The algorithm follows in a greedy pattern inserting committees in topics with minimum cost.
-
-To initially fill in the topics, the algorithm sorts the committees according to their number of validators, and spreads the biggest 128 committees into the 128 topics.
-Then, it follows by adding each committee in a way that minimizes the cost function.
+**Initialization**:
+- Sort committees by validator count.
+- Assign the largest 128 committees to the 128 topics.
+- Insert remaining committees greedily into the topic minimizing the above cost.
 
 ```r
 procedure GREEDY_ALGORITHM(committees: set[Committee])
-	topics: map[Topic -> set[Committee]]
-
-	# Sort committees
-	sorted_committees = sort_committees_by_number_of_validators(committees) # in reverse order
-
-	# Insert biggest committees (from 0 to MAX_TOPICS - 1)
-	current_committee = 0
-	while current_committee < MAX_TOPICS and current_committee < len(sorted_committees):
-		topics[current_committee].add(sorted_committees[current_committee])
-		current_committee += 1
-
-	# For each remaining committee, insert it in the topic with minimal cost
-	while current_committee < len(sorted_committees):
-		best_topic = -1
-		best_topic_cost = -1
-		for topic in 0 ... MAX_TOPICS - 1:
-			cost = cost_of_adding_committee_to_topic(topics, topic, sorted_committees[current_committee])
-			if best_topic == -1
-				best_topic, best_topic_cost = topic, cost
-			else
-				if cost < best_topic_cost:
-					best_topic, best_topic_cost = topic, cost
-
-		topics[best_topic].add(sorted_committees[current_committee])
-		current_committee += 1
+	topics = empty map[Topic -> set[Committee]]
+	sorted = sort_committees_by_validator_count(committees)
+	for i in 0 .. min(MAX_TOPICS, len(sorted)) - 1:
+		topics[i].add(sorted[i])
+	for c in sorted[MAX_TOPICS:]:
+		best_topic = topic with minimal cost_of_adding_committee(c)
+		topics[best_topic].add(c)
 ```
 
-For dealing with events:
-- the removal of a committee works by simply removing the committee from the topic.
-- the addition of a new committee works similarly to the addition of the remaining committees.
-- in case a committee changes its number of validators, no assignment changes.
+**Event Handling**:
 
-This model is stateful, stable and history dependent.
+- Adding a new committee: assign using insertion logic.
+- Adding validators in existing committees: no topic change.
+- Removing validators: no topic change, unless the committee is empty and, in that case, it's removed.
 
-### MaxReach
+**Properties**: Stateful, stable, history-dependent.
 
-This model holds a state with all network operators linked to the number of active committees it participates.
-This map shows how well connected through committees an operator is.
-The model explores this idea by setting the topic for a committee to be defined by the operator with largest map value.
-Similarly to the current model, it's computed the hash of the operator ID and then it's converted to an integer modulo 128.
+### 2. MaxReach
 
-This model is stateful and history independent, as it only depends on the current state.
-It shouldn't be very common, but the addition of a committee changes the map value for its operator, which may cause another committee to have a new operator as the one with maximum reach, making the model unstable.
+This stateful model tracks each operator’s participation count in active committees.
+In order to combine well-connected committee groups, a committee is assigned to a topic based on the operator with the **highest reach** (most committees).
+The operator’s ID is hashed and mapped modulo 128.
 
-### LowestID
+**Properties**: Stateful, unstable, history-independent.
 
-This model simply sets the topic for a committee to be determined by its operator with lowest identifier.
-Again, it computes the hash and converts to an integer modulo 128.
+Note: It's unstable because adding a committee can change operator counts, affecting assignments of other committees. However, it shouldn't be very common.
 
-This model is stateless and, consequentially, history independent and stable.
+### 3. LowestID
+
+This stateless model simply assigns a committee to the topic corresponding to its operator with the lowest ID.
+
+**Properties**: Stateless, (and thus) stable, history-independent.
 
 ## Analysis
 
-### Q1: How each model compares to the current model on cryptography cost, message rate, and topic size for increasing network sizes?
+### Q1: Performance
 
-For the system configuration, we took the current Mainnet state with 76k validators, 1k operators and 638 committees.
-Then, we "copied and pasted" the network to create bigger samples, with 2x, 3x, 4x, 6x, and 8x the size of the default one.
-
-<p align="center">
-<img src="./images/network_topology/total_cryptography_cost.png"  width="80%" height="30%">
-<img src="./images/network_topology/total_message_rate.png"  width="80%" height="30%">
-<img src="./images/network_topology/operators_per_topic.png"  width="80%" height="30%">
-<img src="./images/network_topology/initialization_time.png"  width="45%" height="30%">
-</p>
-
-- Taking maximum cryptography cost as the scalability barrier, the greedy algorithm is the best performing one with a scalability factor of 8x. The MaxReach algorithm is the second best with a scalability factor of 5x. The same holds for message rate.
-- MaxReach and LowestID produce bigger topics when compared to the greedy algorithm, though they show empty topics until a network 4 times bigger.
-- The greedy algorithm is the most costly one due to its $O(C\, log C + C \times T)$ complexity, where $C$ is the number of committees and $T$ the number of topics. However, the processing time is considerably low for the upcoming network sizes. For example, for a network twice as big, the processing time is equivalent to 8 BLS verifications.
-
-### Q2: What is the viability of each model?
-
-Except from the LowestID, which is stateless, both the gredy and the MaxReach algorithms require a state maintainance.
-
-This means that nodes should be synced on the network events in order to have the accurate assignment of topics.
-To mitigate synchronization issues, we can delay the event processing by some time interval to increase the probability of all nodes receiving all events before the time they should be processed.
-This is already included in the implementation which sets the events to be processed only after 8 eth1 blocks.
-
-The greedy algorithm is history independent, and it would force new users to be able to retrieve the initial state and process all new events after it, even if the same committee was added and later removed.
-A deeper observation is that this dependency is associated with a degrading performance.
-The algorithm's result on $S_0 + E_1 + E_2 + ... + E_n$ is likely to be worse than its result if applied on the final state $S_f$, as the ordering done in the initialization would take into account removed committees.
-Both of these problems motivates a periodical re-initialization of the algorithm, i.e. setting a newest state as the initial state checkpoint.
-The simplest solution is to re-initialize every epoch.
-If this complexity is undesirable, idle periods can wait longer, e.g. 100 epochs, until the intial state is reset.
-As the new initial state, the previous epoch's state was chosen because the restarting epoch's state may be inconsistent between nodes.
-
-### Q3: What is the best performing viable model?
-
-While the greedy algorithm is the best performing model, but it also imposes periodical re-initialization due to its history dependence and performance degradation.
-
-The MaxReach model, on the other hand, provides a decent performance with a faster processing, while not being history dependent, i.e. doesn't having to to re-initializations.
-Its unstability may be considered rare as well as non-damaging due to the syncing assumptions.
-
-## Conclusion
-
-In order to solve the issues raised by the random assignment function,
-we propose the [Greedy](#greedy-algorithm) model as it provides a ~8x scalability boost.
-Note that this scalability dimension regards the network increase both in number of validators and operators.
-For scalability on increasing solely the number of validators, the duties cost on operators increases linearly and no network topology model can have an effect on it.
-
-Even though the model requires the maintainance of a state, it consists of relatively cheap operations that shouldn't counter balance the improvements.
-
-## Greedy: Further Analysis
-
-### Processing Time Profile
-
-The greedy algorithm is composed of two steps:
-- sorting the committees list ($O (C \times log C)$)
-- inserting each committee computing the cost for every topic ($O (C \times T)$)
-
-From the execution time profile, the insertion time completely dominates the sorting one.
-For example, for a network 8x bigger, the sorting time was 300 $\mu s$ and the insertion took ~42 ms.
-
-This is reasonable since $log(C) \approx 9$ against $T = 128$, and the insertion cost calculation is more costly than a comparison of committees.
-
-### Variations
-
-We analysed three variations:
-- `Cost:|Committees|`: the cost function takes into account the number of committees, instead of the number of validators. For insertion, this variation doesn't need to track the validators of a committee requiring less data to be stored, though the number of validators is used in the sorting phase.
-- `Cost:RealEstimation`: instead of the number of validators, the cost function uses the estimated non-committee cost of all committees given their number of validators and operators, taking into account committee consensus as well as single validator duties.
-- `Cost:NoSorting`: removes the sorting phase, jumping straight to the insertion phase.
-
-`Cost:|Validators|` shall denote the original version of the greedy algorithm.
+We benchmarked models using current Mainnet data (~80k validators, 1k operators, 647 committees) and simulated scaling up to 8x (both in number of validators and operators).
 
 <p align="center">
-<img src="./images/network_topology/greedy_variations/total_cryptography_cost.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_variations/total_message_rate.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_variations/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/q1/operator_total_crypto_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/q1/operator_total_msg_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/q1/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/q1/init_time.png"  width="45%" height="30%">
 </p>
 
-- `Cost:RealEstimation` performs similarly to the original model, showing that the extra cost estimation step may be unnecessary.
-- `Cost:|Committees|` has a worse performance, close to `MaxReach`, probably due to the lack of information on the committees' sizes.
-- `Cost:NoSorting` has a slight worse performance until factor 6. The maximum topic size was considerably higher though. Since the sorting phase is cheap, it's worth maintaining it.
+The **cryptography cost** is measured for each operator and it takes into consideration the RSA cost of non-committee messages and the RSA + BLS cost of committee messages. Similarly, the **message rate** is measured for each operator taking into consideration all messages per epoch listened in all of its topics.
 
-### Performance Degradation With Events
+**Observations**:
+- **Greedy** outperforms others, supporting 8x scalability on cryptography and message load.
+- **MaxReach** goes second scaling up to 5x, but producing larger topics.
+- **LowestID** shows minimal benefit, and, along with **MaxReach**, produces bigger topics as well as empty topics until a network 4x bigger.
+- **Greedy** incurs higher computation cost with complexity $O(\text{sorting}) + O(\text{insertion}) = O(C \times log C) + O (C \times T) = O(C\, log C + C \times T)$, where $C$ is the number of committees and $T$ the number of topics.
+  - The insertion time completely dominates the sorting one. For example, for a network 8x bigger, the sorting time was 300 $\mu s$ and the insertion took ~42 ms. This is reasonable since $log(C) \approx 9$ against $T = 128$, and the insertion comparison is more costly than a committee comparison.
+  - Nonetheless, it's sufficiently fast for considerably large networks. E.g., in a network twice as big, the processing time is equivalent to 8 BLS verifications.
 
-We evaluate the degradation of the greedy algorithm due to its history dependence.
-`Greedy` denotes the greedy algorithm executed considering the final system state as initial state, i.e. with no events.
-`G-YY` denotes the stable greedy algorithm executed considering the initial state as the one at the beginning of year `YY`, with the remaining state changes as events.
-Both on validator addition and removal, the stable greedy algorithm doesn't change the committee's topic assignment, unless the committee becomes empty (in the removal case).
+### Q2: Viability
+
+- **LowestID** is stateless and simple, but ineffective at scale.
+- **Greedy** and **MaxReach** require state synchronization:
+  - Nodes must be synced to maintain assignment accuracy.
+  - To reduce sync issues, events may processed with a delay — the current implementation already waits for **8 eth1 blocks** before processing, giving nodes time to receive all relevant events.
+
+For **Greedy**:
+- It is **history-dependent**, meaning nodes must fetch the initial state and process all subsequent events.
+- It's possible that incremental updates may gradually degrade assignment quality vs. a full re-run.
+  - To prevent it, it may re-initialize periodically.
+  - This solves the drift but adds systemic overhead.
+
+**Greedy** is the most promising model.
+Thus, we further evaluate it under continuous network updates to understand the necessity of re-initialization.
+
+
+#### Greedy: Event Processing Performance
+
+We compare:
+- `Greedy full init`: full re-initialization on each event.
+- `G-YY[(X)]`: initialize on date `20YY-12*X-01` and then process events incrementally.
 
 <p align="center">
-<img src="./images/network_topology/greedy_degradation/total_cryptography_cost.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_degradation/total_message_rate.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_degradation/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/event_processing/operator_total_crypto_cost.png"  width="80%" height="30%">
 </p>
 
-- Defining an initial state closer to the current date produces a better result.
-- Specifically, 2025 provides the best improvement gap. Also, it's the only one showing a better result against `MaxReach`.
+**Validator counts over selected dates**:
+- 2023: 0
+- 2024: 2k
+- 2024/06: 22k
+- 2024/09: 43k
+- 2025: 60k
 
-### Topic-Update Variant
+Results show that `G-23`, `G-24`, and `G-24(½)` significantly diverge from `Greedy full init` benchmark.
+In contrast, `G-24(¾)` and `G-25` closely match its performance, suggesting that initializing from a state nearer to the present date is better.
 
-We also consider an variation, denoted `GU`, that attempts to improve on the state's change at the cost of changing the committee's assignment.
-When a validator is added to a committee, the committee's is removed from its original topic and re-assigned to the best one.
-The processing of a validator removal is left unchanged.
-Note that the algorithm doesn't become *unstable* since it only changes the topic assignment of the event's committee.
+#### Greedy With Updates (`GU`)
 
-The following shows simulations for increasing network sizes.
+We further improve event processing by allowing committees to **update** their topic-assignments:
+- When a validator is added to an existing committee, we remove the committee from its current topic and insert it into the newly selected best topic.
+- All other operations remain unchanged.
+
+This method preserves algorithm stability since it only reassigns topics for the committee affected by the event.
+
 
 <p align="center">
-<img src="./images/network_topology/greedy_topic_update/total_cryptography_cost.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_topic_update/total_message_rate.png"  width="80%" height="30%">
-<img src="./images/network_topology/greedy_topic_update/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_with_update/operator_total_crypto_cost.png"  width="80%" height="30%">
 </p>
 
-- `GU` provides a closer performance to `Greedy`, even with increasing network sizes.
-- In contrast to the higher maximum cryptography cost, `GU` provides a better performance for the minimum and average operators.
-- Regarding topics' sizes, `GU` creates bigger topics both for the maximum and minimum cases.
+The `GU-24(½)` variant comes closer to the `Greedy full init`.
+More notably, `GU-24(¾)` and `GU-25` outperform even the benchmark in the 50k–60k validator range.
+This indicates that `GU` is a viable Greedy variant: it avoids costly full re-initializations while maintaining — and even improving — performance.
 
+#### Scalability of `GU`
 
+To validate scalability, we replicated the network up to 7× its original size and observed the results:
+
+<p align="center">
+<img src="./images/network_topology/greedy_scalability/operator_total_crypto_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_scalability/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_scalability/topics_per_operator.png"  width="80%" height="30%">
+</p>
+
+Key findings:
+- While `GU-24(½)` diverged, both `GU-24(¾)` and `GU-25` consistently outperformed the benchmark as the network scaled.
+- The superior results from `GU-25` might seem counterintuitive, but they highlight that default Greedy is only locally optimal. In contrast, `GU` reassesses committee-topic assignments more frequently, uncovering better local optima.
+- The number of topics each operator subscribes to increases when starting from an older initial state.
+- While average topic sizes remain similar, the maximum topic size grows when there's no re-initializations.
+
+To better reflect future network growth, we scaled only the recent growth pattern observed between 60k and 90k validators:
+
+<p align="center">
+<img src="./images/network_topology/greedy_scalability_60_90/operator_total_crypto_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_scalability_60_90/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_scalability_60_90/topics_per_operator.png"  width="80%" height="30%">
+</p>
+
+Observations:
+- Only `GU-25` consistently maintained better results, though `GU-24(¾)` remained close to the full initialization baseline.
+- Topic sizes and the number of topics per operator showed similar behaviour to the previous experiment.
+
+## Final Evaluation
+
+When considering both performance and viability:
+- **LowestID** is stateless but delivers the least improvement. Also, it's highly sensitive to the current, but ephemeral, network pattern.
+- **MaxReach** achieves reasonable gains and and is practical with effective state management and syncing.
+- **Greedy** offers the best performance but at the cost of having to process the full event history and being resource-intensive
+
+Overall, **Greedy** emerges as the top choice because:
+- Access to the full event history is guaranteed by the node implementation.
+- Its heaviest operations can be optimized to complete in milliseconds.
+- It delivers up to **8x scalability boost**.
+- Its incremental event processing maintains consistent performance.
+
+Important note: this scalability gain applies when the network grows in both validators and operators. If the validator count alone increases, the operational cost on operators rises linearly — and no topology model can mitigate that inherent scaling cost.
