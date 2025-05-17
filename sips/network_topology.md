@@ -18,6 +18,7 @@
 		- [Greedy: Event Processing Performance](#greedy-event-processing-performance)
 		- [Greedy With Updates (`GU`)](#greedy-with-updates-gu)
 		- [Scalability of `GU`](#scalability-of-gu)
+		- [Greedy With Split (`GS`)](#greedy-with-split-gs)
 - [Final Evaluation](#final-evaluation)
 
 
@@ -83,9 +84,9 @@ This stateful algorithm minimizes assignment cost using an objective function. L
 - $O_c$ be the set of operators in the committee
 - $O_t$ be the set of operators in the topic
 
-The cost to add a committee is:
+The cost to add a committee is defined by the aggregation cost:
 
-$$| O_c \setminus O_t | \times v_t + | O_t \setminus O_c | \times v_c$$
+$$Agg(c,t) = | O_c \setminus O_t | \times v_t + | O_t \setminus O_c | \times v_c$$
 
 This represents:
 - **1st term**: each committee operator - not in the topic - will need to listen to all validators already added to the topic.
@@ -159,7 +160,7 @@ The **cryptography cost** is measured for each operator and it takes into consid
 - **LowestID** is stateless and simple, but ineffective at scale.
 - **Greedy** and **MaxReach** require state synchronization:
   - Nodes must be synced to maintain assignment accuracy.
-  - To reduce sync issues, events may processed with a delay — the current implementation already waits for **8 eth1 blocks** before processing, giving nodes time to receive all relevant events.
+  - To reduce sync issues, events may be processed with a delay — the current implementation already waits for **8 eth1 blocks** before processing, giving nodes time to receive all relevant events.
 
 For **Greedy**:
 - It is **history-dependent**, meaning nodes must fetch the initial state and process all subsequent events.
@@ -199,6 +200,7 @@ We further improve event processing by allowing committees to **update** their t
 
 This method preserves algorithm stability since it only reassigns topics for the committee affected by the event.
 
+The complexity of the event processing operation changed from $O(1)$ to $O(T)$ since a comparison is made to each topic.
 
 <p align="center">
 <img src="./images/network_topology/greedy_with_update/operator_total_crypto_cost.png"  width="80%" height="30%">
@@ -235,6 +237,68 @@ To better reflect future network growth, we scaled only the recent growth patter
 Observations:
 - Only `GU-25` consistently maintained better results, though `GU-24(¾)` remained close to the full initialization baseline.
 - Topic sizes and the number of topics per operator showed similar behaviour to the previous experiment.
+
+#### Greedy With Split (`GS`)
+
+In order to avoid the dependence on the initialization date, we increase the disturbance in the event processing functions attempting to let the model find a better local optima.
+- When a validator is added to an existing committee, we **split** the committee's topic and merge the created subgroup to the best topic.
+- Other operations remain unchanged.
+
+The split operation is described in terms of the aggregation operation:
+- While, on committee insertion, we looked for the topic that minimizes the aggregation cost, i.e. $\min_{t} Agg(c,t)$, in a split operation, we look for two subsets of the topic that maximize the aggregation cost of merging them, i.e. $Split(t) = \max_{t_1,t_2\subseteq t} Agg(t_1,t_2)$.
+  - The intuition is that splitting should create the most different subsets, also implying that each subset is well-connected.
+  - Note that, previously, we defined `Agg(c,t)` for a committee and a topic, but, here, we extrapolate the definition for two topics, $Agg(t_1,t_2)$.
+- The complexity of the split operation is $O(2^{t_c})$ where $t_c$ is the number of committees in topic $t$.
+  - Exactly as in the Greedy algorithm, we content ourselves with a faster algorithm that finds a local optima by sorting the topic committees, and inserting them in $t_1$ and $t_2$ in a greedy manner. Thus, the new complexity is $O(t_c \times log \, t_c)$.
+
+This change turns the algorithm to be **unstable** since the split operation may change the topic of other committees
+
+The complexity of the event processing becomes $O(t_c \times log \, t_c + T)$ due to the split operation and the comparison per topic.
+
+```r
+procedure ADD_VALIDATOR_TO_EXISTING_COMMITTEE(committee: Committee)
+	committee_topic = topics.TopicForCommittee(committee)
+	committee_topic.IncrementValidators(1)
+	# Split
+	t1, t2 = Split(committee_topic)
+
+	# Best merge
+	cost_of_keeping_the_same = Agg(t1,t2)
+	best_topic, best_cost = topic with minimal Agg(t2, topic) # (Except for committee_topic)
+	if cost_of_keeping_the_same < best_cost:
+		return
+	else:
+		topics[committee_topic] = t1
+		topics[best_topic].add_subtopic(t2)
+```
+
+<p align="center">
+<img src="./images/network_topology/greedy_split/operator_total_crypto_cost.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_split/operators_per_topic.png"  width="80%" height="30%">
+<img src="./images/network_topology/greedy_split/topics_per_operator.png"  width="80%" height="30%">
+</p>
+
+- All models performed very similarly in all metrics, indicating that the initialization date stopped playing a decisive role.
+- On the other hand, the model became unstable and the average event processing time increased. A comparison of all models is shown in the next table.
+
+| Model | Network Multiplier | Mean Event Time ($\mu s$) | Max ($ms$) | P95 ($\mu s$) | P99 ($\mu s$) |
+|-------|--------------------|---------------------------|------------|-------------|-------------|
+| `G`   | 1                  | 0.81                      | 0.20       | 1           | 2.5         |
+| `GU`  | 1                  | 11.5                      | 0.14       | 17          | 26          |
+| `GS`  | 1                  | 23.3                      | 0.70       | 101         | 192         |
+|       |                    |                           |            |             |             |
+| `G`   | 2                  | 0.81                      | 0.10       | 1           | 2.9         |
+| `GU`  | 2                  | 13.2                      | 0.22       | 22          | 31          |
+| `GS`  | 2                  | 40.5                      | 1.30       | 117         | 360         |
+|       |                    |                           |            |             |             |
+| `G`   | 3                  | 0.85                      | 0.21       | 1           | 3.4         |
+| `GU`  | 3                  | 14.7                      | 2.40       | 27          | 54          |
+| `GS`  | 3                  | 61.3                      | 4.18       | 208         | 526         |
+|       |                    |                           |            |             |             |
+| `G`   | 4                  | 0.88                      | 0.26       | 1           | 3.8         |
+| `GU`  | 4                  | 16.1                      | 0.61       | 31          | 78          |
+| `GS`  | 4                  | 82.9                      | 3.15       | 245         | 597         |
+
 
 ## Final Evaluation
 
