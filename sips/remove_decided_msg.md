@@ -2,8 +2,6 @@
 |-------------|-------------------------|----------|---------------------|------------|
 | Alan Li     | Remove decided message  | Core     | open-for-discussion | 2025-05-23 |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/15)
-
 ## Summary  
 In QBFT consensus, decided message is a protocol message that consists of at least a quorum of valid commit messages. Operators can instantly terminate consensus if a valid decided message is received. However, it is an optional message to help nodes to terminate consensus. Operators are able to terminate consensus as long as a quorum of valid commit messages is received. This SIP proposes to remove the decided message from the consensus protocol.
 
