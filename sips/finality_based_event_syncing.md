@@ -21,7 +21,7 @@ The current event syncing mechanism has critical issues:
    layer block times, even when this is due to the beacon chain simply not proposing new blocks (e.g., due to network
    stalls or low participation).
 
-These issues compromise SSV's reliability and can cause unnecessary downtime or state divergence between operators.
+These issues compromise SSV's reliability and can cause state divergence between operators.
 
 ## Rationale
 
@@ -33,7 +33,7 @@ These issues compromise SSV's reliability and can cause unnecessary downtime or 
 
 ### Proposed: Finality-Based Syncing
 
-- Uses Ethereum's finalized blocks (providing cryptographic finality)
+- Uses Ethereum's finalized blocks
 - Significantly reduces reorganization risks by relying on cryptographically finalized blocks
 - Aligns with Ethereum's security model
 
@@ -94,8 +94,7 @@ The following diagrams illustrate the key concepts of this proposal.
 
 ### 1. Fork State Transition Diagram
 
-This diagram shows the one-way transition from PreFork (follow-distance) mode to PostFork (finality) mode based on the
-beacon chain epoch.
+The one-way transition from PreFork (follow-distance) mode to PostFork (finality) mode based on the beacon chain epoch.
 
 ```mermaid
 stateDiagram-v2
@@ -107,8 +106,7 @@ stateDiagram-v2
 
 ### 2. Event Processing Flow Comparison
 
-This diagram contrasts the event processing flow before and after the fork, highlighting the reorg risk in the current
-approach.
+The event processing flow before and after the fork.
 
 ```mermaid
 graph TB
@@ -129,7 +127,7 @@ graph TB
 
 ### 3. Event Processing Timeline Comparison
 
-This Gantt chart visualizes the difference in event processing latency between the pre-fork and post-fork mechanisms.
+The difference in event processing latency between the pre-fork and post-fork mechanisms.
 
 ```mermaid
 gantt
@@ -156,8 +154,6 @@ gantt
   guaranteed event stability.
 
 ## Backwards Compatibility
-
-This is a consensus-breaking change that necessitates a coordinated network upgrade:
 
 - Nodes that are not upgraded before the "FinalityConsensus" fork activation epoch will continue to use the
   follow-distance mechanism.
