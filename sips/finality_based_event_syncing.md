@@ -39,32 +39,16 @@ These issues compromise SSV's reliability and can cause state divergence between
 
 ## Specification
 
-### Fork Mechanism
-
-Introduce network forks to manage the transition. The node's configuration will include the fork schedule, allowing it
-to adapt its behavior based on the current epoch.
-
-```go
-// SSVFork defines a specific network fork and its activation epoch.
-type SSVFork struct {
-    Name  string
-    Epoch phase0.Epoch // Activation epoch for this fork
-}
-
-// Example network configuration including the fork schedule
-// (within the existing NetworkConfig or a similar structure)
-// Config.Forks: []SSVFork{
-//     {Name: "Alan", Epoch: 0}, // Represents the pre-finality logic
-//     {Name: "FinalityConsensus", Epoch: TBD_PER_NETWORK}, // Activation epoch to be determined per network
-// }
-```
-
 ### Behavioral Changes
+
+This change will be activated as part of a network-wide fork. The specific fork mechanism and activation epochs will be
+defined separately as part of the broader network upgrade.
 
 **Pre-Fork (Alan)**:
 
-- Continue using the existing follow-distance mechanism for event syncing.
-- Existing behavior remains unchanged.
+- Continue using the existing follow-distance mechanism (N blocks behind head, default N=8)
+- Process events from blocks assumed to be probabilistically final
+- Existing behavior remains unchanged
 
 **Post-Fork (FinalityConsensus)**:
 
@@ -76,17 +60,11 @@ type SSVFork struct {
 
 ### Key Implementation Points
 
-1. **One-way Transition**: Once the "FinalityConsensus" fork activates for a given epoch, the node will exclusively use
-   finality-based syncing for events from that epoch onwards. There will be no fallback to the follow-distance mechanism
-   for post-fork blocks.
-2. **Automatic Detection**: Nodes will automatically detect fork activation by comparing the current beacon chain epoch
-   with the "FinalityConsensus" activation epoch defined in their network configuration.
+1. **One-way Transition**: Once the fork activates, nodes will exclusively use finality-based syncing with no fallback.
+2. **Automatic Detection**: Nodes will detect fork activation and transition automatically.
 3. **Health Monitoring**: Health monitoring and sync status metrics will be adapted to reflect the new finality-driven
    approach. The acceptable lag behind the finalized head of the chain before considering the node unhealthy or out of
    sync will be based on epochs (e.g., the **proposed and discussable** 2-3 epochs) rather than solely on block time.
-4. **Client Configuration**: The execution client (`ExecutionClient` and `MultiClient`) will be initialized with a
-   configuration object that includes details of the fork schedule, specifically the `FinalityConsensusEpoch`, enabling
-   it to switch its internal logic accordingly.
 
 ## Visual Overview
 
