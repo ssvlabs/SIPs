@@ -54,17 +54,17 @@ defined separately as part of the broader network upgrade.
 
 - Query finalized blocks directly from the execution layer client using calls `eth_getBlockByNumber("finalized")`
 - Process SSV contract events exclusively from these finalized blocks.
-- The staleness threshold for determining if the node is lagging behind the chain will need adjustment. For example,
-  instead of a fixed time (e.g., 5 minutes), it could be based on the number of epochs behind the current finalized
-  epoch. A proposed value for this, **open for discussion,** is approximately 2-3 epochs.
+- Staleness check stays time-based (default ≈ 5 minutes) but is now computed as
+  `finalized_block.timestamp − processed_block.timestamp` rather than comparing either timestamp to wall-clock time.
+- Events are processed only when this latency (`finalized_block.timestamp − processed_block.timestamp`) is ≤
+  `staleness_threshold`.
 
 ### Key Implementation Points
 
 1. **One-way Transition**: Once the fork activates, nodes will exclusively use finality-based syncing with no fallback.
 2. **Automatic Detection**: Nodes will detect fork activation and transition automatically.
-3. **Health Monitoring**: Health monitoring and sync status metrics will be adapted to reflect the new finality-driven
-   approach. The acceptable lag behind the finalized head of the chain before considering the node unhealthy or out of
-   sync will be based on epochs (e.g., the **proposed and discussable** 2-3 epochs) rather than solely on block time.
+3. **Health Monitoring**: A node is considered healthy when
+   `finalized_timestamp − processed_timestamp ≤ staleness_threshold`.
 
 ## Visual Overview
 
@@ -154,6 +154,10 @@ gantt
 2. Node behavior when finalized blocks are temporarily unavailable or significantly delayed from the consensus layer.
 3. Performance analysis of event processing lag under normal and stressed network conditions post-fork.
 4. Monitoring and alerting functionality for the new finality-based sync status.
+5. **Finalization Delay Resilience**: Simulate a beacon-chain stall (no new finalized blocks for several epochs). Verify
+   the node remains healthy as long as its `processed_block.timestamp` approaches the stagnant
+   `finalized_block.timestamp`, keeping their difference (latency, i.e.,
+   `finalized_block.timestamp - processed_block.timestamp`) within the configured time-based `staleness_threshold`.
 
 ## Migration Guide
 
@@ -164,9 +168,3 @@ gantt
    FinalityConsensus" activation epoch. Operators should monitor node logs for confirmation of the new operational mode.
 3. **Post-Fork**: Verify that the node is processing events based on finalized blocks. Adjust any external monitoring or
    alerting systems to align with the new finality-based health metrics and expected event lag.
-
-## Open Questions
-
-- The exact activation epoch for the "FinalityConsensus" fork needs to be determined.
-- What are the optimal and commonly agreed-upon thresholds for health monitoring regarding lag behind the finalized
-  epoch (currently **proposed for discussion at 2-3 epochs**)?
