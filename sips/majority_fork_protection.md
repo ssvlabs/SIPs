@@ -2,6 +2,8 @@
 | -------------- | ------------------------- | -------- | ------------------- | ---------- |
 | Alan Li        | Majority Fork Protection | Core     | open-for-discussion  | 2025-07-08 |
 
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/70)
+
 ## Summary
 This SIP addresses a slashing risk in SSV Network DVT that arises during client majority forks, as observed in the Holesky testnet [incident](https://etherworld.co/2025/02/24/holesky-testnet-incident-postmortem-report/) after the Pectra upgrade. When a majority execution client (e.g., Geth) develops a bug and forks from the canonical chain, DVT validators can be pulled onto the faulty fork, risking slashing if they attempt to return to the correct chain. This SIP proposes a validation-based solution to improve validator safety by ensuring that only attestations matching an operator's own view are signed.
 
