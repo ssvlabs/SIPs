@@ -20,7 +20,7 @@ This change reduces the number of messages exchanged, lowers bandwidth usage, an
 
 Whenever a validator is assigned to an attestation duty, the committee of operators should also initiate the pre-consensus phase of the aggregator duty to determine whether the validator is an aggregator.
 
-For that, operators exchange partial signatures over the duty's slot along with a domain data, as decribed in [Ethereum's specification](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/validator.md#aggregation-selection).
+For that, operators exchange partial signatures over the duty's slot along with a domain data, as described in [Ethereum's specification](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/validator.md#aggregation-selection).
 
 ```python
 def get_slot_signature(state: BeaconState, slot: Slot, privkey: int) -> BLSSignature:
@@ -73,7 +73,7 @@ To optimize bandwidth when merging multiple duties, validators and their selecti
 
 Similar to attestation aggregation, whenever a validator is assigned to a sync committee duty, the operators initiate a pre-consensus phase for the sync committee contribution duty to determine whether the validator is an aggregator.
 
-For that, operators exchange partial signatures over a `SyncAggregatorSelectionData` object along with a domain data, as decribed in [Ethereum's specification](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#aggregation-selection).
+For that, operators exchange partial signatures over a `SyncAggregatorSelectionData` object along with a domain data, as described in [Ethereum's specification](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#aggregation-selection).
 
 ```python
 def get_sync_committee_selection_proof(state: BeaconState,
@@ -130,17 +130,10 @@ Again, the validators may be listed with their associated selection proof and be
 
 ## Spec changes
 
-### New Domain
-This is a fork and a new domain must be added:
-
-```go
-DomainType{0x0, 0x0, MainnetNetworkID.Byte(), 0x2}
-```
-
 ### Role
 
 This is used to route the message to the correct runner.
-`RoleAggregator` and `RoleSyncCommitteeContribution` will be decrepacated in favour of `RoleAggregatorCommittee`.
+`RoleAggregator` and `RoleSyncCommitteeContribution` will be deprecated in favour of `RoleAggregatorCommittee`.
 
 ```go
 type RunnerRole int32
@@ -211,36 +204,36 @@ type AggregatorConsensusData struct {
 }
 ```
 
-## Improvement
+## Evaluation
 
 We evaluated the performance of the proposed change using a Monte Carlo simulation with a single committee with 1k validators, assigning beacon duties over 100 epochs.
 
-| Metric                                 | Current | New  | New/Current% |
+| Metric                                 | Current | New  | Change (%) |
 |----------------------------------------|---------|------|--------------|
-| **Messages/s**                         | 13.15   | 2.39 | 18%          |
-| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | 53%          |
-| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | 292%         |
+| **Messages/s**                         | 13.15   | 2.39 | -82%          |
+| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | -47%          |
+| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%         |
 
 - The **number of messages** dropped to 18% of the original value, mainly due to pre-consensus messages for the aggregator role being grouped into a single message per committee.
 - **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 290%.
 
 We also evaluated a larger committee with 3k validators.
 
-| Metric                                 | Current | New   | New/Current% |
+| Metric                                 | Current | New   | Change (%) |
 |----------------------------------------|---------|-------|--------------|
-| **Messages/s**                         | 37.17   | 2.77  | 7%           |
-| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | 47%          |
-| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | 629%         |
+| **Messages/s**                         | 37.17   | 2.77  | -93%           |
+| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%          |
+| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%         |
 
 Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased over 600%.
 
 Finally, we evaluated the performance on the current Mainnet state with 109.5k validators, 1.3k operators and 700 committees.
 
-| Metric                                 | Current | New    | New/Current% |
+| Metric                                 | Current | New    | Change (%) |
 |----------------------------------------|---------|--------|--------------|
-| **Messages/s**                         | 1782.70 | 607.76 | 34%          |
-| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | 61%          |
-| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | 180%         |
+| **Messages/s**                         | 1782.70 | 607.76 | -66%          |
+| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | -39%          |
+| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | +80%         |
 
 The gains are less pronounced compared to the 1k-committee scenario, but this is expected as Mainnet has several smaller committees that benefit less from the duties merging.
 
