@@ -54,17 +54,11 @@ defined separately as part of the broader network upgrade.
 
 - Query finalized blocks directly from the execution layer client using calls `eth_getBlockByNumber("finalized")`
 - Process SSV contract events exclusively from these finalized blocks.
-- Staleness check stays time-based (default ≈ 5 minutes) but is now computed as
-  `finalized_block.timestamp − processed_block.timestamp` rather than comparing either timestamp to wall-clock time.
-- Events are processed only when this latency (`finalized_block.timestamp − processed_block.timestamp`) is ≤
-  `staleness_threshold`.
 
 ### Key Implementation Points
 
 1. **One-way Transition**: Once the fork activates, nodes will exclusively use finality-based syncing with no fallback.
 2. **Automatic Detection**: Nodes will detect fork activation and transition automatically.
-3. **Health Monitoring**: A node is considered healthy when
-   `finalized_timestamp − processed_timestamp ≤ staleness_threshold`.
 
 ## Visual Overview
 
@@ -154,17 +148,13 @@ gantt
 2. Node behavior when finalized blocks are temporarily unavailable or significantly delayed from the consensus layer.
 3. Performance analysis of event processing lag under normal and stressed network conditions post-fork.
 4. Monitoring and alerting functionality for the new finality-based sync status.
-5. **Finalization Delay Resilience**: Simulate a beacon-chain stall (no new finalized blocks for several epochs). Verify
-   the node remains healthy as long as its `processed_block.timestamp` approaches the stagnant
-   `finalized_block.timestamp`, keeping their difference (latency, i.e.,
-   `finalized_block.timestamp - processed_block.timestamp`) within the configured time-based `staleness_threshold`.
 
 ## Migration Guide
 
 1. **Pre-Fork**: Node operators must update their SSV node software to a version supporting the "FinalityConsensus" fork
    well in advance of the announced activation epoch for their respective network. Monitor official announcements for
    activation epoch details.
-2. **During Fork Activation**: The transition should be automatic once the node's current epoch reaches the "
-   FinalityConsensus" activation epoch. Operators should monitor node logs for confirmation of the new operational mode.
-3. **Post-Fork**: Verify that the node is processing events based on finalized blocks. Adjust any external monitoring or
-   alerting systems to align with the new finality-based health metrics and expected event lag.
+2. **During Fork Activation**: The transition should be automatic once the node's current epoch reaches the 
+"FinalityConsensus" activation epoch. Operators should monitor node logs for confirmation of the new operational mode.
+3. **Post-Fork**: Verify that the node is processing events based on finalized blocks. Node operators may implement
+   their own monitoring solutions as needed.
