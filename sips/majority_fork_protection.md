@@ -62,7 +62,7 @@ Consider a DVT validator with $n=3f+1$ operators, where $f$ is the maximum numbe
 
 
 ## Specification
-The proposed solution is to simply add a validation rule before signing attestation. A client needs to get its attestation data from the beacon. Then the client only signs a proposed attestation if the source and target match its own attestation data. 
+The proposed solution is to simply add a validation rule before signing attestation. A client needs to get its attestation data from the beacon. After receiving an attestation proposal in a QBFT consensus, the client only votes for a proposed attestation if the source and target match its own attestation data. 
 
 ```go
 func shouldSignAttestation(own, proposed Attestation) bool {
