@@ -19,10 +19,10 @@ This change reduces the number of messages exchanged, lowers bandwidth usage, an
 We evaluated the performance of the proposed change using a Monte Carlo simulation with a single committee with 1k validators, assigning beacon duties over 100 epochs.
 
 | Metric                                 | Current | New  | Change (%) |
-|----------------------------------------|---------|------|--------------|
-| **Messages/s**                         | 13.15   | 2.39 | -82%          |
-| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | -47%          |
-| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%         |
+|----------------------------------------|---------|------|------------|
+| **Messages/s**                         | 13.15   | 2.39 | -82%       |
+| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | -47%       |
+| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%      |
 
 - The **number of messages** dropped to 18% of the original value, mainly due to pre-consensus messages for the aggregator role being grouped into a single message per committee.
 - **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 290%.
@@ -30,20 +30,20 @@ We evaluated the performance of the proposed change using a Monte Carlo simulati
 We also evaluated a larger committee with 3k validators.
 
 | Metric                                 | Current | New   | Change (%) |
-|----------------------------------------|---------|-------|--------------|
-| **Messages/s**                         | 37.17   | 2.77  | -93%           |
-| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%          |
-| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%         |
+|----------------------------------------|---------|-------|------------|
+| **Messages/s**                         | 37.17   | 2.77  | -93%       |
+| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%       |
+| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%      |
 
 Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased over 600%.
 
 Finally, we evaluated the performance on the current Mainnet state with 109.5k validators, 1.3k operators and 700 committees.
 
 | Metric                                 | Current | New    | Change (%) |
-|----------------------------------------|---------|--------|--------------|
-| **Messages/s**                         | 1782.70 | 607.76 | -66%          |
-| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | -39%          |
-| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | +80%         |
+|----------------------------------------|---------|--------|------------|
+| **Messages/s**                         | 1782.70 | 607.76 | -66%       |
+| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | -39%       |
+| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | +80%       |
 
 The gains are less pronounced compared to the 1k-committee scenario, but this is expected as Mainnet has several smaller committees that benefit less from the duties merging.
 
@@ -251,22 +251,10 @@ type AggregatorConsensusData struct {
 }
 ```
 
-### Value Check
-
-Since there is no slashing risks for the aggregator and sync committee contribution duties, no new value check is introduced.
-
 ## P2P
-
-TODO
 
 ### Message Validation
 
-TODO
-
-### GossipSub Scoring
-
-TODO
-
-## Drawbacks
-
-TODO
+- `SSVMessage.MsgID` must include a CommitteeID encoded with a 16-byte 0x00 prefix to match `ValidatorPublicKey` length. If the CommitteeID doesn't exist in the current network, it should ignore the message.
+- If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the `ValidatorPublicKey` or the `CommitteeID` in the `MessageID`, it should ignore the message.
+- If the same `ValidatorIndex` appears more than 2 times in a `PartialSignatureMessages`, the message is rejected.
