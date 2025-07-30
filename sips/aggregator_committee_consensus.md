@@ -14,6 +14,53 @@ Since both duties share the same time window in the slot, i.e. both wait for two
 
 This change reduces the number of messages exchanged, lowers bandwidth usage, and decreases processing overhead.
 
+## Improvements
+
+We evaluated the performance of the proposed change using a Monte Carlo simulation with a single committee with 1k validators, assigning beacon duties over 100 epochs.
+
+| Metric                                 | Current | New  | Change (%) |
+|----------------------------------------|---------|------|--------------|
+| **Messages/s**                         | 13.15   | 2.39 | -82%          |
+| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | -47%          |
+| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%         |
+
+- The **number of messages** dropped to 18% of the original value, mainly due to pre-consensus messages for the aggregator role being grouped into a single message per committee.
+- **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 290%.
+
+We also evaluated a larger committee with 3k validators.
+
+| Metric                                 | Current | New   | Change (%) |
+|----------------------------------------|---------|-------|--------------|
+| **Messages/s**                         | 37.17   | 2.77  | -93%           |
+| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%          |
+| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%         |
+
+Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased over 600%.
+
+Finally, we evaluated the performance on the current Mainnet state with 109.5k validators, 1.3k operators and 700 committees.
+
+| Metric                                 | Current | New    | Change (%) |
+|----------------------------------------|---------|--------|--------------|
+| **Messages/s**                         | 1782.70 | 607.76 | -66%          |
+| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | -39%          |
+| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | +80%         |
+
+The gains are less pronounced compared to the 1k-committee scenario, but this is expected as Mainnet has several smaller committees that benefit less from the duties merging.
+
+We also tracked how the rate and bandwidth changed for each message type.
+
+<p align="center">
+<img src="./images/aggregator_committee_consensus/curr_bandwidth.png"  width="45%" height="10%">
+<img src="./images/aggregator_committee_consensus/curr_msgs.png"  width="45%" height="10%">
+</p>
+<p align="center">
+<img src="./images/aggregator_committee_consensus/agg_bandwidth.png"  width="45%" height="10%">
+<img src="./images/aggregator_committee_consensus/agg_msgs.png"  width="45%" height="10%">
+</p>
+
+Pre-consensus messages for the aggregator role used to dominate both in quantity as in bandwidth.
+After merging, pre-consensus for the aggregator committee duty became dominant along with post-consensus for the committee duty, which is expected as an attestation duty triggers exactly one of each.
+
 ## Merging Duties
 
 ### Aggregator Duty
@@ -204,52 +251,9 @@ type AggregatorConsensusData struct {
 }
 ```
 
-## Evaluation
+### Value Check
 
-We evaluated the performance of the proposed change using a Monte Carlo simulation with a single committee with 1k validators, assigning beacon duties over 100 epochs.
-
-| Metric                                 | Current | New  | Change (%) |
-|----------------------------------------|---------|------|--------------|
-| **Messages/s**                         | 13.15   | 2.39 | -82%          |
-| **Bandwidth (KB/s)**                   | 8.55    | 4.56 | -47%          |
-| **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%         |
-
-- The **number of messages** dropped to 18% of the original value, mainly due to pre-consensus messages for the aggregator role being grouped into a single message per committee.
-- **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 290%.
-
-We also evaluated a larger committee with 3k validators.
-
-| Metric                                 | Current | New   | Change (%) |
-|----------------------------------------|---------|-------|--------------|
-| **Messages/s**                         | 37.17   | 2.77  | -93%           |
-| **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%          |
-| **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%         |
-
-Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased over 600%.
-
-Finally, we evaluated the performance on the current Mainnet state with 109.5k validators, 1.3k operators and 700 committees.
-
-| Metric                                 | Current | New    | Change (%) |
-|----------------------------------------|---------|--------|--------------|
-| **Messages/s**                         | 1782.70 | 607.76 | -66%          |
-| **Bandwidth (KB/s)**                   | 1128.07 | 693.85 | -39%          |
-| **Average size Per Message (KB/msgs)** | 0.63    | 1.14   | +80%         |
-
-The gains are less pronounced compared to the 1k-committee scenario, but this is expected as Mainnet has several smaller committees that benefit less from the duties merging.
-
-We also tracked how the rate and bandwidth changed for each message type.
-
-<p align="center">
-<img src="./images/aggregator_committee_consensus/curr_bandwidth.png"  width="45%" height="10%">
-<img src="./images/aggregator_committee_consensus/curr_msgs.png"  width="45%" height="10%">
-</p>
-<p align="center">
-<img src="./images/aggregator_committee_consensus/agg_bandwidth.png"  width="45%" height="10%">
-<img src="./images/aggregator_committee_consensus/agg_msgs.png"  width="45%" height="10%">
-</p>
-
-Pre-consensus messages for the aggregator role used to dominate both in quantity as in bandwidth.
-After merging, pre-consensus for the aggregator committee duty became dominant along with post-consensus for the committee duty, which is expected as an attestation duty triggers exactly one of each.
+Since there is no slashing risks for the aggregator and sync committee contribution duties, no new value check is introduced.
 
 ## P2P
 
