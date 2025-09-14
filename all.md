@@ -16,3 +16,4 @@
 | [12](./sips/topic_by_committe_id.md)                      | Eliminate BLS out of QBFT and change message structure | spec-merged         |
 | [13](./sips/cluster_consensus.md)                         | Cluster-based consensus                                | spec-merged         |
 | [14](./sips/validators_per_operator_1k_cap.md)            | 1K cap on validators per operator                      | spec-merged         |
+| [15](./sips/network_topology.md)                          | Network Topology                                       | open-for-discussion |
