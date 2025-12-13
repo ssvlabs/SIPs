@@ -33,7 +33,7 @@ Even though it doesn't truly add randomness,
 it removes an easily exploitable, repeating schedule.
 
 In the future, we could turn the function into a pseudo-random one,
-marking harder the predictability of the proposer,
+making harder the predictability of the proposer,
 though maintaining the Round-Robin fairness property.
 
 ## Spec change
