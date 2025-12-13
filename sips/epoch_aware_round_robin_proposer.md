@@ -49,9 +49,9 @@ func RoundRobinProposer(state *State, round Round) types.OperatorID {
 	ethEpoch := int(state.Height) / 32 // NEW: compute the current Ethereum epoch
 
 	index := (firstRoundIndex +
-            int(round) - int(FirstRound) +
-            ethEpoch) // NEW: include the epoch in the rotation
-            % len(state.CommitteeMember.Committee)
+		int(round) - int(FirstRound) +
+		ethEpoch) // NEW: include the epoch in the rotation
+		% len(state.CommitteeMember.Committee)
 	return state.CommitteeMember.Committee[index].OperatorID
 }
 ```
