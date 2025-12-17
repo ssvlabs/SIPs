@@ -7,11 +7,12 @@
 - [Motivation](#motivation)
 - [Rationale](#rationale)
 - [Spec Change](#spec-change)
-- [Alternative Solutions](#alternative-solutions)
+- [Appendix](#appendix)
+  - [Alternative Solutions](#alternative-solutions)
 	- [1. Greedy Algorithm](#1-greedy-algorithm)
 	- [2. MaxReach](#2-maxreach)
 	- [3. LowestID](#3-lowestid)
-- [Comparisons](#comparisons)
+    - [Comparisons](#comparisons)
 
 
 ## Summary
@@ -72,7 +73,7 @@ $$P(t(C_1) = t(C_2)) = J(C_1,C_2) + (1-J(C_1,C_2))\times \frac{1}{128}$$
 > Alternative [Locality Sensitive Hashing (LSH)](https://en.wikipedia.org/wiki/Locality-sensitive_hashing) functions were tested but proved unsuitable for our context:
 > - **SimHash (Charikar's Hash)**:
 > While SimHash theoretically approximates Cosine Similarity,
-> which offers a higher collision probability than Minhash (e.g. ~77% vs. 60% for 4-element sets),
+> which offers a higher collision probability than MinHash (e.g. ~77% vs. 60% for 4-element sets),
 > it failed in practice because it produces a "fingerprint" for the entire set rather than selecting a common element in a small discrete set.
 > Even though similar committees produce similar fingerprints, a single bit difference, caused by changing one operator, results in a completely different integer value
 > (and thus resulting topic).
@@ -98,7 +99,7 @@ FUNCTION AssignCommitteeToTopic(committee: list[uint64]):
 		# 2. Compute the SHA-256 hash, resulting in 32 bytes
 		hash_bytes = SHA256(input_bytes)
 		
-		# 3. Covert to uint256 (Big-Endian)
+		# 3. Convert to uint256 (Big-Endian)
 		current_int = uint256_from_bytes_big_endian(hash_bytes)
 		
 		# 4. Get minimum
