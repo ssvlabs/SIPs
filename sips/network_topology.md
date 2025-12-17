@@ -1,6 +1,6 @@
-|     Author     |           Title            |  Category  |       Status        |    Date    |
-| -------------- | -------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco | Network Topology           | Network    | open-for-discussion | 2024-03-06 |
+|     Author     				  |           Title            |  Category  |       Status        |    Date    |
+| --------------------------------| -------------------------- | ---------- | ------------------- | ---------- |
+| @diegomrsantos, Matheus Franco  | Network Topology           | Network    | open-for-discussion | 2024-03-06 |
 
 ## Table of Contents <!-- omit from toc -->
 - [Summary](#summary)
@@ -8,11 +8,11 @@
 - [Rationale](#rationale)
 - [Spec Change](#spec-change)
 - [Appendix](#appendix)
-  - [Alternative Solutions](#alternative-solutions)
-	- [1. Greedy Algorithm](#1-greedy-algorithm)
-	- [2. MaxReach](#2-maxreach)
-	- [3. LowestID](#3-lowestid)
-    - [Comparisons](#comparisons)
+	- [Alternative Solutions](#alternative-solutions)
+		- [1. Greedy Algorithm](#1-greedy-algorithm)
+		- [2. MaxReach](#2-maxreach)
+		- [3. LowestID](#3-lowestid)
+		- [Comparisons](#comparisons)
 
 
 ## Summary
