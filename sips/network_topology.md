@@ -7,6 +7,9 @@
 - [Motivation](#motivation)
 - [Rationale](#rationale)
 - [Spec Change](#spec-change)
+- [Fork Transition](#fork-transition)
+	- [Before the Fork](#before-the-fork)
+	- [At and After the Fork](#at-and-after-the-fork)
 - [Appendix](#appendix)
 	- [Alternative Solutions](#alternative-solutions)
 		- [1. Greedy Algorithm](#1-greedy-algorithm)
@@ -110,6 +113,30 @@ FUNCTION AssignCommitteeToTopic(committee: list[uint64]):
 	RETURN min_int MOD NUM_TOPICS
 ```
 
+## Fork Transition
+
+To safely transition through the fork, we define the transition policy below. Let:
+- $old$: denotes the set of topics the operator should be subscribed to before the fork (according to its committees),
+- $new$: denotes the set of topics the operator should subscribe to after the fork.
+
+### Before the Fork
+
+The operator is subscribed to the $old$ topics and publishes to them.
+
+`PRIOR_WINDOW` epochs before the fork, it subscribes to all $new + old$.
+During this window, it does **not reject** any message with a valid signature in the new topics ($new \setminus old$).
+
+We set `PRIOR_WINDOW = 2` epoch to allow
+enough time for the operator to set up the new topics before the fork,
+and avoid a long overloading period (due to the extra messages being processed in the new topic).
+
+### At and After the Fork
+
+At the fork epoch, the operator immediately unsubscribes from the old topics
+(more precisely, $old \setminus new$).
+It keeps its subscription to the $new$ topics and only publishes to them.
+
+During the unsubscription period, any message in the unsubscribed topics is **accepted**.
 
 ## Appendix
 
