@@ -25,7 +25,7 @@ We evaluated the performance of the proposed change using a Monte Carlo simulati
 | **Average size Per Message (KB/msgs)** | 0.65    | 1.90 | +192%      |
 
 - The **number of messages** dropped to 18% of the original value, mainly due to pre-consensus messages for the aggregator role being grouped into a single message per committee.
-- **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 290%.
+- **Bandwidth** dropped to 53%, though the reduction is less dramatic because merging the messages increased individual message size. This is reflected in the **average message size** increasing by 192%.
 
 We also evaluated a larger committee with 3k validators.
 
@@ -35,7 +35,7 @@ We also evaluated a larger committee with 3k validators.
 | **Bandwidth (KB/s)**                   | 24.52   | 11.53 | -53%       |
 | **Average size Per Message (KB/msgs)** | 0.66    | 4.15  | +529%      |
 
-Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased over 600%.
+Both message rate and bandwidth saw even greater improvements, though the average message size significantly increased by 529%.
 
 Finally, we evaluated the performance on the current Mainnet state with 109.5k validators, 1.3k operators and 700 committees.
 
@@ -207,8 +207,7 @@ The `Committee` will hold a `AggregatorCommitteeRunner` object for each slot it 
 
 Messages associated to the `AggregatorRunner` and `SyncCommitteeAggregatorRunner` used to include a `ValidatorPublicKey` in `MessageID`.
 On the other hand, `AggregatorCommitteeRunner` sends messages with respect to the committee of operators and, thus, it will use `CommitteeID` in `MessageID`.
-Because `CommitteeID` is 32 bytes long, it's encoded with a `0x00` 16 bytes prefix to make it the same length as a `ValidatorPublicKey` would have.
-
+Because `CommitteeID` is 32 bytes long, it's encoded with a 16-byte `0x00` prefix to make it the same length as a `ValidatorPublicKey` would have
 
 #### `PartialSignatureMessages`
 
@@ -284,7 +283,7 @@ will still proceed to the consensus phase and these validators won't be included
 > Note that in case it receives an all-honest quorum, it may still be able to advance to consensus with more validators than just $v$.
 > 
 > While this solution prioritizes liveness over completeness,
-> it's acceptable for now as the worst-case scenarios are marginally expected.
+> it's acceptable for now as the worst-case scenarios are rarely expected.
 > Still, our context may be formally linked to the *Interactive Consistency*
 > problem, presented in the [*Reaching Agreement in the Presence of Faults*](https://lamport.azurewebsites.net/pubs/reaching.pdf)
 > paper, and more robust solutions may be explored in the future ([example](https://cgi.di.uoa.gr/~mema/publications/ic-extended.pdf)).
@@ -306,14 +305,14 @@ type AggregatorConsensusData struct {
 
 	// Aggregator duties
 	Aggregators     []AssignedAggregator
-    // unique list of the existing beacon committees, i.e., a subset of the [1,...,64] list
+    // unique list of the existing beacon committees, i.e., a subset of the [0,...,63] list
 	AggregatorsCommitteeIndexes  []uint64
 	// list of ssz encoded phase0.Attestation or electra.Attestation (depending on the version), one for each beacon committee index
 	AggregatedAttestations     	 [][]byte
 
 	// Sync Committee Duties
 	Contributors 				[]AssignedAggregator
-    // one for each sync committee subnet (1 to 4). Note that each element includes the subcommittee_index field.
+    // one for each sync committee subnet (0 to 3). Note that each element includes the subcommittee_index field.
 	SyncCommitteeContributions  []altair.SyncCommitteeContribution
 }
 ```
