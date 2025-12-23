@@ -215,6 +215,12 @@ Because `CommitteeID` is 32 bytes long, it's encoded with a `0x00` 16 bytes pref
 The current structures will remain unchanged as the pair (`ValidatorIndex`,`SigningRoot`) uniquely identifies a (validator, beacon role, beacon committee) tuple due to the non-collision property of the hashed signing root.
 
 ```go
+type PartialSignatureMessages struct {
+    Type     PartialSigMsgType
+    Slot     phase0.Slot
+    Messages []*PartialSignatureMessage `ssz-max:"5048"` // 3000 + 512*4 (worst-case scenario)
+}
+
 type PartialSignatureMessage struct {
 	PartialSignature Signature `ssz-size:"96"`
 	SigningRoot      [32]byte  `ssz-size:"32"`
@@ -222,6 +228,67 @@ type PartialSignatureMessage struct {
 	ValidatorIndex   phase0.ValidatorIndex
 }
 ```
+
+The new possible `PartialSigMsgType` values are updated in the following way:
+```go
+const (
+    // PostConsensusPartialSig is a partial signature over a decided duty (attestation data, block, etc)
+    PostConsensusPartialSig PartialSigMsgType = iota // 0
+    // RandaoPartialSig is a partial signature over randao reveal
+    RandaoPartialSig // 1
+    // SelectionProofPartialSig is a partial signature for aggregator selection proof
+    SelectionProofPartialSig // 2
+    // ContributionProofs is the partial selection proofs for sync committee contributions (it's an array of sigs)
+    ContributionProofs // 3
+    // ValidatorRegistrationPartialSig is a partial signature over a ValidatorRegistration object
+    ValidatorRegistrationPartialSig // 4
+    // VoluntaryExitPartialSig is a partial signature over a VoluntaryExit object
+    VoluntaryExitPartialSig // 5
+    // AggregatorCommitteePartialSig is a partial signature for combined aggregator and sync committee selection proofs
+    AggregatorCommitteePartialSig // 6
+)
+```
+
+
+#### Pre-Consensus Phase
+
+Differently from the `CommitteeRunner` used for attestations and sync-committee duties,
+the `AggregatorCommitteeRunner` includes a pre-consensus phase.
+In such a phase, operators exchange a `PartialSignatureMessages`
+with one `PartialSignatureMessage` for each validator duty in the committee.
+Note that, while a possible aggregator duty incurs only one `PartialSignatureMessage`,
+a validator may be assigned to up to four sync committee contribution duties,
+thus possibly requiring four `PartialSignatureMessages`.
+The `PartialSignatureMessages.Type` is set to the new type `AggregatorCommitteePartialSig`.
+
+The pre-consensus phase ends on the following scenarios:
+1. All validators are confirmed not to be selected as an aggregator/contributor.
+2. At least one validator is confirmed to be selected as an aggregator/contributor.
+
+> [!TIP] 
+> Note that, according to the weak condition (2), even if the selection cannot
+be determined for a subset of validators, the pre-consensus phase
+will still proceed to the consensus phase and these validators won't be included on it.
+> Although it seems counter-intuitive to do so,
+> that's necessary for ensuring liveness,
+> in a context with BFT assumptions
+> and due to the possibility of invalid signatures/validators miss
+> associated with different smart-contract state views.
+> 
+> How can this happen in more concrete terms?
+> Let $V_i$ be the validators set (of the committee) in the perspective of operator $O_i$.
+> - Operators have different views of the current SSV smart-contract state (e.g. only one is aware of a new validator that joined the committee).
+> In this case, the operator $O_i$ will only possibly select validators $V_i \cap (\bigcup_{j\neq i}V_j)$.
+> - Suppose byzantine operators send a valid signature only for $v\in V_e$ and invalid ones for all other validators.
+> Once a quorum is reached, honest operators may be restricted to advance to consensus only with the duty for $v$.
+> Note that in case it receives an all-honest quorum, it may still be able to advance to consensus with more validators than just $v$.
+> 
+> While this solution prioritizes liveness over completeness,
+> it's acceptable for now as the worst-case scenarios are marginally expected.
+> Still, our context may be formally linked to the *Interactive Consistency*
+> problem, presented in the [*Reaching Agreement in the Presence of Faults*](https://lamport.azurewebsites.net/pubs/reaching.pdf)
+> paper, and more robust solutions may be explored in the future ([example](https://cgi.di.uoa.gr/~mema/publications/ic-extended.pdf)).
+
 
 #### Consensus Data: `AggregatorConsensusData`
 
@@ -239,17 +306,27 @@ type AggregatorConsensusData struct {
 
 	// Aggregator duties
 	Aggregators     []AssignedAggregator
-
-	AggregatorsCommitteeIndexes  []uint64 // ordered unique list of the existing beacon committees, i.e. a subset of the [1,...,64] list
-	Attestations     			 [][]byte // list of encoded phase0.Attestation or electra.Attestation (depending on the version), one for each beacon committee index
+    // unique list of the existing beacon committees, i.e., a subset of the [1,...,64] list
+	AggregatorsCommitteeIndexes  []uint64
+	// list of ssz encoded phase0.Attestation or electra.Attestation (depending on the version), one for each beacon committee index
+	AggregatedAttestations     	 [][]byte
 
 	// Sync Committee Duties
 	Contributors 				[]AssignedAggregator
-
-	SyncCommitteeIndexes 		[]uint64 // ordered unique list of the existing sync committee subnets, i.e. a subset of the [1,2,3,4] list
-	SyncCommitteeContributions  []altair.SyncCommitteeContribution // one for each sync committee subnet
+    // one for each sync committee subnet (1 to 4). Note that each element includes the subcommittee_index field.
+	SyncCommitteeContributions  []altair.SyncCommitteeContribution
 }
 ```
+
+#### Post-Consensus Phase
+
+The post-consensus phase is executed similarly to the existing `CommitteeRunner`.
+It accepts all `PartialSignatureMessages` with type `PostConsensusPartialSig`
+until either all duties are submitted or all messages are received (from all operators, not only necessarily a quorum),
+and submits duties in a best-effort manner.
+Namely, whenever a valid quorum is received and a valid signature is produced,
+the associated duty is submitted to the beacon chain.
+
 
 ## P2P
 
@@ -257,4 +334,4 @@ type AggregatorConsensusData struct {
 
 - `SSVMessage.MsgID` must include a CommitteeID encoded with a 16-byte 0x00 prefix to match `ValidatorPublicKey` length. If the CommitteeID doesn't exist in the current network, it should ignore the message.
 - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the `ValidatorPublicKey` or the `CommitteeID` in the `MessageID`, it should ignore the message.
-- If the same `ValidatorIndex` appears more than 2 times in a `PartialSignatureMessages`, the message is rejected.
+- If the same `ValidatorIndex` appears more than 5 times in a `PartialSignatureMessages`, the message is rejected.
