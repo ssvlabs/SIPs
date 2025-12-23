@@ -126,7 +126,7 @@ The operator is subscribed to the $old$ topics and publishes to them.
 `PRIOR_WINDOW` epochs before the fork, it subscribes to all $new + old$.
 During this window, it does **not reject** any message with a valid signature in the new topics ($new \setminus old$).
 
-We set `PRIOR_WINDOW = 2` epoch to allow
+We set `PRIOR_WINDOW = 2` epochs to allow
 enough time for the operator to set up the new topics before the fork,
 and avoid a long overloading period (due to the extra messages being processed in the new topic).
 
