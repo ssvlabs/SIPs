@@ -334,4 +334,4 @@ the associated duty is submitted to the beacon chain.
 
 - `SSVMessage.MsgID` must include a CommitteeID encoded with a 16-byte 0x00 prefix to match `ValidatorPublicKey` length. If the CommitteeID doesn't exist in the current network, it should ignore the message.
 - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the `ValidatorPublicKey` or the `CommitteeID` in the `MessageID`, it should ignore the message.
-- If the same `ValidatorIndex` appears more than 5 times in a `PartialSignatureMessages`, the message is rejected.
+- For the Aggregator Committee duty, if the same `ValidatorIndex` appears more than 5 times in a `PartialSignatureMessages` (both for `PostConsensusPartialSig` and `AggregatorCommitteePartialSig`), the message is rejected.
