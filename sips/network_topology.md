@@ -124,7 +124,10 @@ To safely transition through the fork, we define the transition policy below. Le
 The operator is subscribed to the $old$ topics and publishes to them.
 
 `PRIOR_WINDOW` epochs before the fork, it subscribes to all $new + old$.
-During this window, it does **not reject** any message with a valid signature in the new topics ($new \setminus old$).
+During this window, for the new topics ($new \setminus old$), the operator will:
+- warm up its mesh for the new topics by setting up GRAFT connections,
+- ensure it doesn't harm the propagation of messages by accepting them (even if they aren't relevant/processed for its committees),
+and only rejecting in case of invalid signatures.
 
 We set `PRIOR_WINDOW = 2` epochs to allow
 enough time for the operator to set up the new topics before the fork,
