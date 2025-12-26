@@ -123,7 +123,7 @@ To safely transition through the fork, we define the transition policy below. Le
 
 The operator is subscribed to the $old$ topics and publishes to them.
 
-`PRIOR_WINDOW` epochs before the fork, it subscribes to all $new + old$.
+`PRIOR_WINDOW` epochs before the fork, it subscribes to all $new \cup old$.
 During this window, for the new topics ($new \setminus old$), the operator will:
 - warm up its mesh for the new topics by setting up GRAFT connections,
 - ensure it doesn't harm the propagation of messages by accepting them (even if they aren't relevant/processed for its committees),
