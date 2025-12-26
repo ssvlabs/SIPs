@@ -283,7 +283,9 @@ will still proceed to the consensus phase and these validators won't be included
 > Note that in case it receives an all-honest quorum, it may still be able to advance to consensus with more validators than just $v$.
 > 
 > While this solution prioritizes liveness over completeness,
-> it's acceptable for now as the worst-case scenarios are rarely expected.
+> it's acceptable for now as the worst-case scenarios are rarely expected,
+> and any attacks are hard to exploit since the attacker would need to
+> know in advance which validators will be selected.
 > Still, our context may be formally linked to the *Interactive Consistency*
 > problem, presented in the [*Reaching Agreement in the Presence of Faults*](https://lamport.azurewebsites.net/pubs/reaching.pdf)
 > paper, and more robust solutions may be explored in the future ([example](https://cgi.di.uoa.gr/~mema/publications/ic-extended.pdf)).
