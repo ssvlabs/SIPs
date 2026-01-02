@@ -211,7 +211,16 @@ Because `CommitteeID` is 32 bytes long, it's encoded with a 16-byte `0x00` prefi
 
 #### `PartialSignatureMessages`
 
-The current structures will remain unchanged as the pair (`ValidatorIndex`,`SigningRoot`) uniquely identifies a (validator, beacon role, beacon committee) tuple due to the non-collision property of the hashed signing root.
+A partial signature must be exchanged for each duty,
+which is identified by a (validator, beacon role, beacon committee) tuple.
+For each partial signatur, an `PartialSignatureMessage` object is included.
+Due to the non-collision property of the hashed signing root,
+each `PartialSignatureMessage` object will be different.
+Thus, for identification, the current structures can remain unchanged.
+
+Note that while the below structure doesn't reveal the duty for a certain signing root,
+any operator with the duty information can compute the signing root
+and map it to the corresponding `PartialSignatureMessage` object.
 
 ```go
 type PartialSignatureMessages struct {
@@ -235,16 +244,12 @@ const (
     PostConsensusPartialSig PartialSigMsgType = iota // 0
     // RandaoPartialSig is a partial signature over randao reveal
     RandaoPartialSig // 1
-    // SelectionProofPartialSig is a partial signature for aggregator selection proof
-    SelectionProofPartialSig // 2
-    // ContributionProofs is the partial selection proofs for sync committee contributions (it's an array of sigs)
-    ContributionProofs // 3
     // ValidatorRegistrationPartialSig is a partial signature over a ValidatorRegistration object
-    ValidatorRegistrationPartialSig // 4
+    ValidatorRegistrationPartialSig // 2
     // VoluntaryExitPartialSig is a partial signature over a VoluntaryExit object
-    VoluntaryExitPartialSig // 5
+    VoluntaryExitPartialSig // 3
     // AggregatorCommitteePartialSig is a partial signature for combined aggregator and sync committee selection proofs
-    AggregatorCommitteePartialSig // 6
+    AggregatorCommitteePartialSig // 4
 )
 ```
 
@@ -335,4 +340,5 @@ the associated duty is submitted to the beacon chain.
 
 - `SSVMessage.MsgID` must include a CommitteeID encoded with a 16-byte 0x00 prefix to match `ValidatorPublicKey` length. If the CommitteeID doesn't exist in the current network, it should ignore the message.
 - If a `ValidatorIndex` in `SignedPartialSignatureMessage.Message.Messages` is incorrect, considering the `ValidatorPublicKey` or the `CommitteeID` in the `MessageID`, it should ignore the message.
-- For the Aggregator Committee duty, if the same `ValidatorIndex` appears more than 5 times in a `PartialSignatureMessages` (both for `PostConsensusPartialSig` and `AggregatorCommitteePartialSig`), the message is rejected.
+- For the Aggregator Committee duty, if the same `ValidatorIndex` appears more than five times in a `PartialSignatureMessages` (both for `PostConsensusPartialSig` and `AggregatorCommitteePartialSig`), the message is rejected.
+Five comes from the fact that, at most, a validator may have one aggregator duty and four sync committee contribution duties (one for each subnet).
