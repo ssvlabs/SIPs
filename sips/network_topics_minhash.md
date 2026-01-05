@@ -1,6 +1,6 @@
 |     Author     				  |           Title            |  Category  |       Status        |    Date    |
 | --------------------------------| -------------------------- | ---------- | ------------------- | ---------- |
-| @diegomrsantos, Matheus Franco  | Network Topology           | Network    | open-for-discussion | 2024-03-06 |
+| @diegomrsantos, Matheus Franco  | Network Topics MinHash     | Network    | open-for-discussion | 2024-03-06 |
 
 ## Table of Contents <!-- omit from toc -->
 - [Summary](#summary)
