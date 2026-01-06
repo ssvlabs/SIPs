@@ -216,7 +216,7 @@ Because `CommitteeID` is 32 bytes long, it's encoded with a 16-byte `0x00` prefi
 
 A partial signature must be exchanged for each duty,
 which is identified by a (validator, beacon role, beacon committee) tuple.
-For each partial signatur, an `PartialSignatureMessage` object is included.
+For each partial signature, an `PartialSignatureMessage` object is included.
 Due to the non-collision property of the hashed signing root,
 each `PartialSignatureMessage` object will be different.
 Thus, for identification, the current structures can remain unchanged.
