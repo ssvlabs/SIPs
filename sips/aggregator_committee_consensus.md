@@ -180,22 +180,25 @@ Again, the validators may be listed with their associated selection proof and be
 ### Role
 
 This is used to route the message to the correct runner.
-`RoleAggregator` and `RoleSyncCommitteeContribution` will be deprecated in favour of `RoleAggregatorCommittee`.
+`RoleAggregator` and `RoleSyncCommitteeContribution` will be deprecated, and `RoleAggregatorCommittee` is added.
 
 ```go
 type RunnerRole int32
 
 const (
-	RoleCommittee RunnerRole = iota
-	RoleAggregatorCommittee
-	RoleProposer
+	RoleCommittee                       = RunnerRole(0)
+	// RoleAggregator                   (1) deprecated
+	RoleProposer                        = RunnerRole(2)
+    // RoleSyncCommitteeContribution    (3) deprecated
+	RoleValidatorRegistration           = RunnerRole(4)
+	RoleVoluntaryExit                   = RunnerRole(5)
+    RoleAggregatorCommittee             = RunnerRole(6) // New
 
-	RoleValidatorRegistration
-	RoleVoluntaryExit
-
-	RoleUnknown = -1
+	RoleUnknown = RunnerRole(-1)
 )
 ```
+
+Note that `iota` has been removed such that other values are kept unchanged.
 
 ### Design
 
