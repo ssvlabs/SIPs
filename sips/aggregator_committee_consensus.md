@@ -189,10 +189,10 @@ const (
 	RoleCommittee                       = RunnerRole(0)
 	// RoleAggregator                   (1) deprecated
 	RoleProposer                        = RunnerRole(2)
-    // RoleSyncCommitteeContribution    (3) deprecated
+	// RoleSyncCommitteeContribution    (3) deprecated
 	RoleValidatorRegistration           = RunnerRole(4)
 	RoleVoluntaryExit                   = RunnerRole(5)
-    RoleAggregatorCommittee             = RunnerRole(6) // New
+	RoleAggregatorCommittee             = RunnerRole(6) // New
 
 	RoleUnknown = RunnerRole(-1)
 )
