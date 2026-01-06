@@ -141,6 +141,15 @@ It keeps its subscription to the $new$ topics and only publishes to them.
 
 During the unsubscription period, any message in the unsubscribed topics is **accepted**.
 
+> [!NOTE]
+> Note that this behaviour oversees the right last messages sent before the fork that weren't yet delivered,
+and could be useful to finish a duty.
+> While the more robust approach would be to keep listening on those topics for an extra tiny window,
+> this adds extra complexity, extends the performance degradation (as more redundant messages are processed),
+> and possibly incurs a negligible gain as duties lasting more than 4 seconds are also less likely to be included either way
+> (remember that the last initiated duties will be aggregator and sync committee duties that start 4 seconds before the fork).
+
+
 ## Appendix
 
 ### Alternative Solutions
