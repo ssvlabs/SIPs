@@ -210,7 +210,7 @@ The `Committee` will hold a `AggregatorCommitteeRunner` object for each slot it 
 
 Messages associated to the `AggregatorRunner` and `SyncCommitteeAggregatorRunner` used to include a `ValidatorPublicKey` in `MessageID`.
 On the other hand, `AggregatorCommitteeRunner` sends messages with respect to the committee of operators and, thus, it will use `CommitteeID` in `MessageID`.
-Because `CommitteeID` is 32 bytes long, it's encoded with a 16-byte `0x00` prefix to make it the same length as a `ValidatorPublicKey` would have
+Because `CommitteeID` is 32 bytes long, it's encoded with a 16-byte `0x00` prefix to make it the same length as a `ValidatorPublicKey` would have.
 
 #### `PartialSignatureMessages`
 
