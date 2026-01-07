@@ -19,7 +19,7 @@ I.e., the i-th slot of every epoch had always the same first proposer.
 Since the current function already takes the duty's slot into account
 (given by `state.Height`),
 we don't even need to change the function signature.
-We can simply compute the current epoch through $\lfloor \frac{Height}{32} \rfloor$
+We can simply compute the current epoch through $\lfloor \frac{Height}{SLOTS\_PER\_EPOCH} \rfloor$
 and use it in the rotation computation.
 
 ```go
@@ -46,7 +46,7 @@ func RoundRobinProposer(state *State, round Round) types.OperatorID {
 	if state.Height != FirstHeight {
 		firstRoundIndex += int(state.Height) % len(state.CommitteeMember.Committee)
 	}
-	ethEpoch := int(state.Height) / 32 // NEW: compute the current Ethereum epoch
+	ethEpoch := int(state.Height) / SLOTS_PER_EPOCH // NEW: compute the current Ethereum epoch
 
 	index := (firstRoundIndex +
 		int(round) - int(FirstRound) +
