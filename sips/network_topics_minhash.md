@@ -129,7 +129,7 @@ During this window, for the new topics ($new \setminus old$), the operator will:
 - ensure it doesn't harm the propagation of messages by accepting them (even if they aren't relevant/processed for its committees),
 and only rejecting in case of invalid signatures.
 
-We set `PRIOR_WINDOW = 2` epochs to allow
+We set `PRIOR_WINDOW = 1` epochs to allow
 enough time for the operator to set up the new topics before the fork,
 and avoid a long overloading period (due to the extra messages being processed in the new topic).
 
