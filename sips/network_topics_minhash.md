@@ -149,6 +149,13 @@ and could be useful to finish a duty.
 > and possibly incurs a negligible gain as duties lasting more than 4 seconds are also less likely to be included either way
 > (remember that the last initiated duties will be aggregator and sync committee duties that start 4 seconds before the fork).
 
+## Topic Names
+
+Currently, prior to this change, topics were named by `ssv.v2.<subnet>` for `<subnet>` from 0 to 127.
+
+On the Boole fork, which introduces this change, the new topics will be named by `/ssv/boole/<domaintype>/<subnet>`,
+where `<subnet>` varies from 0 to 127 as usual, and `<domaintype>` identifies the Ethereum network and SSV fork.
+For example, the Mainnet Boole domain type is `0x0002`.
 
 ## Appendix
 
