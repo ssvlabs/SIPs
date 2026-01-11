@@ -7,5 +7,5 @@
 ## Approved SIPs
 
 - Aggregator Committee Duties (todo: add hyperlink)
-- Network Topology (todo: add hyperlink)
+- Network Topics MinHash (todo: add hyperlink)
 - Epoch Aware Round Robin Proposer (todo: add hypelink) 
