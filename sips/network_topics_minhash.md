@@ -154,9 +154,9 @@ and could be useful to finish a duty.
 
 Currently, prior to this change, topics were named by `ssv.v2.<subnet>` for `<subnet>` from 0 to 127.
 
-On the Boole fork, which introduces this change, the new topics will be named by `/ssv/boole/<domaintype>/<subnet>`,
-where `<subnet>` varies from 0 to 127 as usual, and `<domaintype>` identifies the Ethereum network and SSV fork.
-For example, the Mainnet Boole domain type is `0x0002`.
+On the Boole fork, which introduces this change, the new topics will be named by `/ssv/<ethereum_network_name>/boole/<subnet>`,
+where `<subnet>` varies from 0 to 127 as usual, and `<ethereum_network_name>` is the name of the Ethereum network in lower-case, i.e. `mainnet`, `sepolia`, `holesky`, or `hoodi`.
+For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
 
 ## Appendix
 
