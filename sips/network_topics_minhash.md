@@ -150,6 +150,12 @@ and could be useful to finish a duty.
 > and possibly incurs a negligible gain as duties lasting more than 4 seconds are also less likely to be included either way
 > (remember that the last initiated duties will be aggregator and sync committee duties that start 4 seconds before the fork).
 
+> [!NOTE]
+> During the preparation window, it may be the case that the operator is assigned to new topics (e.g., due to joining new committees).
+> We highlight that the same rules apply for them:
+> - before the fork, the operator subscribes both to the pre-fork topic and post-fork topic,
+> - after the fork, the operator leaves the pre-fork topics and only keeps the post-fork topics.
+
 ## Topic Names
 
 Currently, prior to this change, topics were named by `ssv.v2.<subnet>` for `<subnet>` from 0 to 127.
