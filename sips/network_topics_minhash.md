@@ -164,9 +164,7 @@ On the Boole fork, which introduces this change, the new topics will be named by
 where `<subnet>` varies from 0 to 127 as usual, and `<ethereum_network_name>` is the name of the Ethereum network in lower-case, i.e. `mainnet`, `sepolia`, `holesky`, or `hoodi`.
 For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
 
-## Appendix
-
-### Alternative Solutions
+## Alternative Solutions
 
 Other solutions were considered. We classify them through 3 properties:
 - **Statefulness**: whether the current network state affects the assignment of committees.
@@ -177,7 +175,7 @@ Even though some solutions provided better performance,
 we selected MinHash due to its simplicity (stateless, as the current model) and good performance. 
 We present the other solutions here just for historical purposes and future reference.
 
-#### 1. Greedy Algorithm
+### 1. Greedy Algorithm
 
 **Properties**: Stateful, stable, history-dependent.
 
@@ -200,7 +198,7 @@ $$Agg(c,t) = | O_c \setminus O_t | \times v_t + | O_t \setminus O_c | \times v_c
 - Adding validators in existing committees: no topic change.
 - Removing validators: no topic change, unless the committee is empty and, in that case, it's removed.
 
-#### 2. MaxReach
+### 2. MaxReach
 
 **Properties**: Stateful, unstable, history-independent.
 
@@ -210,14 +208,14 @@ The operator’s ID is hashed and mapped modulo 128.
 
 Note: It's unstable because adding a committee can change operator counts, affecting assignments of other committees. However, it shouldn't be very common.
 
-#### 3. LowestID
+### 3. LowestID
 
 **Properties**: Stateless, (and thus) stable, history-independent.
 
 **Rationale**: This stateless simplistic model assigns a committee to the topic corresponding to its operator with the lowest ID.
 Any improvement from it comes purely from committee formation patterns, while no robustness is provided.
 
-#### Comparisons
+### Comparisons
 
 <p align="center">
 <img src="./images/network_topology/minhash.png"  width="80%" height="30%">
