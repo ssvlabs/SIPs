@@ -128,7 +128,7 @@ The operator is subscribed to the $old$ topics and publishes to them.
 During this window, for the new topics ($new \setminus old$):
 - the operator warms up its mesh for the new topics by setting up GRAFT connections,
 - no message is expected until the fork as the topics are brand-new.
-Still, due to clocks discrepancies, any incoming non-rejectable message on the new topics (according to the new fork message validation rules) can be accepted and propagated, while rejectable ones can be ignored to avoid score degradation.
+Due to clocks discrepancies we will have special treatment for message validation ignores resulting from `ErrIncorrectTopic`. We will allow during the `PriorWindow` to accept messages with topics that match either fork, as long as all other existing checks pass.
 
 We set `PRIOR_WINDOW = 1` epochs to allow
 enough time for the operator to set up the new topics before the fork,
