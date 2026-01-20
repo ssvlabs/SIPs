@@ -128,7 +128,7 @@ The operator is subscribed to the $old$ topics and publishes to them.
 During this window, for the new topics ($new \setminus old$):
 - the operator warms up its mesh for the new topics by setting up GRAFT connections,
 - no message is expected until the fork as the topics are brand-new.
-Still, due to clocks discrepancies, any incoming non-rejectable message (according to the new fork message validation rules) can be accepted and propagated, while rejectable ones can be ignored to avoid score degradation.
+Still, due to clocks discrepancies, any incoming non-rejectable message on the new topics (according to the new fork message validation rules) can be accepted and propagated, while rejectable ones can be ignored to avoid score degradation.
 
 We set `PRIOR_WINDOW = 1` epochs to allow
 enough time for the operator to set up the new topics before the fork,
@@ -143,7 +143,7 @@ It keeps its subscription to the $new$ topics and only publishes to them.
 During the unsubscription period, any message in the unsubscribed topics is **accepted**.
 
 > [!NOTE]
-> Note that this behaviour oversees the right last messages sent before the fork that weren't yet delivered,
+> Note that this behaviour oversees the last messages sent before the fork that weren't yet delivered,
 and could be useful to finish a duty.
 > While the more robust approach would be to keep listening on those topics for an extra tiny window,
 > this adds extra complexity, extends the performance degradation (as more redundant messages are processed),
