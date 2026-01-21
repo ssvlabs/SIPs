@@ -15,3 +15,4 @@
 | [11](./sips/eliminate_bls.md)                             | Eliminate BLS out of QBFT and change message structure | spec-merged         |
 | [13](./sips/cluster_consensus.md)                         | Cluster-based consensus                                | spec-merged         |
 | [14](./sips/validators_per_operator_1k_cap.md)            | 1K cap on validators per operator                      | spec-merged         |
+| [15](./sips/epoch_aware_round_robin_proposer.md)            | Epoch-Aware Round-Robin Proposer                       | open-for-discussion         |
