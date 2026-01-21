@@ -140,7 +140,7 @@ At the fork epoch, the operator immediately unsubscribes from the old topics
 (more precisely, $old \setminus new$).
 It keeps its subscription to the $new$ topics and only publishes to them.
 
-During the unsubscription period, any message in the unsubscribed topics is **accepted**.
+During the unsubscription period, any message in the unsubscribed topics may be **accepted** if it passes message validation.
 
 > [!NOTE]
 > Note that this behaviour oversees the last messages sent before the fork that weren't yet delivered,
