@@ -136,19 +136,11 @@ and avoid a long overloading period (due to the extra messages being processed i
 
 ### At and After the Fork
 
-At the fork epoch, the operator immediately unsubscribes from the old topics
-(more precisely, $old \setminus new$).
+At the fork epoch, the operator unsubscribes from the old topics
+(more precisely, $old \setminus new$) after `SUBSEQUENT_WINDOW`.
 It keeps its subscription to the $new$ topics and only publishes to them.
 
-During the unsubscription period, any message in the unsubscribed topics may be **accepted** if it passes message validation.
-
-> [!NOTE]
-> Note that this behaviour oversees the last messages sent before the fork that weren't yet delivered,
-and could be useful to finish a duty.
-> While the more robust approach would be to keep listening on those topics for an extra tiny window,
-> this adds extra complexity, extends the performance degradation (as more redundant messages are processed),
-> and possibly incurs a negligible gain as duties lasting more than 4 seconds are also less likely to be included either way
-> (remember that the last initiated duties will be aggregator and sync committee duties that start 4 seconds before the fork).
+We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. This should be more than enough to allow latent nodes to send messages to complete their duties.
 
 > [!NOTE]
 > During the preparation window, it may be the case that the operator is assigned to new topics (e.g., due to joining new committees).
