@@ -157,13 +157,9 @@ and avoid a long overloading period (due to the extra messages being processed i
 
 ### At and After the Fork
 
-At the fork epoch, the operator unsubscribes from the old topics
-(more precisely, $old \setminus new$) after `SUBSEQUENT_WINDOW`.
-It keeps its subscription to the $new$ topics and only publishes to them.
+During SUBSEQUENT_WINDOW, nodes MUST remain subscribed to old topics. For all received messages, nodes MUST derive the fork from message.slot and validate against that fork’s rules; the received topic is only a consistency check. After SUBSEQUENT_WINDOW, nodes MAY drop old topics, and any remaining messages on old topics MAY be dropped even if they would otherwise be slot‑valid.
 
-We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. This should be more than enough to allow latent nodes to send messages to complete their duties.
-
-
+We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. Some valid prefork messages may be lost due to this. If any loss occurs it is expected to be negligible. Saving resources is prioritized.
 
 ## Alternative Solutions
 
