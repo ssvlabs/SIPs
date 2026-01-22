@@ -135,7 +135,7 @@ Let `MVA` be the set of message validation rules that exists pre-fork. Let `MVB`
 If the ethereum slot associated with the message is before the fork's activation apply `MVA`. Else, apply `MVB`.
 For consensus messages the slot is specified with the `Height` field. For partial signature messages there is a `Slot` field.
 
-In this SIP, the handling of `ErrIncorrectTopic` should be updated to reflect the new topic naming scheme.
+The ErrIncorrectTopic check should validate topics according to the received message slot. If a slot belongs to the Alan fork, the message is expected to have an Alan topic name. If the slot belongs to the Boole fork, the message is expected to have a Boole topic name.
 
 ### Before the Fork
 
