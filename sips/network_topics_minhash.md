@@ -126,10 +126,12 @@ For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
 
 ### Constants
 
-| Name               | Value | Description                                                                                  |
-|--------------------|-------|----------------------------------------------------------------------------------------------|
-| PRIOR_WINDOW       |   1   | Number of epochs before the fork when operators MUST subscribe to both old and new topics.    |
-| SUBSEQUENT_WINDOW  |   1   | Number of slots after the fork when operators MUST remain subscribed to old topics as well.   |
+Window sizes are expressed in Ethereum slots. The values below are RECOMMENDED defaults; implementations MAY override them based on local conditions (resource constraints, observed mesh health, etc.).
+
+| Name               | Recommended value (slots) | Description                                                                                |
+|--------------------|---------------------------|--------------------------------------------------------------------------------------------|
+| PRIOR_WINDOW       | 32                        | Number of slots before the fork when operators MUST subscribe to both old and new topics. |
+| SUBSEQUENT_WINDOW  | 1                         | Number of slots after the fork when operators MUST remain subscribed to old topics as well. |
 
 To enable a safe transition through the fork, the following policy MUST be followed. Define:
 - $old$: the set of topics an operator SHOULD be subscribed to before the fork, based on committee assignments.
@@ -152,20 +154,22 @@ To enable a safe transition through the fork, the following policy MUST be follo
 ### Before the Fork
 
 - Operators MUST be subscribed to all $old$ topics, and MUST publish to them.
-- In the `PRIOR_WINDOW` epochs prior to the fork, an operator MUST subscribe to all topics in $new \cup old$.
+- In the `PRIOR_WINDOW` slots prior to the fork, an operator MUST subscribe to all topics in $new \cup old$.
 - In this window, for each topic in $new \setminus old$:
     - The operator SHOULD warm up the mesh by setting up GRAFT connections.
     - No messages are expected on these brand-new topics before the fork.
-- `PRIOR_WINDOW` SHOULD be set to a value (RECOMMENDED: 1 epoch) sufficient to prepare the mesh for all new topics, but short enough to avoid long periods of extra resource usage. 
+- `PRIOR_WINDOW` SHOULD be set to a value sufficient to prepare the mesh for all new topics, but short enough to avoid long periods of extra resource usage.
 
 > [!NOTE]
+> Staggered subscription / GRAFT start times can slow mesh formation and increase propagation delays around the fork boundary. Operators SHOULD begin within the recommended window to reduce the chance of message loss and latency near activation.
+>
 > If, during the `PRIOR_WINDOW`, an operator is assigned to new topics (for example, due to joining new committees), the following rules MUST apply:
 > - Before the fork, the operator MUST be subscribed to both the pre-fork and post-fork topics.
 > - After the fork, the operator MUST unsubscribe from pre-fork topics and MUST remain only in post-fork topics.
 
 ### At and After the Fork
 
-- For the duration of `SUBSEQUENT_WINDOW` (RECOMMENDED: 1 Ethereum slot) after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
+- For the duration of `SUBSEQUENT_WINDOW` slots after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
 - For every received message, nodes MUST determine the effective fork from the message's slot, and MUST validate the message according to that fork’s rules. The received topic name MUST only be used as a consistency check.
 - After `SUBSEQUENT_WINDOW` has elapsed, nodes MAY unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
 - Note: Since `SUBSEQUENT_WINDOW` is brief, some valid pre-fork messages MAY be lost; this is acceptable in order to conserve resources.
@@ -230,4 +234,3 @@ Any improvement from it comes purely from committee formation patterns, while no
 
 The plot above shows a comparison among the current solution, the MinHash algorithm, and the alternative solutions.
 The MinHash algorithm is chosen based on the considerations of both performance and simplicity (being stateless).
-
