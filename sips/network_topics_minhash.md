@@ -130,8 +130,8 @@ Window sizes are expressed in Ethereum slots. The values below are RECOMMENDED d
 
 | Name               | Recommended value (slots) | Description                                                                                |
 |--------------------|---------------------------|--------------------------------------------------------------------------------------------|
-| PRIOR_WINDOW       | 32                        | Number of slots before the fork when operators MUST subscribe to both old and new topics. |
-| SUBSEQUENT_WINDOW  | 1                         | Number of slots after the fork when operators MUST remain subscribed to old topics as well. |
+| PRIOR_WINDOW       | 32                        | Number of slots before the fork when operators MUST subscribe to both old and new topics.  |
+| SUBSEQUENT_WINDOW  | 32                        | Number of slots after the fork when operators MUST remain subscribed to old topics as well.|
 
 To enable a safe transition through the fork, the following policy MUST be followed. Define:
 - $old$: the set of topics an operator SHOULD be subscribed to before the fork, based on committee assignments.
@@ -172,8 +172,6 @@ To enable a safe transition through the fork, the following policy MUST be follo
 - For the duration of `SUBSEQUENT_WINDOW` slots after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
 - For every received message, nodes MUST determine the effective fork from the message's slot, and MUST validate the message according to that fork’s rules. The received topic name MUST only be used as a consistency check.
 - After `SUBSEQUENT_WINDOW` has elapsed, nodes MAY unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
-- Note: Since `SUBSEQUENT_WINDOW` is brief, some valid pre-fork messages MAY be lost; this is acceptable in order to conserve resources.
-
 
 ## Alternative Solutions
 
