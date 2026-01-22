@@ -124,42 +124,52 @@ For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
 
 ## Fork Transition
 
-To safely transition through the fork, we define the transition policy below. Let:
-- $old$: denotes the set of topics the operator should be subscribed to before the fork (according to its committees),
-- $new$: denotes the set of topics the operator should subscribe to after the fork.
+### Constants
+
+| Name               | Value | Description                                                                                  |
+|--------------------|-------|----------------------------------------------------------------------------------------------|
+| PRIOR_WINDOW       |   1   | Number of epochs before the fork when operators MUST subscribe to both old and new topics.    |
+| SUBSEQUENT_WINDOW  |   1   | Number of slots after the fork when operators MUST remain subscribed to old topics as well.   |
+
+To enable a safe transition through the fork, the following policy MUST be followed. Define:
+- $old$: the set of topics an operator SHOULD be subscribed to before the fork, based on committee assignments.
+- $new$: the set of topics an operator SHOULD subscribe to after the fork, based on committee assignments.
 
 ### Message Validation
 
-Message validation rules will change at the fork. 
-Let `MVA` be the set of message validation rules that exists pre-fork. Let `MVB` be the set of new rules post-fork.
-If the ethereum slot associated with the message is before the fork's activation apply `MVA`. Else, apply `MVB`.
-For consensus messages the slot is specified with the `Height` field. For partial signature messages there is a `Slot` field.
-
-The ErrIncorrectTopic check should validate topics according to the received message slot. If a slot belongs to the Alan fork, the message is expected to have an Alan topic name. If the slot belongs to the Boole fork, the message is expected to have a Boole topic name.
+- The set of message validation rules in effect pre-fork is denoted `MVA`. The set of rules post-fork is denoted `MVB`.
+- For any received message:
+    - Let the associated Ethereum slot be derived from the message:
+        - For consensus messages: use the `Height` field.
+        - For partial signature messages: use the `Slot` field.
+    - If the slot is prior to fork activation, nodes MUST apply `MVA`.
+    - If the slot is at or after fork activation, nodes MUST apply `MVB`.
+- Implementations MUST perform topic validation as follows:
+    - If the referenced slot belongs to the Alan fork, the message topic MUST use the Alan topic naming.
+    - If the referenced slot belongs to the Boole fork, the message topic MUST use the Boole topic naming.
+    - If the topic does not match the expected topic for the derived slot, an ErrIncorrectTopic error MUST be returned.
 
 ### Before the Fork
 
-The operator is subscribed to the $old$ topics and publishes to them.
-
-`PRIOR_WINDOW` epochs before the fork, it subscribes to all $new \cup old$.
-During this window, for the new topics ($new \setminus old$):
-- the operator warms up its mesh for the new topics by setting up GRAFT connections,
-- no message is expected until the fork as the topics are brand-new.
-We set `PRIOR_WINDOW = 1` epochs to allow
-enough time for the operator to set up the new topics before the fork,
-and avoid a long overloading period (due to the extra messages being processed in the new topic).
+- Operators MUST be subscribed to all $old$ topics, and MUST publish to them.
+- In the `PRIOR_WINDOW` epochs prior to the fork, an operator MUST subscribe to all topics in $new \cup old$.
+- In this window, for each topic in $new \setminus old$:
+    - The operator SHOULD warm up the mesh by setting up GRAFT connections.
+    - No messages are expected on these brand-new topics before the fork.
+- `PRIOR_WINDOW` SHOULD be set to a value (RECOMMENDED: 1 epoch) sufficient to prepare the mesh for all new topics, but short enough to avoid long periods of extra resource usage. 
 
 > [!NOTE]
-> During the `PRIOR_WINDOW`, it may be the case that the operator is assigned to new topics (e.g., due to joining new committees).
-> We highlight that the same rules apply for them:
-> - before the fork, the operator subscribes both to the pre-fork topic and post-fork topic,
-> - after the fork, the operator leaves the pre-fork topics and only keeps the post-fork topics.
+> If, during the `PRIOR_WINDOW`, an operator is assigned to new topics (for example, due to joining new committees), the following rules MUST apply:
+> - Before the fork, the operator MUST be subscribed to both the pre-fork and post-fork topics.
+> - After the fork, the operator MUST unsubscribe from pre-fork topics and MUST remain only in post-fork topics.
 
 ### At and After the Fork
 
-During SUBSEQUENT_WINDOW, nodes MUST remain subscribed to old topics. For all received messages, nodes MUST derive the fork from message.slot and validate against that fork’s rules; the received topic is only a consistency check. After SUBSEQUENT_WINDOW, nodes MAY drop old topics, and any remaining messages on old topics MAY be dropped even if they would otherwise be slot‑valid.
+- For the duration of `SUBSEQUENT_WINDOW` (RECOMMENDED: 1 Ethereum slot) after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
+- For every received message, nodes MUST determine the effective fork from the message's slot, and MUST validate the message according to that fork’s rules. The received topic name MUST only be used as a consistency check.
+- After `SUBSEQUENT_WINDOW` has elapsed, nodes MAY unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
+- Note: Since `SUBSEQUENT_WINDOW` is brief, some valid pre-fork messages MAY be lost; this is acceptable in order to conserve resources.
 
-We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. Some valid prefork messages may be lost due to this. If any loss occurs it is expected to be negligible. Saving resources is prioritized.
 
 ## Alternative Solutions
 
