@@ -114,11 +114,26 @@ FUNCTION AssignCommitteeToTopic(committee: list[uint64]):
 	RETURN min_int MOD NUM_TOPICS
 ```
 
+## Topic Names
+
+Currently, prior to this change, topics were named by `ssv.v2.<subnet>` for `<subnet>` from 0 to 127.
+
+On the Boole fork, which introduces this change, the new topics will be named by `/ssv/<ethereum_network_name>/boole/<subnet>`,
+where `<subnet>` varies from 0 to 127 as usual, and `<ethereum_network_name>` is the name of the Ethereum network in lower-case, i.e. `mainnet`, `sepolia`, `holesky`, or `hoodi`.
+For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
+
 ## Fork Transition
 
 To safely transition through the fork, we define the transition policy below. Let:
 - $old$: denotes the set of topics the operator should be subscribed to before the fork (according to its committees),
 - $new$: denotes the set of topics the operator should subscribe to after the fork.
+
+### Message Validation
+
+Message validation rules will change at the fork. 
+By determining whether a message slot is before, at, or after the activation epoch, the appropriate validation rules can be applied.
+
+In this SIP, the handling of `ErrIncorrectTopic` should be updated to reflect the new topic naming scheme.
 
 ### Before the Fork
 
@@ -128,8 +143,6 @@ The operator is subscribed to the $old$ topics and publishes to them.
 During this window, for the new topics ($new \setminus old$):
 - the operator warms up its mesh for the new topics by setting up GRAFT connections,
 - no message is expected until the fork as the topics are brand-new.
-Due to clocks discrepancies we will have special treatment for message validation ignores resulting from `ErrIncorrectTopic`. We will allow during the `PriorWindow` to accept and process messages with topics that match either fork, as long as all other existing checks pass.
-
 We set `PRIOR_WINDOW = 1` epochs to allow
 enough time for the operator to set up the new topics before the fork,
 and avoid a long overloading period (due to the extra messages being processed in the new topic).
@@ -148,13 +161,6 @@ We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. This should be more tha
 > - before the fork, the operator subscribes both to the pre-fork topic and post-fork topic,
 > - after the fork, the operator leaves the pre-fork topics and only keeps the post-fork topics.
 
-## Topic Names
-
-Currently, prior to this change, topics were named by `ssv.v2.<subnet>` for `<subnet>` from 0 to 127.
-
-On the Boole fork, which introduces this change, the new topics will be named by `/ssv/<ethereum_network_name>/boole/<subnet>`,
-where `<subnet>` varies from 0 to 127 as usual, and `<ethereum_network_name>` is the name of the Ethereum network in lower-case, i.e. `mainnet`, `sepolia`, `holesky`, or `hoodi`.
-For example, topic 0 for mainnet would be `/ssv/mainnet/boole/0`.
 
 ## Alternative Solutions
 
