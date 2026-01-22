@@ -131,7 +131,9 @@ To safely transition through the fork, we define the transition policy below. Le
 ### Message Validation
 
 Message validation rules will change at the fork. 
-By determining whether a message slot is before, at, or after the activation epoch, the appropriate validation rules can be applied.
+Let `MVA` be the set of message validation rules that exists pre-fork. Let `MVB` be the set of new rules post-fork.
+If the ethereum slot associated with the message is before the fork's activation apply `MVA`. Else, apply `MVB`.
+For consensus messages the slot is specified with the `Height` field. For partial signature messages there is a `Slot` field.
 
 In this SIP, the handling of `ErrIncorrectTopic` should be updated to reflect the new topic naming scheme.
 
