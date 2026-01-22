@@ -156,7 +156,7 @@ It keeps its subscription to the $new$ topics and only publishes to them.
 We set `SUBSEQUENT_WINDOW` to be a single ethereum slot. This should be more than enough to allow latent nodes to send messages to complete their duties.
 
 > [!NOTE]
-> During the preparation window, it may be the case that the operator is assigned to new topics (e.g., due to joining new committees).
+> During the `PRIOR_WINDOW`, it may be the case that the operator is assigned to new topics (e.g., due to joining new committees).
 > We highlight that the same rules apply for them:
 > - before the fork, the operator subscribes both to the pre-fork topic and post-fork topic,
 > - after the fork, the operator leaves the pre-fork topics and only keeps the post-fork topics.
