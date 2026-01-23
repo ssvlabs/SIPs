@@ -169,6 +169,10 @@ To enable a safe transition through the fork, the following policy MUST be follo
 
 ### At and After the Fork
 
+Nodes MUST publish each message to the topic derived from its slot/fork. This requirement exists to keep publishing consistent with slot‑based validation (i.e., a message must be sent on the same topic that receivers will expect for its slot).
+
+If a node has a valid message for a slot < ForkEpoch, it MUST publish it on the old topic while SUBSEQUENT_WINDOW is active. After SUBSEQUENT_WINDOW, such messages MUST be dropped.
+
 - For the duration of `SUBSEQUENT_WINDOW` slots after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
 - For every received message, nodes MUST determine the effective fork from the message's slot, and MUST validate the message according to that fork’s rules. The received topic name MUST only be used as a consistency check.
 - After `SUBSEQUENT_WINDOW` has elapsed, nodes MUST unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
