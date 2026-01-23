@@ -171,7 +171,7 @@ To enable a safe transition through the fork, the following policy MUST be follo
 
 - For the duration of `SUBSEQUENT_WINDOW` slots after activation, nodes MUST remain subscribed to $old$ topics in addition to $new$ topics.
 - For every received message, nodes MUST determine the effective fork from the message's slot, and MUST validate the message according to that fork’s rules. The received topic name MUST only be used as a consistency check.
-- After `SUBSEQUENT_WINDOW` has elapsed, nodes MAY unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
+- After `SUBSEQUENT_WINDOW` has elapsed, nodes MUST unsubscribe from $old$ topics. Any subsequently received messages on old topics MAY be dropped, even if the slot would otherwise be valid.
 
 ## Alternative Solutions
 
