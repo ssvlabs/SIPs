@@ -163,9 +163,9 @@ To enable a safe transition through the fork, the following policy MUST be follo
 > [!NOTE]
 > Staggered subscription / GRAFT start times can slow mesh formation and increase propagation delays around the fork boundary. Operators SHOULD begin within the recommended window to reduce the chance of message loss and latency near activation.
 >
-> If, during the `PRIOR_WINDOW`, an operator is assigned to new topics (for example, due to joining new committees), the following rules MUST apply:
-> - Before the fork, the operator MUST be subscribed to both the pre-fork and post-fork topics.
-> - After the fork, the operator MUST unsubscribe from pre-fork topics and MUST remain only in post-fork topics.
+> If, during the `PRIOR_WINDOW`, an operator is assigned to new topics (for example, due to joining new committees), the operator MUST treat it the same way as any other transition topic:
+> - **Before the fork:** subscribe to both the pre‑fork and post‑fork topics.
+> - **After the fork:** remain subscribed to the pre‑fork topic for `SUBSEQUENT_WINDOW`, then MUST unsubscribe and remain only on the post‑fork topic.
 
 ### At and After the Fork
 
