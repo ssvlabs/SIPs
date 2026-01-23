@@ -157,7 +157,7 @@ To enable a safe transition through the fork, the following policy MUST be follo
 - In the `PRIOR_WINDOW` slots prior to the fork, an operator MUST subscribe to all topics in $new \cup old$.
 - In this window, for each topic in $new \setminus old$:
     - The operator SHOULD warm up the mesh by setting up GRAFT connections.
-    - No messages are expected on these brand-new topics before the fork.
+    - No messages are expected on these brand‑new topics before activation from nodes that are following the fork schedule. However, nodes MAY still receive messages due to clock skew or early‑forked peers. Such messages MUST be validated using slot‑derived fork rules (and processed normally if valid).
 - `PRIOR_WINDOW` SHOULD be set to a value sufficient to prepare the mesh for all new topics, but short enough to avoid long periods of extra resource usage.
 
 > [!NOTE]
