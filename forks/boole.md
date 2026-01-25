@@ -6,6 +6,6 @@
 
 ## Approved SIPs
 
-- Aggregator Committee Duties (todo: add hyperlink)
-- Network Topics MinHash (todo: add hyperlink)
-- Epoch Aware Round Robin Proposer (todo: add hypelink) 
+- [Aggregator Committee Duties](../sips/aggregator_committee_consensus.md)
+- [Network Topics MinHash](../sips/network_topics_minhash.md)
+- [Epoch Aware Round Robin Proposer](../sips/epoch_aware_round_robin_proposer.md) 
