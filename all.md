@@ -1,7 +1,7 @@
 ## All SIPS
 
-|                           SIP #                           |                         Title                          |       Status        |
-| --------------------------------------------------------- | ------------------------------------------------------ | ------------------- |
+| SIP #                                                     | Title                                                  |       Status        |
+|-----------------------------------------------------------|--------------------------------------------------------| ------------------- |
 | [1](./sips/dkg.md)                                        | DKG                                                    | open-for-discussion |
 | [2](./sips/msg_struct_encoding.md)                        | Message struct and encoding                            | open-for-discussion |
 | [3](./sips/qbft_sync.md)                                  | QBFT Sync                                              | open-for-discussion |
@@ -16,3 +16,5 @@
 | [12](./sips/topic_by_committe_id.md)                      | Eliminate BLS out of QBFT and change message structure | spec-merged         |
 | [13](./sips/cluster_consensus.md)                         | Cluster-based consensus                                | spec-merged         |
 | [14](./sips/validators_per_operator_1k_cap.md)            | 1K cap on validators per operator                      | spec-merged         |
+| [15](./sips/network_topics_minhash.md)                      | Network Topics MinHash                                 | open-for-discussion |
+| [16](./sips/epoch_aware_round_robin_proposer.md)            | Epoch-Aware Round-Robin Proposer                       | open-for-discussion         |
