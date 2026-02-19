@@ -287,10 +287,9 @@ Pre-consensus processing:
 2. Store operator in `seenOperators`.
 3. Process quorum updates. For each newly-quorate duty `d`, add it to `C`, and evaluate selection once, adding it to `S` if selected.
 4. If `S != \emptyset`, start consensus.
-5. If `S = \emptyset`, terminate the duty only when either condition holds:
-   - all operators were seen: `|seenOperators| = N`; or
-   - all duties were checked and none selected: `|C| = |D|`.
-else wait for more messages.
+5. If `S = \emptyset`:
+   - if all operators were seen (`|seenOperators| = N`) or all duties were checked and none selected (`|C| = |D|`), terminate the duty;
+   - else, wait for more messages.
 ```
 
 > [!TIP] 
@@ -306,7 +305,7 @@ with the selected subset only.
 > How can this happen in concrete terms?
 > Let $V_i$ be the validator set (for this committee and slot) as seen by operator $O_i$.
 > - Operators may have different views of SSV contract state (for example, only one operator has observed a recent validator update).
->   Then $O_i$ can only evaluate duties for validators in its local view, and selection can only be confirmed on duties that has a quorum overlap across views.
+>   Then $O_i$ can only evaluate duties for validators in its local view, and selection can only be confirmed on duties that have a quorum overlap across views.
 > - Suppose Byzantine operators provide a valid partial signature only for one duty $v \in V_e$ and invalid partial signatures for all others.
 >   After the first quorum, it's possible that honest operators may only be able to confirm selection for $v$, and therefore may advance to consensus with only that duty.
 > 
