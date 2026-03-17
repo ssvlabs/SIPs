@@ -13,5 +13,5 @@
 | [9](./sips/partial_signature_verification_aggregation.md) | Partial Signature Verification Aggregation             | spec-merged         |
 | [10](./sips/qbft_drop_redundant_bls.md)                   | Drop redundant BLS in QBFT                             | spec-merged         |
 | [11](./sips/eliminate_bls.md)                             | Eliminate BLS out of QBFT and change message structure | spec-merged         |
-| [13](./sips/cluster_consensus.md)                         | Cluster-based consensus                                | spec-merged         |
+| [13](./sips/committee_consensus.md)                       | Cluster-based consensus                                | spec-merged         |
 | [14](./sips/validators_per_operator_1k_cap.md)            | 1K cap on validators per operator                      | spec-merged         |
