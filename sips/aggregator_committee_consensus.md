@@ -269,26 +269,45 @@ thus possibly requiring four `PartialSignatureMessages`.
 The `PartialSignatureMessages.Type` is set to the new type `AggregatorCommitteePartialSig`.
 
 The pre-consensus phase ends on the following scenarios:
-1. All validators are confirmed not to be selected as an aggregator/contributor.
+1. All validators are confirmed not to be selected as an aggregator/contributor or all operator messages have been received, and no selected duty is found.
 2. At least one validator is confirmed to be selected as an aggregator/contributor.
 
+**Pre-Consensus Algorithm**
+```text
+State variables:
+- `N`: committee size (number of operators).
+- `Q`: quorum threshold.
+- `D`: set of all duties in the slot.
+- `seenOperators`: set of operators from which a pre-consensus message was received.
+- `C`: set of duties in `D` that already reached quorum in pre-consensus and were checked for selection.
+- `S`: set of selected duties in `C` (selected as aggregator or sync-committee contributor).
+
+Pre-consensus processing:
+1. If consensus has already started or it has already processed a pre-consensus message from such operator, ignore the message.
+2. Store operator in `seenOperators`.
+3. Process quorum updates. For each newly-quorate duty `d`, add it to `C`, and evaluate selection once, adding it to `S` if selected.
+4. If `S != \emptyset`, start consensus.
+5. If `S = \emptyset`:
+   - if all operators were seen (`|seenOperators| = N`) or all duties were checked and none selected (`|C| = |D|`), terminate the duty;
+   - else, wait for more messages.
+```
+
 > [!TIP] 
-> Note that, according to the weak condition (2), even if the selection cannot
-be determined for a subset of validators, the pre-consensus phase
-will still proceed to the consensus phase and these validators won't be included on it.
+> Note that, due to condition `S != \emptyset`, once one validator is selected, and even if selection cannot
+be determined for other validators, the runner still proceeds to consensus
+with the selected subset only.
 > Although it seems counter-intuitive to do so,
 > that's necessary for ensuring liveness,
 > in a context with BFT assumptions
 > and due to the possibility of invalid signatures/validators miss
 > associated with different smart-contract state views.
 > 
-> How can this happen in more concrete terms?
-> Let $V_i$ be the validators set (of the committee) in the perspective of operator $O_i$.
-> - Operators have different views of the current SSV smart-contract state (e.g. only one is aware of a new validator that joined the committee).
-> In this case, the operator $O_i$ will only possibly select validators $V_i \cap (\bigcup_{j\neq i}V_j)$.
-> - Suppose byzantine operators send a valid signature only for $v\in V_e$ and invalid ones for all other validators.
-> Once a quorum is reached, honest operators may be restricted to advance to consensus only with the duty for $v$.
-> Note that in case it receives an all-honest quorum, it may still be able to advance to consensus with more validators than just $v$.
+> How can this happen in concrete terms?
+> Let $V_i$ be the validator set (for this committee and slot) as seen by operator $O_i$.
+> - Operators may have different views of SSV contract state (for example, only one operator has observed a recent validator update).
+>   Then $O_i$ can only evaluate duties for validators in its local view, and selection can only be confirmed on duties that have a quorum overlap across views.
+> - Suppose Byzantine operators provide a valid partial signature only for one duty $v \in V_e$ and invalid partial signatures for all others.
+>   After the first quorum, it's possible that honest operators may only be able to confirm selection for $v$, and therefore may advance to consensus with only that duty.
 > 
 > While this solution prioritizes liveness over completeness,
 > it's acceptable for now as the worst-case scenarios are rarely expected,
