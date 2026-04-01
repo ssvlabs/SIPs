@@ -2,7 +2,7 @@
 |-------------|--------------------------------|----------|--------|
 | Alon Muroch | Generalized DKG support in SSV | Core     | open-for-discussion  |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/7)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/7)
 
 **Summary**
 Describes a general workflow and specifications for integrating DKG into SSV regardless of the DKG protocol selected, number of rounds it requires or data structures it uses.

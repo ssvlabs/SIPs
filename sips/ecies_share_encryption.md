@@ -2,7 +2,7 @@
 |-------------|------------------------|----------|--------|
 | Alon Muroch | ECIES Share Encryption | Core     | approved  |
 
-[Discussion](https://github.com/bloxapp/SIPs/discussions/19)
+[Discussion](https://github.com/ssvlabs/SIPs/discussions/19)
 
 ## Overview
 When registering a validator for the SSV network the user needs to provide 2f+1 encrypted shares for the selected operators.  
@@ -30,7 +30,7 @@ Shared Secret  = (a * G) * b = (b * G) * a
 * Smaller Keys and ciphers [comparable](https://www.ssl2buy.com/wiki/rsa-vs-ecc-which-is-better-algorithm-for-security) security
 * [Faster encryption](https://www.researchgate.net/figure/Encryption-time-comparison-between-ECIES-and-RSA-AES_fig5_277941706)
 * Same crypto primitives as ethereum, using [go-ethereum's implementation](https://github.com/ethereum/go-ethereum/blob/master/crypto/ecies/ecies.go)
-* Aligned to same crypto primitives as used in [SSV DKG](https://github.com/bloxapp/SIPs/blob/main/sips/dkg.md)
+* Aligned to same crypto primitives as used in [SSV DKG](https://github.com/ssvlabs/SIPs/blob/main/sips/dkg.md)
 
 ## Specifications
 [code](https://github.com/bloxapp/ssv-experiments/blob/master/ecies/ecies_test.go)

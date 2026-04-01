@@ -13,7 +13,7 @@ All major protocol decisions should be written in an SIP form.
 Read [SIP 0](./sips/sip0.md) for SIP life cycle
 
 ## SIP Discussions
-All merged SIPs will have a dedicated discussion topic in the [SIPs discussion board](https://github.com/bloxapp/SIPs/discussions)
+All merged SIPs will have a dedicated discussion topic in the [SIPs discussion board](https://github.com/ssvlabs/SIPs/discussions)
 
 ## SIP Merge checklist
 - [ ] Initial discussion and approvals

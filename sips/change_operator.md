@@ -2,7 +2,7 @@
 |-------------|-------------------------|----------|----------|
 | Alon Muroch | Change operators set | Core     | rejected |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/14)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/14)
 
 ## Overview  
 Changing the operator set for an SSV validator is the last resort in keeping the validator operational. Changing operators can happen for a number of reasons: change fee structure, replacing malicious/ low performing operator and more.  
