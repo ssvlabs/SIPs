@@ -1,13 +1,13 @@
 | Author      | Title                 | Category | Status |
 |-------------|-----------------------|----------|--------|
-| Alon Muroch | Pre-Consensus Livness | Core     | approved  |
+| Alon Muroch | Pre-Consensus Liveness | Core     | approved  |
 
 **Summary**  
 Some duties require pre-consensus (randao, selection proof, etc) before the consensus stage can start. Partial signatures are signed and broadcasted to reconstruct a valid signature for the pre-consensus step.
 
 Once the pre-consensus step is done (has quorum of signatures) the consensus phase starts, with the pre-consensus result as input.
 
-A livness issue is found when in T0 2f replicas are first to broadcast their partial pre-consensus signature, and receive it.  
+A liveness issue is found when in T0 2f replicas are first to broadcast their partial pre-consensus signature, and receive it.  
 The rest of the replicas do not receive the above messages.  
 In T1 (still within the slot for the duty) another f+1 replicas broadcast their pre-consensus signatures.  
 
@@ -20,7 +20,7 @@ The system is forever stuck.
 
 **Specification**  
 We add a pre-consensus justification field to the ConsensusData object (attached to all QBFT messages) so any replica which did not receive a quorum of pre-consensus messages can use the justification (verify it) and start a consensus instance.   
-Solving the livness issue.
+Solving the liveness issue.
 
 runner.go
 ```go

@@ -99,7 +99,7 @@ Each highest decided will be validated as any other decided message is.
 
 The highest decided beacon object will be saved in the slashing protection database
 
-Upon parsing a ValidatorTransferred event, register to the relevant subnet to listen for any validator decided messages (to keep up to date with decdied duties)
+Upon parsing a ValidatorTransferred event, register to the relevant subnet to listen for any validator decided messages (to keep up to date with decided duties)
 
 ### Transitioning epoch 
 The epoch in which the transfer validator transaction is included is marked as the pre-transition epoch.  
