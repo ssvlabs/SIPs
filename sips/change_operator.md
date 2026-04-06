@@ -2,7 +2,7 @@
 |-------------|-------------------------|----------|----------|
 | Alon Muroch | Change operators set | Core     | rejected |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/14)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/14)
 
 ## Overview  
 Changing the operator set for an SSV validator is the last resort in keeping the validator operational. Changing operators can happen for a number of reasons: change fee structure, replacing malicious/ low performing operator and more.  
@@ -99,7 +99,7 @@ Each highest decided will be validated as any other decided message is.
 
 The highest decided beacon object will be saved in the slashing protection database
 
-Upon parsing a ValidatorTransferred event, register to the relevant subnet to listen for any validator decided messages (to keep up to date with decdied duties)
+Upon parsing a ValidatorTransferred event, register to the relevant subnet to listen for any validator decided messages (to keep up to date with decided duties)
 
 ### Transitioning epoch 
 The epoch in which the transfer validator transaction is included is marked as the pre-transition epoch.  

@@ -2,7 +2,7 @@
 | -------------- | ------------------------- | -------- | ------------------- | ---------- |
 | Matheus Franco | QBFT - Drop redundant BLS | Core     | open-for-discussion | 2024-03-27 |
 
-[Discussion](https://github.com/bloxapp/SIPs/discussions/38)
+[Discussion](https://github.com/ssvlabs/SIPs/discussions/38)
 
 ## Summary
 

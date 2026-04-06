@@ -2,7 +2,7 @@
 |-------------|--------------------------------|----------|--------|
 | Alon Muroch | Generalized DKG support in SSV | Core     | open-for-discussion  |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/7)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/7)
 
 **Summary**
 Describes a general workflow and specifications for integrating DKG into SSV regardless of the DKG protocol selected, number of rounds it requires or data structures it uses.
@@ -57,7 +57,7 @@ The Data structure in the DKG message struct encodes 2 mandatory structs (Init a
 **RequestID**
 Is a unique identifier for the entire DKG process which is a combination of the signing eth address of the message and an incremental index.
 
-Requires Message.ID.GetETHAddress() == singing key
+Requires Message.ID.GetETHAddress() == signing key
 
 **Signing key**
 Messages are signed with ethereum’s ECDSA keys to be compatible with smart contracts and also enable anyone to run DKG.
@@ -188,7 +188,7 @@ type AbortBlame struct {
 
 type SignedAbortBlame struct {
     // Data signed
-    Data *AbortBlaim
+    Data *AbortBlame
     // Signer operator ID which signed
     Signer OperatorID
     // Signature over Data.GetRoot()

@@ -3,7 +3,7 @@
 |-------------|-----------|----------|--------|
 | Alon Muroch | QBFT Sync | Core     | Deprecated  |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/12)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/12)
 
 **Summary**  
 Describes when QBFT requires syncing with other nodes and what type of syncing.   

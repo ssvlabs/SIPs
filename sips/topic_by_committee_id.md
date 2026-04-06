@@ -1,6 +1,6 @@
 |     Author     |         Title         | Category |       Status       |    Date    |
 | -------------- | --------------------- | -------- | ------------------ | ---------- |
-| Matheus Franco | Topic by committee ID | Core     | open for dicussion | 2024-05-21 |
+| Matheus Franco | Topic by committee ID | Core     | open-for-discussion | 2024-05-21 |
 
 
 ## Summary

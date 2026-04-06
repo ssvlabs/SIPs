@@ -123,7 +123,7 @@ type CommitteeRunner struct {
 
 	// Start the duty lifecycle for the given slot. Emits a message.
     StartDuty(duty CommitteeDuty, quorum uint64) error
-	// Processes cosensus message
+	// Processes consensus message
     ProcessConsensus(consensusMessage *qbft.Message) error
 	// Processes a post-consensus message
     ProcessPostConsensus(msg PartialSignatureMessages) 
@@ -145,7 +145,7 @@ func ConstructAttestation(vote BeaconVote, duty AttesterDuty) Attestation {
         BlockRoot: vote.BlockRoot,
         Source: vote.Source,
         Target: vote.Target,
-        CommiteeIndex: duty.CommitteeIndex,
+        CommitteeIndex: duty.CommitteeIndex,
         AggregationBits: bits,
     }
 }
@@ -207,7 +207,7 @@ func (c *Committee) StartDuty(duty *types.CommitteeDuty) error {
 4. `Committee` will process post-consensus partial signature messages and submit a beacon message for each validator.
 
 ### Cutoff Round
-Previously new duties stopped consensus intsances. We cannot do that anymore since duties don't neccesarily map to specific validators. So we create a better Cutoff Round that will stop the consensus instance in a more sensible time. If the Sync Committee beacon message is longer than a slot tehn it won't enter the beacon chain.
+Previously new duties stopped consensus instances. We cannot do that anymore since duties don't necessarily map to specific validators. So we create a better Cutoff Round that will stop the consensus instance in a more sensible time. If the Sync Committee beacon message is longer than a slot tehn it won't enter the beacon chain.
 An Attestation has at most 2 epochs to be included. However since after round 8 we use a slow timeout, if after 4 additional change rounds the instance didn't decide then the chances of it deciding are very low.
 Since consensus for data of both duties happen in a single process, the larger cutoff is chosen. 
 
@@ -240,7 +240,7 @@ In order to route consensus messages to the correct consensus runner, the `Commi
 
 ### Role
 
-This is used to route the message to the correct runner. Since `CommitteeRunner` has several beacone roles we will create a new `RunnerRole` in the MessageID.
+This is used to route the message to the correct runner. Since `CommitteeRunner` has several beacon roles we will create a new `RunnerRole` in the MessageID.
 
 ```go
 type RunnerRole int32

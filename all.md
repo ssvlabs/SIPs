@@ -9,7 +9,7 @@
 | [5](./sips/ecies_share_encryption.md)                     | ECIES Share Encryption                                 | contract   | open-for-discussion |
 | [6](./sips/constant_qbft_timeout.md)                      | Constant QBFT timeout                                  | core       | open-for-discussion |
 | [7](./sips/fork_support.md)                               | Fork Support                                           | core       | open-for-discussion |
-| [8](./sips/pre_consensus_livness.md)                      | Pre-Consensus livness fix                              | core       | open-for-discussion |
+| [8](./sips/pre_consensus_liveness.md)                     | Pre-Consensus liveness fix                              | core       | open-for-discussion |
 | [9](./sips/partial_signature_verification_aggregation.md) | Partial Signature Verification Aggregation             | core       | spec-merged         |
 | [10](./sips/qbft_drop_redundant_bls.md)                   | Drop redundant BLS in QBFT                             | core       | spec-merged         |
 | [11](./sips/eliminate_bls.md)                             | Eliminate BLS out of QBFT and change message structure | core       | spec-merged         |

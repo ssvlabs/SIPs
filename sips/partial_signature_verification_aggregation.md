@@ -2,7 +2,7 @@
 | -------------- | ------------------------------------------ | -------- | ------------------- | ---------- |
 | Matheus Franco | Partial Signature Verification Aggregation | Core     | spec-merged | 2024-03-19 |
 
-[Discussion](https://github.com/bloxapp/SIPs/discussions/38)
+[Discussion](https://github.com/ssvlabs/SIPs/discussions/38)
 
 ## Summary
 
