@@ -1,6 +1,6 @@
 |     Author     |           Title           | Category |       Status        |    Date    |
 | -------------- | ------------------------- | -------- | ------------------- | ---------- |
-| Matheus Franco | QBFT - Drop redundant BLS | Core     | open-for-discussion | 2024-03-27 |
+| Matheus Franco | QBFT - Drop redundant BLS | Core     | spec-merged         | 2024-03-27 |
 
 [Discussion](https://github.com/ssvlabs/SIPs/discussions/38)
 
