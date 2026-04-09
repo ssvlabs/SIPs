@@ -1,6 +1,6 @@
-| Author      | Title        | Category | Status |
-|-------------|--------------|----------|--------|
-| Alon Muroch & Matheus Franco | Fork Support | Core     | approved  |
+| Author                       | Title        | Category | Status   | Date       |
+|------------------------------|--------------|----------|----------|------------|
+| Alon Muroch & Matheus Franco | Fork Support | Core     | approved | 2022-12-12 |
 
 **Summary**  
 Describes how to support forks in the SSV network.

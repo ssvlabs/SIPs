@@ -1,6 +1,6 @@
-| Author      | Title                          | Category | Status |
-|-------------|--------------------------------|----------|--------|
-| Alon Muroch | Voluntary Exit | Core     | Draft  |
+| Author      | Title          | Category | Status | Date       |
+|-------------|----------------|----------|--------|------------|
+| Alon Muroch | Voluntary Exit | Core     | Draft  | 2023-08-30 |
 
 
 **Summary**
