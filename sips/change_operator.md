@@ -1,6 +1,6 @@
-| Author      | Title                   | Category | Status   |
-|-------------|-------------------------|----------|----------|
-| Alon Muroch | Change operators set | Core     | rejected |
+| Author      | Title                | Category | Status   | Date       |
+|-------------|----------------------|----------|----------|------------|
+| Alon Muroch | Change operators set | Core     | rejected | 2022-09-04 |
 
 [Discussion] (https://github.com/ssvlabs/SIPs/discussions/14)
 
