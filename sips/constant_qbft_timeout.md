@@ -1,6 +1,6 @@
 | Author      | Title                 | Category | Status |
 |-------------|-----------------------|----------|--------|
-| Alon Muroch | Constant QBFT timeout | Core     | approved  |
+| Alon Muroch | Constant QBFT timeout | Core     | spec-merged  |
 
 _Special thanks for Henrique Moniz for reviewing_
 
