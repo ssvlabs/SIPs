@@ -1,6 +1,6 @@
-| Author      | Title                          | Category | Status |
-|-------------|--------------------------------|----------|--------|
-| Alon Muroch | Generalized DKG support in SSV | Core     | open-for-discussion  |
+| Author      | Title                          | Category | Status              | Date       |
+|-------------|--------------------------------|----------|---------------------|------------|
+| Alon Muroch | Generalized DKG support in SSV | Core     | open-for-discussion | 2022-06-27 |
 
 [Discussion] (https://github.com/ssvlabs/SIPs/discussions/7)
 
