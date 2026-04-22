@@ -1,6 +1,6 @@
-| Author      | Title                          | Category | Status   |
-|-------------|--------------------------------|----------|----------|
-| Alon Muroch | Messages structure and encoding | Core     | spec-merged |
+| Author      | Title                           | Category | Status      | Date       |
+|-------------|---------------------------------|----------|-------------|------------|
+| Alon Muroch | Messages structure and encoding | Core     | spec-merged | 2022-07-26 |
 
 [Discussion](https://github.com/ssvlabs/SIPs/discussions/8)
 

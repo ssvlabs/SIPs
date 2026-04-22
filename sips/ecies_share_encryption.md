@@ -1,6 +1,6 @@
-| Author      | Title                  | Category | Status |
-|-------------|------------------------|----------|--------|
-| Alon Muroch | ECIES Share Encryption | Core     | approved  |
+| Author      | Title                  | Category | Status   | Date       |
+|-------------|------------------------|----------|----------|------------|
+| Alon Muroch | ECIES Share Encryption | Core     | approved | 2022-11-09 |
 
 [Discussion](https://github.com/ssvlabs/SIPs/discussions/19)
 

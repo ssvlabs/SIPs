@@ -1,7 +1,7 @@
 
-| Author      | Title     | Category | Status |
-|-------------|-----------|----------|--------|
-| Alon Muroch | QBFT Sync | Core     | Deprecated  |
+| Author      | Title     | Category | Status     | Date       |
+|-------------|-----------|----------|------------|------------|
+| Alon Muroch | QBFT Sync | Core     | Deprecated | 2022-09-04 |
 
 [Discussion] (https://github.com/ssvlabs/SIPs/discussions/12)
 

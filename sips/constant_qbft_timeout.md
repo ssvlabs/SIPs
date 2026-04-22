@@ -1,6 +1,6 @@
-| Author      | Title                 | Category | Status |
-|-------------|-----------------------|----------|--------|
-| Alon Muroch | Constant QBFT timeout | Core     | rejected  |
+| Author      | Title                 | Category | Status   | Date       |
+|-------------|-----------------------|----------|----------|------------|
+| Alon Muroch | Constant QBFT timeout | Core     | rejected | 2022-11-19 |
 
 _Special thanks for Henrique Moniz for reviewing_
 
