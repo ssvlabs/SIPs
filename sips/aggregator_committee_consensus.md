@@ -1,6 +1,6 @@
 |     Author     |           Title            		|  Category  |       Status        |    Date    |
 | -------------- | -------------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco | Aggregator Committee Consensus   | Core       | open-for-discussion | 2025-05-12 |
+| Matheus Franco | Aggregator Committee Consensus   | Core       | spec-merged         | 2025-05-12 |
 
 ## Summary
 

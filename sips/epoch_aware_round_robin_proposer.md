@@ -1,6 +1,6 @@
 |     Author     | Title                            | Category |       Status        | Date       |
 | -------------- |----------------------------------| -------- | ------------------- |------------|
-| Matheus Franco | Epoch-Aware Round-Robin Proposer | Core     | open-for-discussion | 2025-12-13 |
+| Matheus Franco | Epoch-Aware Round-Robin Proposer | Core     | spec-merged         | 2025-12-13 |
 
 
 ## Summary
@@ -55,4 +55,3 @@ func RoundRobinProposer(state *State, round Round) types.OperatorID {
 	return state.CommitteeMember.Committee[index].OperatorID
 }
 ```
-
