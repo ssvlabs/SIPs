@@ -1,6 +1,6 @@
 | Author      | Title                  | Category | Status   | Date       |
 |-------------|------------------------|----------|----------|------------|
-| Alon Muroch | Pre-Consensus Liveness | Core     | approved | 2023-02-07 |
+| Alon Muroch | Pre-Consensus Liveness | Core     | open-for-discussion | 2023-02-07 |
 
 **Summary**  
 Some duties require pre-consensus (randao, selection proof, etc) before the consensus stage can start. Partial signatures are signed and broadcasted to reconstruct a valid signature for the pre-consensus step.

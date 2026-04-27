@@ -1,6 +1,6 @@
 |     Author     |           Title            |  Category  |       Status        |    Date    |
 | -------------- | -------------------------- | ---------- | ------------------- | ---------- |
-| Matheus Franco, Gal Rogozinski | Committee consensus          | Core       | open-for-discussion | 2024-03-05 |
+| Matheus Franco, Gal Rogozinski | Committee consensus          | Core       | spec-merged         | 2024-03-05 |
 
 ## Summary
 
