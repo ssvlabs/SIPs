@@ -4,14 +4,11 @@
 
 [Discussion](https://github.com/ssvlabs/SIPs/discussions/7)
 
-> **Note:** This SIP is no longer actively developed. The DKG protocol for SSV
-> is implemented in [`ssvlabs/ssv-dkg`](https://github.com/ssvlabs/ssv-dkg)
-> with its specification maintained in
-> [`ssvlabs/dkg-spec`](https://github.com/ssvlabs/dkg-spec). This document
-> is kept for historical reference only; design details below do not reflect
-> the current implementation. The SIP lifecycle defined in [SIP 0](./sip0.md)
-> does not currently include a `superseded` state, so the header status is
-> left unchanged.
+> **Note:** This SIP is no longer actively developed. DKG for SSV is now provided by
+> [`ssvlabs/ssv-dkg`](https://github.com/ssvlabs/ssv-dkg) and
+> [`ssvlabs/dkg-spec`](https://github.com/ssvlabs/dkg-spec), which follow a **different
+> design** than the protocol described below. This document is kept for historical
+> reference only.
 
 **Summary**
 Describes a general workflow and specifications for integrating DKG into SSV regardless of the DKG protocol selected, number of rounds it requires or data structures it uses.
