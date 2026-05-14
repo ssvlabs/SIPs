@@ -10,7 +10,7 @@ Validator client related changes via ePBS:
 1. earlier slot deadlines
 2. attestation handling changes, including preservation of the Gloas `attestation.data.index` semantics
 3. the new Payload Timeliness Committee (PTC)
-4. the Gloas proposer flow using `produceBlockV4`, which returns either `Gloas.BlockContents` (self-build: block + inline execution-payload envelope + blobs + KZG proofs) or `Gloas.BeaconBlock` (external-builder: block only, envelope published by the builder)
+4. the Gloas proposer flow using `produceBlockV4`. The SSV cluster signs only the `Gloas.BeaconBlock`; signing of `SignedExecutionPayloadEnvelope` (the validator-signed envelope used in the self-build path) is intentionally out of scope — see §4.
 5. the new `SignedProposerPreferences` message must be submitted if the node operator wants to be able to select block bids received over p2p
 
 ## Motivation
@@ -18,7 +18,6 @@ Validator client related changes via ePBS:
 Gloas changes validator duties in ways that break a few current SSV assumptions:
 
 - attestation `index` is no longer safely reconstructible from local validator duty data
-- proposer post-consensus can require signing more than one beacon object for the same duty
 - the new PTC duty has a late in-slot deadline
 - SSV validators must broadcast `SignedProposerPreferences` or they cannot accept external-builder bids for their slots
 
@@ -29,7 +28,7 @@ Key design choices and why:
 - **`BeaconVote` gains `AttestationDataIndex`.** In Gloas, `AttestationData.Index` is BN-supplied and part of the signed attestation root, so it must travel through QBFT consensus data rather than being reconstructed locally.
 - **PTC is a committee-scoped runner.** `PayloadAttestationData` is validator-independent (like `BeaconVote`), while each PTC-assigned validator still needs its own BLS signature and submission object. This matches the existing committee-runner pattern from `committee_consensus.md`.
 - **Proposer-preferences is validator-scoped and non-QBFT.** `fee_recipient` already lives per-validator on `Share.FeeRecipientAddress`; `gas_limit` lives in operator config (currently `DefaultGasLimit = 30_000_000` in `types/beacon_types.go`, with runtime overrides, same as the existing validator-registration flow). The signed object is therefore agreed off-chain, so there is nothing to reach consensus over. The registration-like one-round partial-sig-and-submit flow from `voluntary_exit.md` fits directly.
-- **`ProposerConsensusData` carries raw SSZ bytes rather than split fields.** QBFT agrees on the exact `produceBlockV4` response, keeping SSV aligned with the Beacon API wire output and side-stepping ad-hoc field maps for two variants (`BeaconBlock` vs `BlockContents`).
+- **Block QBFT remains scoped to the `Gloas.BeaconBlock`.** `ProposerConsensusData.data_ssz` carries the block SSZ, matching today's shape. Distributed signing of `SignedExecutionPayloadEnvelope` is out of scope; see §4 for the rationale.
 
 ## Specification
 
@@ -164,27 +163,20 @@ type PTCCommitteeDuty struct {
 Relevant consensus-spec references:
 
 - [Validator block and sidecar proposal flow](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#block-and-sidecar-proposal)
-- [Builder execution payload envelope construction](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/builder.md#constructing-the-signedexecutionpayloadenvelope)
 
-Under Gloas, `produceBlockV4` replaces the pre-Gloas proposer flow; blinded blocks are removed. The beacon node now returns one of two variants:
+Under Gloas, `produceBlockV4` replaces the pre-Gloas proposer flow; blinded blocks are removed. The beacon node returns `Gloas.BeaconBlock` on the stateful path (and on any external-build response) or `Gloas.BlockContents` on the stateless self-build path ([beacon-APIs PR #580](https://github.com/ethereum/beacon-APIs/pull/580)).
 
-- `Gloas.BlockContents` (self-build): beacon block plus inline envelope, blobs, and KZG proofs. The validator signs both the block and the `ExecutionPayloadEnvelope`.
-- `Gloas.BeaconBlock` (external-builder bid accepted by the beacon node): block only. The builder later signs and publishes its own `SignedExecutionPayloadEnvelope`.
+`ProposerConsensusData` is preserved: its struct shape (`Duty`, `Version`, `DataSSZ []byte`) is unchanged. `DataSSZ` carries the SSZ-encoded `Gloas.BeaconBlock`. For the stateless `BlockContents` variant, the inline envelope, blobs, and KZG proofs returned by the BN are not put through QBFT.
 
-`ProposerConsensusData` is preserved: its struct shape (`Duty`, `Version`, `DataSSZ []byte`) is unchanged, because it already carries raw SSZ bytes. The Gloas work lives entirely inside `GetBlockData()`, which grows a `DataVersionGloas` case that decodes into either `Gloas.BlockContents` (self-build) or `Gloas.BeaconBlock` (external-builder), exposing the block object and, when the decoded variant is `BlockContents`, the inline envelope plus blobs and KZG proofs.
+Pre-consensus RANDAO flow is unchanged. Post-consensus is unchanged: each operator's `PostConsensusPartialSig` packet carries one `PartialSignatureMessage` over the block root under `DOMAIN_BEACON_PROPOSER`. Publish the signed block via the existing beacon API.
 
-Post-consensus object rules:
+**Envelope signing out of scope.** Under Gloas, the validator signs `SignedExecutionPayloadEnvelope` only in the self-build path (`bid.builder_index == BUILDER_INDEX_SELF_BUILD`, per [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)); in the external-build path the builder signs and publishes its own envelope. This SIP does not specify distributed signing of `SignedExecutionPayloadEnvelope`, on the following grounds:
 
-- both objects (block + envelope) are signed by the validator's existing BLS share key; the envelope changes the domain, not the signer identity
-- each operator's `PostConsensusPartialSig` packet must carry one `PartialSignatureMessage` per required root for the decided variant:
-  - `Gloas.BeaconBlock`: one entry (block root)
-  - `Gloas.BlockContents`: two entries (block root + envelope root)
+- Self-build is a fallback path in ePBS, rare in practice. Mainnet validator behavior continues to migrate away from local block building.
+- Gloas introduces a trustless `execution_payload_bid` p2p market that gives proposers a new fallback for trusted block building without depending on their own EL.
+- Adding a second QBFT duty solely to cover self-build envelope signing is significant protocol surface for a use case unlikely to materialize at scale among SSV operators.
 
-Pre-consensus RANDAO flow is unchanged. Operators run QBFT on `ProposerConsensusData`, then sign the objects required by the decided variant.
-
-Publication order and completion:
-- publish the signed beacon block first
-- if the decided value is `Gloas.BlockContents` and block publication succeeded, publish the envelope wrapper immediately after, before the PTC 75% deadline so it can influence timely payload attestations
+Consequence: SSV proposer slots that resolve to self-build (no acceptable external bid arrived at the BN) will see PTC attestations record `payload_present = FALSE` (see §3) and the proposer forfeits the payload reward for that slot.
 
 ### 5. Proposer Preferences Duty
 
@@ -241,11 +233,15 @@ Value checks for Gloas `AttestationData.Index` and PTC `payload_present` / `blob
 
 `ProposerPreferences` reconstruction requires cluster-wide agreement on `gas_limit`, which lives in per-operator config rather than `Share`. Divergence produces no reconstructed signature, no gossip publication, and therefore no trustless external builder bids for that slot (the `execution_payload_bid` topic IGNOREs bids with no matching preferences). Same reconstruction failure shape as `ValidatorRegistration` today.
 
+### Self-build slots produce `payload_present = FALSE`
+
+Because this SIP omits distributed envelope signing (§4), slots where the proposer's BN falls back to self-build will see PTC attestations record `payload_present = FALSE` (§3) and the proposer will forfeit the payload reward boost for that slot. If self-build prevalence becomes a material liveness concern post-Gloas mainnet activation, distributed envelope signing can be added in a follow-up SIP without breaking this baseline.
+
 ## Open Questions / Upstream Watchlist
 
 This section is intentionally limited to upstream items that could still change the normative SSV behavior described above. If any of these settle differently, this SIP should be updated.
 
 - PTC Beacon API detail drift: the core PTC duty, payload-attestation-data, and pool-submission surfaces are already present in upstream Beacon API `master`, and this SIP assumes those mainline shapes. Watch them for any remaining field, header, or duty-refresh semantic changes.
-- Self-build proposer API stabilization: this SIP relies on the current reviewed shape of `produceBlockV4` (`apis/validator/block.v4.yaml`) and stateless envelope publication (`apis/beacon/execution_payload/envelope_post.yaml`), neither of which has been merged to `beacon-APIs/master` yet; both live in [PR #580](https://github.com/ethereum/beacon-APIs/pull/580). Watch for changes to self-build versus block-only response behavior, required submission wrappers, or publication headers. The PR's discussion also covers restructuring `builder_boost_factor` for multi-builder connections; this will reshape SSV node-operator config but does not change SIP-normative behavior (the §4 decode / value-check / post-consensus rules remain variant-agnostic).
+- `produceBlockV4` shape stabilization: this SIP relies on the current reviewed shape of `produceBlockV4` (`apis/validator/block.v4.yaml`), which has not been merged to `beacon-APIs/master` yet — it lives in [PR #580](https://github.com/ethereum/beacon-APIs/pull/580). Watch for changes to the response variant discriminator (stateful `BeaconBlock` vs stateless `BlockContents`) and the block submission wrapper shape. The PR's discussion also covers restructuring `builder_boost_factor` for multi-builder connections; this will reshape SSV node-operator config but does not change SIP-normative behavior.
 - `head_v2` SSE event ([PR #590](https://github.com/ethereum/beacon-APIs/pull/590), Gloas-labeled upstream): adds an ePBS-specific `payload_status` field (`empty` / `full`) that may update mid-slot as the envelope is observed, and renames `{previous,current}_duty_dependent_root` → `{previous,current}_epoch_dependent_root` while adding `next_epoch_dependent_root`. Both §3 (PTC duty refresh) and §5 (proposer-preferences re-emission trigger) key off these dependent-root fields, so implementations will need to consume the renamed fields once the PR lands. `payload_status` is also optionally useful as an early signal for the PTC runner's internal decision cutoff (§3).
 - Validator-facing `SignedProposerPreferences` publication endpoint: the Gloas validator spec expects validators to broadcast preferences to the [`proposer_preferences`](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/p2p-interface.md#proposer_preferences) gossipsub topic, but `beacon-APIs/master` does not yet expose a validator-facing publication endpoint. §5 is specified against a future `SubmitProposerPreferences(...)` BN abstraction method whose concrete Beacon API shape is TBD.
