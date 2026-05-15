@@ -25,7 +25,7 @@ Gloas changes validator duties in ways that break a few current SSV assumptions:
 
 Key design choices and why:
 
-- **`BeaconVote` gains `AttestationDataIndex`.** In Gloas, `AttestationData.Index` is BN-supplied and part of the signed attestation root, so it must travel through QBFT consensus data rather than being reconstructed locally.
+- **New `GloasBeaconVote` carries `AttestationDataIndex`.** In Gloas, `AttestationData.Index` is BN-supplied and part of the signed attestation root, so it must travel through QBFT consensus data rather than being reconstructed locally. A dedicated Gloas-only type keeps pre-Gloas `BeaconVote` wire bytes unchanged.
 - **PTC is a committee-scoped runner.** `PayloadAttestationData` is validator-independent (like `BeaconVote`), while each PTC-assigned validator still needs its own BLS signature and submission object. This matches the existing committee-runner pattern from `committee_consensus.md`.
 - **Proposer-preferences is validator-scoped and non-QBFT.** `fee_recipient` already lives per-validator on `Share.FeeRecipientAddress`; `gas_limit` lives in operator config (currently `DefaultGasLimit = 30_000_000` in `types/beacon_types.go`, with runtime overrides, same as the existing validator-registration flow). The signed object is therefore agreed off-chain, so there is nothing to reach consensus over. The registration-like one-round partial-sig-and-submit flow from `voluntary_exit.md` fits directly.
 - **Block QBFT remains scoped to the `Gloas.BeaconBlock`.** `ProposerConsensusData.data_ssz` carries the block SSZ, matching today's shape. Distributed signing of `SignedExecutionPayloadEnvelope` is out of scope; see §4 for the rationale.
@@ -71,18 +71,20 @@ SSV currently omits `AttestationData.Index` from `BeaconVote` and fills it local
 
 #### Required change
 
-`BeaconVote` gains an `AttestationDataIndex` field for Gloas, matching the `phase0.CommitteeIndex` (a `uint64` alias) type of `AttestationData.Index` in consensus specs so reconstruction is a direct field assignment. The restricted Gloas value space (`0` = `EMPTY`, `1` = `FULL` for non-same-slot attestations; `0` for same-slot) is enforced in the value check below, not at the type level.
+A new `GloasBeaconVote` struct mirrors `BeaconVote` plus an `AttestationDataIndex` field, matching the `phase0.CommitteeIndex` (a `uint64` alias) type of `AttestationData.Index` in consensus specs so reconstruction is a direct field assignment. Gloas-era QBFT instances decide on `GloasBeaconVote`; pre-Gloas instances continue to decide on the existing `BeaconVote`, whose SSZ layout is unchanged. A separate type (rather than extending `BeaconVote` in place) is the cleanest way to make pre-Gloas and Gloas wire bytes mutually-rejecting on length mismatch, since SSZ derives do not support fork-conditional fields. The restricted Gloas value space (`0` = `EMPTY`, `1` = `FULL` for non-same-slot attestations; `0` for same-slot) is enforced in the value check below, not at the type level.
+
+After the Gloas fork epoch has activated on all networks and pre-Gloas slots are no longer reachable in normal operation, a follow-up SIP can retire `BeaconVote` and rename `GloasBeaconVote` back to `BeaconVote`.
 
 ```go
-// Current (ssv-spec types/consensus_data.go)
+// Existing (ssv-spec types/consensus_data.go); unchanged
 type BeaconVote struct {
     BlockRoot phase0.Root `ssz-size:"32"`
     Source    *phase0.Checkpoint
     Target    *phase0.Checkpoint
 }
 
-// Gloas-extended
-type BeaconVote struct {
+// New (Gloas only)
+type GloasBeaconVote struct {
     BlockRoot            phase0.Root        `ssz-size:"32"`
     Source               *phase0.Checkpoint
     Target               *phase0.Checkpoint
@@ -92,10 +94,12 @@ type BeaconVote struct {
 
 #### Value check
 
-`BeaconVoteValueCheckF()` becomes fork-aware:
+A new `GloasBeaconVoteValueCheckF()` mirrors today's `BeaconVoteValueCheckF()` and additionally:
 
-- pre-Gloas: reject non-canonical `AttestationDataIndex` values; existing slashability workaround otherwise unchanged.
-- Gloas and later: reject `AttestationDataIndex` values other than `0` or `1`; build slashability checks using the real `AttestationDataIndex`.
+- rejects `AttestationDataIndex` values other than `0` or `1`;
+- builds the `AttestationData` passed to `IsAttestationSlashable` using the decided `AttestationDataIndex` rather than the existing `math.MaxUint64` sentinel, so the Gloas double-vote predicate trips correctly when an operator is asked to sign both `index=0` and `index=1` for the same `(source, target, slot)`.
+
+Pre-Gloas slots continue to run `BeaconVoteValueCheckF()` unchanged.
 
 #### Implementation note: aggregation path
 
@@ -221,9 +225,9 @@ const (
 
 ## Security Considerations
 
-### `BeaconVoteValueCheckF` must include `AttestationDataIndex` in slashability checks
+### `GloasBeaconVoteValueCheckF` must include `AttestationDataIndex` in slashability checks
 
-Under Gloas, `AttestationData.Index` is part of the attestation data root and therefore part of the double-vote slashing predicate. `BeaconVoteValueCheckF` must reconstruct the full Gloas `AttestationData` with `Index` from the decided `BeaconVote.AttestationDataIndex` before calling `IsAttestationSlashable`; otherwise an operator could sign `index=0` and `index=1` for the same `(source, target)` in the same slot without the predicate tripping.
+Under Gloas, `AttestationData.Index` is part of the attestation data root and therefore part of the double-vote slashing predicate. `GloasBeaconVoteValueCheckF` must reconstruct the full Gloas `AttestationData` with `Index` from the decided `GloasBeaconVote.AttestationDataIndex` before calling `IsAttestationSlashable`; otherwise an operator could sign `index=0` and `index=1` for the same `(source, target)` in the same slot without the predicate tripping.
 
 ### Payload-status fields are trusted from the QBFT leader
 
