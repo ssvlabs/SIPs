@@ -4,7 +4,7 @@
 
 ## Summary
 
-Describes the SSV spec changes needed to keep SSV operators performing validator duties correctly after epbs, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732), is implemented in Ethereum's consensus layer Gloas fork. Based on the pinned [Gloas consensus-spec snapshot](https://github.com/ethereum/consensus-specs/tree/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas) (`ethereum/consensus-specs@f1371480c4`, reviewed 2026-04-17).
+Describes the SSV spec changes needed to keep SSV operators performing validator duties correctly after ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732), is implemented in Ethereum's consensus layer Gloas fork. Based on the pinned [Gloas consensus-spec snapshot](https://github.com/ethereum/consensus-specs/tree/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas) (`ethereum/consensus-specs@f1371480c4`, reviewed 2026-04-17).
 
 Validator client related changes via ePBS:
 1. earlier slot deadlines
