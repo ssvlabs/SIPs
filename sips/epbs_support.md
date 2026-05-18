@@ -115,7 +115,7 @@ Relevant consensus-spec references:
 - [Beacon-chain payload attestation containers](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/beacon-chain.md#payloadattestationdata)
 - [Fork-choice payload attestation deadline](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/fork-choice.md#new-get_payload_attestation_due_ms)
 
-PTC is a per-slot consensus-layer-selected set of validators that attests to payload and blob availability for the slot's beacon block before the deadline.
+PTC is a per-slot consensus-layer-selected set of validators that attests to payload and blob availability for the slot's beacon block.
 
 Each validator signs a `PayloadAttestationData` object carrying `beacon_block_root`, `slot`, `payload_present`, and `blob_data_available`, then submits a validator-specific `PayloadAttestationMessage(validator_index, data, signature)` to the beacon node.
 
