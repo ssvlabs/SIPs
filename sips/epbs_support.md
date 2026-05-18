@@ -4,7 +4,7 @@
 
 ## Summary
 
-Describes the SSV spec changes needed to keep SSV operators performing validator duties correctly after ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732), is implemented in Ethereum's consensus layer Gloas fork. Based on the pinned [Gloas consensus-spec snapshot](https://github.com/ethereum/consensus-specs/tree/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas) (`ethereum/consensus-specs@f1371480c4`, reviewed 2026-04-17).
+Describes the SSV spec changes needed to keep SSV operators performing validator duties correctly after ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732), is implemented in Ethereum's consensus layer Gloas fork. Based on the pinned [Gloas consensus-spec snapshot](https://github.com/ethereum/consensus-specs/tree/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas) (`ethereum/consensus-specs@4a4937be`, reviewed 2026-05-18).
 
 Validator client related changes via ePBS:
 1. earlier slot deadlines
@@ -27,7 +27,7 @@ Key design choices and why:
 
 - **New `GloasBeaconVote` carries `AttestationDataIndex`.** In Gloas, `AttestationData.Index` is BN-supplied and part of the signed attestation root, so it must travel through QBFT consensus data rather than being reconstructed locally. A dedicated Gloas-only type keeps pre-Gloas `BeaconVote` wire bytes unchanged.
 - **PTC is a committee-scoped runner.** `PayloadAttestationData` is validator-independent (like `BeaconVote`), while each PTC-assigned validator still needs its own BLS signature and submission object. This matches the existing committee-runner pattern from `committee_consensus.md`.
-- **Proposer-preferences is validator-scoped and non-QBFT.** `fee_recipient` already lives per-validator on `Share.FeeRecipientAddress`; `gas_limit` lives in operator config (currently `DefaultGasLimit = 30_000_000` in `types/beacon_types.go`, with runtime overrides, same as the existing validator-registration flow). The signed object is therefore agreed off-chain, so there is nothing to reach consensus over. The registration-like one-round partial-sig-and-submit flow from `voluntary_exit.md` fits directly.
+- **Proposer-preferences is validator-scoped and non-QBFT.** `fee_recipient` already lives per-validator on `Share.FeeRecipientAddress`; `target_gas_limit` lives in operator config (currently `DefaultGasLimit = 30_000_000` in `types/beacon_types.go`, with runtime overrides, same as the existing validator-registration flow). The signed object is therefore agreed off-chain, so there is nothing to reach consensus over. The registration-like one-round partial-sig-and-submit flow from `voluntary_exit.md` fits directly.
 - **Block QBFT remains scoped to the `Gloas.BeaconBlock`.** `ProposerConsensusData.data_ssz` carries the block SSZ, matching today's shape. Distributed signing of `SignedExecutionPayloadEnvelope` is out of scope; see §4 for the rationale.
 
 ## Specification
@@ -38,7 +38,7 @@ All existing validator duty deadlines shift earlier in the slot. A new PTC deadl
 
 Relevant consensus-spec references:
 
-- [Validator time parameters](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#time-parameters)
+- [Validator time parameters](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#time-parameters)
 
 | Duty | Pre-ePBS | Post-ePBS (Gloas) |
 |------|----------|--------------------|
@@ -52,7 +52,7 @@ Relevant consensus-spec references:
 
 Relevant consensus-spec references:
 
-- [Validator attestation changes](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#attestation)
+- [Validator attestation changes](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#attestation)
 
 #### Consensus-spec change
 
@@ -99,7 +99,7 @@ A new `GloasBeaconVoteValueCheckF()` mirrors today's `BeaconVoteValueCheckF()` a
 - rejects `AttestationDataIndex` values other than `0` or `1`;
 - builds the `AttestationData` passed to `IsAttestationSlashable` using the decided `AttestationDataIndex` rather than the existing `math.MaxUint64` sentinel, so the Gloas double-vote predicate trips correctly when an operator is asked to sign both `index=0` and `index=1` for the same `(source, target, slot)`.
 
-The [Gloas same-slot rule](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#attestation) (`block.slot == data.slot ⇒ data.index = 0`) is not enforced locally: the cluster has only the QBFT-decided `BlockRoot` and trusts `AttestationDataIndex` from the leader. A single bad same-slot `index=1` is rejected by the ethereum network and ignored on chain but is not slashable, while cross-`index` equivocation over the same `(source, target, slot, BlockRoot)` is still caught by `IsAttestationSlashable` per the previous bullet.
+The [Gloas same-slot rule](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#attestation) (`block.slot == data.slot ⇒ data.index = 0`) is not enforced locally: the cluster has only the QBFT-decided `BlockRoot` and trusts `AttestationDataIndex` from the leader. A single bad same-slot `index=1` is rejected by the ethereum network and ignored on chain but is not slashable, while cross-`index` equivocation over the same `(source, target, slot, BlockRoot)` is still caught by `IsAttestationSlashable` per the previous bullet.
 
 Pre-Gloas slots continue to run `BeaconVoteValueCheckF()` unchanged.
 
@@ -111,9 +111,9 @@ The `BNRoleAggregator` duty (handled by the aggregator-committee runner) fetches
 
 Relevant consensus-spec references:
 
-- [Validator payload timeliness attestation flow](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#payload-timeliness-attestation)
-- [Beacon-chain payload attestation containers](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/beacon-chain.md#payloadattestationdata)
-- [Fork-choice payload attestation deadline](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/fork-choice.md#new-get_payload_attestation_due_ms)
+- [Validator payload timeliness attestation flow](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#payload-timeliness-attestation)
+- [Beacon-chain payload attestation containers](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/beacon-chain.md#payloadattestationdata)
+- [Fork-choice payload attestation deadline](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/fork-choice.md#new-get_payload_attestation_due_ms)
 
 PTC is a per-slot consensus-layer-selected set of validators that attests to payload and blob availability for the slot's beacon block.
 
@@ -121,7 +121,7 @@ Each validator signs a `PayloadAttestationData` object carrying `beacon_block_ro
 
 At the start of each epoch, SSV should fetch PTC duties for the next epoch and refresh them on duty-dependent-root changes. Because PTC duty responses may be sparse and incomplete, a changed duty-dependent root for an epoch should replace the cached duties for that epoch rather than being merged.
 
-`PAYLOAD_ATTESTATION_DUE_BPS = 75%` is the consensus-spec-recommended broadcast time, chosen to leave ~25% of the slot for gossip propagation and aggregation by the next slot's proposer. `PayloadAttestationData` values (`payload_present`, `blob_data_available`, `beacon_block_root`) evolve throughout the slot as envelopes and blobs are observed, so runners should delay fetch and QBFT start as late as the DVT round budget permits to maximize the chance `payload_present` reflects the envelope actually arriving. The consensus specs do not prescribe a start time. Within-slot overruns past 75% still reach fork-choice via the wire path but risk missing block inclusion; past slot end the message is dropped (gossip IGNORE and fork-choice wire REJECT when `data.slot != current_slot`), and each missed vote chips at the `PTC_SIZE/2` threshold that governs whether fork-choice extends the payload.
+Two coincident 75%-of-slot deadlines bound the runner: `PAYLOAD_ATTESTATION_DUE_BPS = 75%` (consensus-spec-recommended broadcast time, leaving ~25% for gossip propagation and aggregation by the next slot's proposer) and `PAYLOAD_DUE_BPS = 75%` (validator-side observation cutoff after which envelopes do not flip `payload_present` to `True` per the Gloas validator spec). `PayloadAttestationData` values (`payload_present`, `blob_data_available`, `beacon_block_root`) evolve throughout the slot as envelopes and blobs are observed, so runners should target fetch and QBFT start near 75%, as late as the DVT round budget permits, to maximize the chance `payload_present` reflects the envelope actually arriving. The consensus specs do not prescribe a start time. QBFT and broadcast may complete after 75% and still propagate; within-slot overruns reach fork-choice via the wire path but risk missing block inclusion. Past slot end the message is dropped (gossip IGNORE and fork-choice wire REJECT when `data.slot != current_slot`), and each missed vote chips at the `PTC_SIZE/2` threshold that governs whether fork-choice extends the payload.
 
 There is no pre-consensus phase. Operator QBFT instances agree on a stripped `PayloadAttestationVote`:
 
@@ -173,7 +173,7 @@ type PTCCommitteeDuty struct {
 
 Relevant consensus-spec references:
 
-- [Validator block and sidecar proposal flow](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#block-and-sidecar-proposal)
+- [Validator block and sidecar proposal flow](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#block-and-sidecar-proposal)
 
 Under Gloas, `produceBlockV4` replaces the pre-Gloas proposer flow; blinded blocks are removed. The beacon node returns `Gloas.BeaconBlock` on the stateful path (and on any external-build response) or `Gloas.BlockContents` on the stateless self-build path ([beacon-APIs PR #580](https://github.com/ethereum/beacon-APIs/pull/580)).
 
@@ -195,18 +195,18 @@ Consequence: SSV proposer slots that resolve to self-build (no acceptable extern
 
 Relevant consensus-spec references:
 
-- [Broadcasting SignedProposerPreferences](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/validator.md#broadcasting-signedproposerpreferences)
-- [`SignedProposerPreferences` container](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/p2p-interface.md#new-proposerpreferences)
-- [`proposer_preferences` gossip topic](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/p2p-interface.md#proposer_preferences)
-- [`execution_payload_bid` gossip validation](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/p2p-interface.md#execution_payload_bid)
+- [Broadcasting SignedProposerPreferences](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/validator.md#broadcasting-signedproposerpreferences)
+- [`SignedProposerPreferences` container](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/p2p-interface.md#new-proposerpreferences)
+- [`proposer_preferences` gossip topic](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/p2p-interface.md#proposer_preferences)
+- [`execution_payload_bid` gossip validation](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/p2p-interface.md#execution_payload_bid)
 
-Under Gloas, each proposer declares their preferred `fee_recipient` and `gas_limit` for upcoming proposal slots (future slots in the current epoch plus all proposal slots in the next epoch) by broadcasting `SignedProposerPreferences` on the `proposer_preferences` p2p topic. Builders listen to this topic and use a proposer's preferences to construct `execution_payload_bid` objects for that proposer's slots. This replaces the pre-Gloas out-of-band relay-registration mechanism, which is gone along with blinded blocks.
+Under Gloas, each proposer broadcasts `SignedProposerPreferences` on the `proposer_preferences` p2p topic for future proposal slots within the proposer lookahead (the current epoch up to `MIN_SEED_LOOKAHEAD` epochs ahead). The signed `ProposerPreferences` carries `dependent_root`, `proposal_slot`, `validator_index`, `fee_recipient`, and `target_gas_limit`. `dependent_root` pins the proposer-lookahead epoch's seed via `get_proposer_dependent_root(state, epoch)`; operators populate it from the `dependent_root` returned by [`GET /eth/v2/validator/duties/proposer/{epoch}`](https://github.com/ethereum/beacon-APIs/pull/563) for the proposal-slot's epoch. Builders listen to this topic and use a proposer's preferences to construct `execution_payload_bid` objects for that proposer's slots. This replaces the pre-Gloas out-of-band relay-registration mechanism, which is gone along with blinded blocks.
 
-Gossip enforces the handshake at the `execution_payload_bid` topic: bids for a slot with no seen `SignedProposerPreferences` are IGNORE'd (not forwarded), and bids whose `fee_recipient` or `gas_limit` disagree with the proposer's preferences are REJECT'd. Without this duty broadcast, bids for the validator's slots don't propagate across the network, leaving the BN with no trustless external builder options to return.
+Gossip enforces the handshake at the `execution_payload_bid` topic: each bid requires a matching `SignedProposerPreferences` for its `(proposal_slot, dependent_root)` (otherwise IGNORE'd, not forwarded). The bid `fee_recipient` must match the preference (mismatch is REJECT'd), and the bid `gas_limit` must be EIP-1559-compatible with the proposer's `target_gas_limit` via `is_gas_limit_target_compatible` (incompatible is IGNORE'd). Without this duty broadcast, bids for the validator's slots don't propagate across the network, leaving the BN with no trustless external builder options to return.
 
-The flow matches the existing `ValidatorRegistration` / `VoluntaryExit` shape: validator-scoped, non-QBFT, one round of partial signatures, reconstruct, submit. Each operator signs `ProposerPreferences` under `DOMAIN_PROPOSER_PREFERENCES` with the validator's BLS share key. `fee_recipient` lives on `Share` (cluster-consistent); `gas_limit` lives in operator config (`DefaultGasLimit = 30_000_000` default with runtime overrides), so operators must configure matching values out-of-band. Either field's divergence would fail reconstruction (same as `ValidatorRegistration` today), but only `gas_limit` is the practical risk because `fee_recipient` lives on cluster-consistent `Share`.
+The flow matches the existing `ValidatorRegistration` / `VoluntaryExit` shape: validator-scoped, non-QBFT, one round of partial signatures, reconstruct, submit. Each operator signs `ProposerPreferences` under `DOMAIN_PROPOSER_PREFERENCES` with the validator's BLS share key. `fee_recipient` lives on `Share` (cluster-consistent); `target_gas_limit` lives in operator config (`DefaultGasLimit = 30_000_000` default with runtime overrides); `dependent_root` is observed per-operator from the BN's v2 proposer-duties endpoint. Any of the three diverging across operators would fail reconstruction (same as `ValidatorRegistration` today). `fee_recipient` is cluster-consistent in practice; the practical divergence risks are `target_gas_limit` (operator config) and `dependent_root` (observation timing around reorgs and epoch boundaries).
 
-Trigger: at each epoch boundary, and on duty-dependent-root changes for the current or next epoch, iterate local validators and emit one duty per slot returned by `get_upcoming_proposal_slots(state, validator_index)` (future slots in the current epoch plus all slots of the next epoch). In the epoch immediately before `GLOAS_FORK_EPOCH`, operators must also emit preferences for any local-validator proposal slots in the first Gloas epoch; otherwise bids for those slots will not propagate during the first post-fork epoch (per the pre-fork subscription note in `p2p-interface.md`). Per the Gloas validator spec, a validator MAY broadcast multiple `SignedProposerPreferences` for the same slot (later messages supersede earlier ones), so this SIP does not hard-cap the number of `SignedProposerPreferences` publications per slot. If the proposer lookahead for an epoch changes, cached duties for that epoch are replaced rather than merged.
+Trigger: at each epoch boundary, and on duty-dependent-root changes for any epoch in the proposer lookahead, iterate local validators and emit one duty per slot returned by `get_upcoming_proposal_slots(state, validator_index)`. In the `MIN_SEED_LOOKAHEAD` epochs immediately before `GLOAS_FORK_EPOCH`, this SIP requires operators to emit preferences for any local-validator proposal slots in the first Gloas epoch. The semantics of `get_upcoming_proposal_slots` plus the gossip rule that `preferences.proposal_slot` must be within the proposer lookahead leave no other emission window for those slots; this aligns with the spec's *"Proposers SHOULD broadcast their preferences in the epoch before the fork"* recommendation in `p2p-interface.md`. The `proposer_preferences` gossip topic accepts only the first valid message per `(dependent_root, proposal_slot, validator_index)` tuple; emission-timing implications are covered in Security Considerations. If the proposer lookahead for an epoch changes, cached duties for that epoch are replaced rather than merged.
 
 This SIP adds a new beacon role `BNRoleProposerPreferences`, a matching runner role `RoleProposerPreferences`, and a new `PartialSigMsgType` `ProposerPreferencesPartialSig`.
 
@@ -249,7 +249,11 @@ Value checks for Gloas `AttestationData.Index` and PTC `payload_present` / `blob
 
 ### Config divergence silently disables trustless external builder bids
 
-`ProposerPreferences` reconstruction requires cluster-wide agreement on `gas_limit`, which lives in per-operator config rather than `Share`. Divergence produces no reconstructed signature, no gossip publication, and therefore no trustless external builder bids for that slot (the `execution_payload_bid` topic IGNOREs bids with no matching preferences). Same reconstruction failure shape as `ValidatorRegistration` today.
+`ProposerPreferences` reconstruction requires cluster-wide agreement on `target_gas_limit` (per-operator config) and `dependent_root` (per-operator BN observation). Divergence on either produces no reconstructed signature, no gossip publication, and therefore no matching preference on the `execution_payload_bid` topic; bids for the slot are IGNORE'd by gossip (§5), leaving the BN with no trustless external builder options to return. Same reconstruction failure shape as `ValidatorRegistration` today.
+
+### Too-early `SignedProposerPreferences` publication pins the wrong preference
+
+Because the `proposer_preferences` gossip topic accepts only the first valid message per `(dependent_root, proposal_slot, validator_index)` tuple (§5), reconstructing and publishing a preference before all tuple inputs are final can durably pin a wrong-input preference: a later corrected message for the same tuple is dropped by gossip rather than treated as a replacement. Builders keep using the stale preference, and bids matching the corrected values fail the §5 handshake. Operators must therefore hold publication until `dependent_root`, `fee_recipient`, and `target_gas_limit` are all final for the tuple, and re-emit only when the tuple itself changes (notably when `dependent_root` shifts due to reorg, or `proposer_lookahead` reassigns the validator to a different slot). Distinct from the config-divergence entry above: there, divergence prevents publication; here, premature publication pins the wrong preference more durably than no publication would.
 
 ### Self-build slots produce `payload_present = FALSE`
 
@@ -262,4 +266,4 @@ This section is intentionally limited to upstream items that could still change 
 - PTC Beacon API detail drift: the core PTC duty, payload-attestation-data, and pool-submission surfaces are already present in upstream Beacon API `master`, and this SIP assumes those mainline shapes. Watch them for any remaining field, header, or duty-refresh semantic changes.
 - `produceBlockV4` shape stabilization: this SIP relies on the current reviewed shape of `produceBlockV4` (`apis/validator/block.v4.yaml`), which has not been merged to `beacon-APIs/master` yet — it lives in [PR #580](https://github.com/ethereum/beacon-APIs/pull/580). Watch for changes to the response variant discriminator (stateful `BeaconBlock` vs stateless `BlockContents`) and the block submission wrapper shape. The PR's discussion also covers restructuring `builder_boost_factor` for multi-builder connections; this will reshape SSV node-operator config but does not change SIP-normative behavior.
 - `head_v2` SSE event ([PR #590](https://github.com/ethereum/beacon-APIs/pull/590), Gloas-labeled upstream): adds an ePBS-specific `payload_status` field (`empty` / `full`) that may update mid-slot as the envelope is observed, and renames `{previous,current}_duty_dependent_root` → `{previous,current}_epoch_dependent_root` while adding `next_epoch_dependent_root`. Both §3 (PTC duty refresh) and §5 (proposer-preferences re-emission trigger) key off these dependent-root fields, so implementations will need to consume the renamed fields once the PR lands. `payload_status` is also optionally useful as an early signal for the PTC runner's internal decision cutoff (§3).
-- Validator-facing `SignedProposerPreferences` publication endpoint: the Gloas validator spec expects validators to broadcast preferences to the [`proposer_preferences`](https://github.com/ethereum/consensus-specs/blob/f1371480c4da884398e688d81b030f5280a6a578/specs/gloas/p2p-interface.md#proposer_preferences) gossipsub topic, but `beacon-APIs/master` does not yet expose a validator-facing publication endpoint. §5 is specified against a future `SubmitProposerPreferences(...)` BN abstraction method whose concrete Beacon API shape is TBD.
+- Validator-facing `SignedProposerPreferences` publication endpoint: the Gloas validator spec expects validators to broadcast preferences to the [`proposer_preferences`](https://github.com/ethereum/consensus-specs/blob/4a4937bea332d72a55a76aaebcb97fbcdc189f69/specs/gloas/p2p-interface.md#proposer_preferences) gossipsub topic, but `beacon-APIs/master` does not yet expose a validator-facing publication endpoint. §5 is specified against a future `SubmitProposerPreferences(...)` BN abstraction method whose concrete Beacon API shape is TBD.
