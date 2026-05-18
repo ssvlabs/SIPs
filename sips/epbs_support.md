@@ -141,6 +141,11 @@ This SIP adds a new beacon role `BNRolePTCAttester` and a matching runner role `
 
 ```go
 // types/beacon_types.go additions
+var (
+    // ... existing values ...
+    DomainPTCAttester = [4]byte{0x0C, 0x00, 0x00, 0x00}
+)
+
 const (
     // ... existing values ...
     BNRolePTCAttester BeaconRole = 7
@@ -205,6 +210,11 @@ This SIP adds a new beacon role `BNRoleProposerPreferences`, a matching runner r
 
 ```go
 // types/beacon_types.go additions
+var (
+    // ... existing values ...
+    DomainProposerPreferences = [4]byte{0x0D, 0x00, 0x00, 0x00}
+)
+
 const (
     // ... existing values
     BNRoleProposerPreferences BeaconRole = 8
