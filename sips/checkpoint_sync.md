@@ -100,9 +100,11 @@ V1 uses SimpleSerialize (SSZ) serialization as the canonical byte encoding for r
 state_root = keccak256(ssz_serialize(CanonicalStateV1))
 share_set_root = keccak256(ssz_serialize(ShareSetV1))
 certificate_message_hash = keccak256(ssz_serialize(CheckpointCertificateMessageV1))
+delta_log_set_hash = keccak256(ssz_serialize(LogSetV1 with domain DELTA_LOG_SET_V1))
+full_log_set_hash = keccak256(ssz_serialize(LogSetV1 with domain FULL_LOG_SET_V1))
 ```
 
-SSZ container field order is the order shown in this section. The fixed domains are 32 byte values derived by right padding the ASCII labels `STATE_ROOT_V1`, `SHARE_SET_ROOT_V1`, and `CHECKPOINT_CERT_V1` with zero bytes. `ssv_contract_address` is `Vector[byte, 20]`. All roots, hashes, and block hashes are `Bytes32`. All numeric fields are SSZ `uint64` unless this SIP explicitly gives a narrower or wider type.
+SSZ container field order is the order shown in this section. The fixed domains are 32 byte values derived by right padding the ASCII labels `STATE_ROOT_V1`, `SHARE_SET_ROOT_V1`, `CHECKPOINT_CERT_V1`, `DELTA_LOG_SET_V1`, and `FULL_LOG_SET_V1` with zero bytes. `ssv_contract_address` and log addresses are `Vector[byte, 20]`. All roots, hashes, topics, and block hashes are `Bytes32`. All numeric fields are SSZ `uint64` unless this SIP explicitly gives a narrower or wider type. An all zero `Bytes32` value is exactly 32 zero bytes.
 
 Record ordering for the root is fully defined so the SSZ serialization is deterministic. These orderings at the top level are normative for v1 and must be covered by the conformance tests in section 6.
 
@@ -178,6 +180,32 @@ EncryptedShareRecordV1 = Container[
 
 `MAX_ENCRYPTED_SHARE_RECORDS`, `MAX_SHARE_PUBLIC_KEY_BYTES`, and `MAX_ENCRYPTED_SHARE_BYTES` are also consensus constants for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
 
+The v1 SSZ container for log set hashes is:
+
+```text
+LogSetV1 = Container[
+    domain: Bytes32,
+    canonical_spec_version: uint64,
+    network_id: uint64,
+    ssv_contract_address: Vector[byte, 20],
+    from_block_number: uint64,
+    to_block_number: uint64,
+    events: List[RelevantSsvLogV1, MAX_LOG_EVENTS],
+]
+
+RelevantSsvLogV1 = Container[
+    block_number: uint64,
+    block_hash: Bytes32,
+    transaction_index: uint64,
+    log_index: uint64,
+    address: Vector[byte, 20],
+    topics: List[Bytes32, MAX_LOG_TOPICS],
+    data: List[byte, MAX_LOG_DATA_BYTES],
+]
+```
+
+The log set range is inclusive. `from_block_number` and `to_block_number` are part of the hash preimage even when the `events` list is empty. The `events` list contains the raw Ethereum logs for the relevant SSV events from section 1, emitted by `ssv_contract_address`, ordered by ascending `(block_number, transaction_index, log_index)`. `address` must equal `ssv_contract_address`, and `topics` and `data` are the exact bytes returned by the execution data source for that log. `MAX_LOG_EVENTS`, `MAX_LOG_TOPICS`, and `MAX_LOG_DATA_BYTES` are consensus constants for v1.
+
 **3. Checkpoint Format**
 
 A checkpoint is a certificate plus one or more untrusted payloads. The certificate signs canonical SSZ commitments to public state and active encrypted shares. The payloads carry the preimages needed by an importing node to rebuild those commitments without replaying old logs.
@@ -206,14 +234,14 @@ The `cluster_id` is derived from owner and the sorted operator set as defined in
 
 **Checkpoint production paths.** The protocol is defined by the records and roots, not by a particular client's database. A process can produce a checkpoint only if it can enumerate the canonical public state and active encrypted share records at block B. That process may be a normal client that retained those records, a client with added retention, a dedicated materializer, or an archive indexer.
 
-For the initial checkpoint, where `parent_checkpoint_hash` is zero, there are two valid production paths:
+For the initial checkpoint, where `parent_checkpoint_hash` is the all zero `Bytes32` value, there are two valid production paths:
 
 1. Retained state path. The producer already has a complete current registry snapshot at B, including active encrypted share ciphertexts for every validator and operator pair. It exports that state and computes `state_root` and `share_set_root` directly from the canonical records.
 2. Historical materializer path. The producer does not have retained encrypted shares. It folds historical registry events through B, materializes the same active public state and encrypted share set, discards encrypted shares for validators removed before B, and computes the same roots.
 
 A client whose current state does not retain all active encrypted share ciphertexts cannot produce the encrypted share part of the initial checkpoint from that state alone. It must use a materializer, an archive source, or a previous checkpoint that already contains the share set.
 
-For every checkpoint with a nonzero `parent_checkpoint_hash`, producers start from the parent checkpoint state and apply only the relevant SSV logs from the block after the parent through B. They update the public records and active encrypted share records, compute the new roots, and include `delta_log_set_hash` for that bounded event range.
+For every checkpoint with a nonzero `parent_checkpoint_hash`, producers start from the parent checkpoint state and apply only the relevant SSV logs from the block after the parent through B. They update the public records and active encrypted share records, compute the new roots, and include `delta_log_set_hash` for that bounded event range. The `delta_log_set_hash` is computed from `LogSetV1` with domain `DELTA_LOG_SET_V1`, `from_block_number = parent.block_number + 1`, and `to_block_number = B`.
 
 The checkpoint bundle may include an optional `snapshot_digest` outside the signed certificate for download integrity, caching, or mirror comparison. That digest is not a trust anchor; import step 4 treats it only as a transport check.
 
@@ -228,10 +256,10 @@ The checkpoint bundle may include an optional `snapshot_digest` outside the sign
 | ssv_contract_address | Address of the SSV contract whose registry state is represented |
 | block_number | Block B the state was taken at |
 | block_hash | Hash of block B |
-| parent_checkpoint_hash | Hash of the parent checkpoint certificate message, or zero for an initial checkpoint |
+| parent_checkpoint_hash | `certificate_message_hash` of the parent checkpoint, or the all zero `Bytes32` value for an initial checkpoint |
 | state_root | Canonical state root from section 2 |
 | share_set_root | Canonical root of the active encrypted share set |
-| delta_log_set_hash | Hash of the exact ordered list of relevant SSV events consumed after the parent checkpoint, or zero for an initial checkpoint |
+| delta_log_set_hash | `LogSetV1` hash of the exact ordered list of relevant SSV events consumed after the parent checkpoint, or the all zero `Bytes32` value for an initial checkpoint |
 | signer_set_id | Identifier of the signer set that may certify this message |
 | scheme_version | Identifier of the signature scheme used by certificates |
 
@@ -253,7 +281,7 @@ CheckpointCertificateMessageV1 = Container[
 ]
 ```
 
-For a checkpoint with a parent, `delta_log_set_hash` binds the certificate message to the exact events consumed between the parent checkpoint and B, so that a later comparison or audit can confirm both parties read the same delta logs. For an initial checkpoint, `delta_log_set_hash` is zero. A producer may publish optional audit metadata that records a full historical log hash, but importers do not require it and it is not part of the certificate message.
+For a checkpoint with a parent, `delta_log_set_hash` binds the certificate message to the exact events consumed between the parent checkpoint and B, so that a later comparison or audit can confirm both parties read the same delta logs. For an initial checkpoint, `delta_log_set_hash` is the all zero `Bytes32` value. A producer may publish optional audit metadata that records a full historical log hash computed from `LogSetV1` with domain `FULL_LOG_SET_V1`, `from_block_number` equal to the SSV contract deployment block, and `to_block_number = B`, but importers do not require it and it is not part of the certificate message.
 
 The canonical_spec_version is distinct from schema_version: schema_version versions the certificate message format, while canonical_spec_version versions the canonical state definition that determines the root. The root is meaningful only under the definition that produced it, so a future SSV contract upgrade that adds an event that changes state or changes application semantics is a new canonical state generation that bumps canonical_spec_version and requires regenerating the conformance vectors of section 6. An importer rejects a canonical_spec_version it does not implement (import step 1) rather than comparing roots across generations.
 
@@ -277,7 +305,7 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 1. Confirm the certificate message network_id and ssv_contract_address match the node's configured network and contract. Reject on mismatch. Reject if canonical_spec_version is one the node does not implement, since a root is only meaningful under the canonical state definition that produced it.
 2. Confirm block B is finalized according to the node's consensus data source. Reject if finality cannot be established. A finalized block can no longer be reverted by a chain reorganization (reorg), so the state at B is permanent. Confirm block_hash matches the finalized block.
-3. Verify the certificates: each is a valid signature over this SSZ encoded certificate message under scheme_version, the signers belong to a signer_set_id the node currently trusts, scheme_version is at or above the node's minimum accepted version, there are at least X matching certificates over the same certificate message, and the agreeing set spans both client implementations.
+3. Verify the certificates: each is a valid signature over `certificate_message_hash` under scheme_version, the signers belong to a signer_set_id the node currently trusts, scheme_version is at or above the node's minimum accepted version, there are at least X matching certificates over the same certificate message, and the agreeing set spans both client implementations.
 4. Parse the received payloads. If the bundle includes an optional snapshot_digest, confirm it for download integrity, but do not treat it as a signed trust anchor.
 5. Reconstruct the canonical record set and active encrypted share set from the payloads. Materialize `CanonicalStateV1` and `ShareSetV1`, recompute `state_root` and `share_set_root` from their SSZ serializations, and confirm both roots match the certificate message.
 6. Freshness: reject if block B is older than the maximum acceptable age (see below).
@@ -300,7 +328,7 @@ The canonical spec is only useful if it is enforced. The following checks do tha
 
 Generating the tuples is automatic for a client or materializer that has the required historical logs and encrypted share material. Comparing the streams is a separate step performed by a small diff tool. Starting from the deployment block catches a historical bug such as #972, which only appears once the affected event is processed. This is the audit path, not the normal checkpoint production path.
 
-The `full_log_set_hash` in the tuple is essential to this comparison. Without it, two clients could disagree only because their RPC providers served different events: providers differ in indexing, retention, and gaps. The diff tool compares `full_log_set_hash` first. If the log hashes differ, it is a data source problem, not a reconstruction bug. Only matching log hashes with differing roots indicate a real divergence. `full_log_set_hash` is audit evidence and is not a certificate field.
+The `full_log_set_hash` in the tuple is essential to this comparison. It is computed from `LogSetV1` with domain `FULL_LOG_SET_V1`, `from_block_number` equal to the SSV contract deployment block, and `to_block_number` equal to the tuple's `block_number`. Without it, two clients could disagree only because their RPC providers served different events: providers differ in indexing, retention, and gaps. The diff tool compares `full_log_set_hash` first. If the log hashes differ, it is a data source problem, not a reconstruction bug. Only matching log hashes with differing roots indicate a real divergence. `full_log_set_hash` is audit evidence and is not a certificate field.
 
 **Checkpoint production run.** For a checkpoint with a parent, each signer emits:
 
@@ -308,7 +336,7 @@ The `full_log_set_hash` in the tuple is essential to this comparison. Without it
 (parent_checkpoint_hash, block_number, delta_log_set_hash, state_root, share_set_root)
 ```
 
-The diff tool first compares the parent checkpoint hash and `delta_log_set_hash`, then compares the roots. This is the normal production comparison for later checkpoints and it does not require logs before the parent checkpoint. For an initial checkpoint, signers compare `(block_number, state_root, share_set_root)` and may also compare optional full replay audit evidence when they have it.
+The diff tool first compares the parent checkpoint hash and `delta_log_set_hash`, then compares the roots. The parent checkpoint hash is the parent `certificate_message_hash`, and `delta_log_set_hash` is computed from `LogSetV1` with domain `DELTA_LOG_SET_V1`. This is the normal production comparison for later checkpoints and it does not require logs before the parent checkpoint. For an initial checkpoint, signers compare `(block_number, state_root, share_set_root)` and may also compare optional full replay audit evidence when they have it.
 
 **Honest limit and complementarity.** Agreement across clients proves that the two clients reconstructed the same state. It does not prove the state is correct; both could share a spec mistake. eth_call spot checks are complementary because they compare known records against contract storage outside both clients, while root agreement catches omitted records that eth_call cannot ask about. Neither check catches a shared mistake in the event signatures, topics, contract address, deployment block, parent checkpoint, or delta range. The full fold from the deployment block remains the audit path for that class of error.
 
