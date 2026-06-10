@@ -76,7 +76,7 @@ The operator fee and the Cluster accounting fields carried by each event (balanc
 - Operator identity. Operators are keyed by `operator_id` only. The canonical fold must not deduplicate operators by raw event bytes, decoded RSA key bytes, PEM text, owner address, or any other key. If two OperatorAdded events assign two different operator ids but decode to the same RSA public key, v1 still has two operator records.
 - Operator public key. OperatorAdded publicKey bytes have appeared in more than one layout, so v1 defines `canonical_public_key` explicitly. First, try to decode the field as the SSV operator public key wrapper, equivalent to ABI decoding one dynamic `bytes` value. If that succeeds and the decoded bytes parse as the expected base64 PEM RSA public key payload, those decoded bytes are the canonical bytes. If wrapper decoding fails, the raw event bytes are accepted only if they parse directly as the same base64 PEM RSA public key payload. Otherwise the OperatorAdded event is rejected as malformed. The canonical bytes are hashed exactly as bytes; clients must not reserialize the key into a different PEM, DER, JSON, or text layout before hashing. If a client cannot decode the key into this canonical form, it must stop or mark the event malformed according to the v1 fold, not silently skip the operator.
 - Validator identity. Validators are keyed by the pair `(validator_public_key, owner)`, matching the contract registration key. The canonical fold must not deduplicate validators by validator public key alone. If two accepted ValidatorAdded events use the same validator public key with different owners, v1 includes two validator records, and their encrypted share records remain separate by owner.
-- Cluster member set. Operator ids in a cluster are an unordered set in the contract. They are serialized in ascending operator_id order.
+- Cluster member set. A ValidatorAdded event uses the `operatorIds` order to pair share bytes with operators, as defined in section 2. After parsing, the cluster membership is represented as a set and serialized in ascending operator_id order.
 - Addresses. All addresses are encoded as their 20 raw bytes when hashed. Any text rendering uses lowercase hex. EIP-55 checksum casing is not used in the hashed form.
 - Fee recipient fallback. If no Owner record exists for an owner, the fee recipient defaults to the owner address.
 - Owner nonce. Owner records serialize `next_validator_nonce`, the nonce value to use for the next ValidatorAdded by that owner. It starts at 0. Every ValidatorAdded log for the owner advances it exactly once before validation, including a malformed or rejected ValidatorAdded.
@@ -174,12 +174,36 @@ EncryptedShareRecordV1 = Container[
     validator_public_key: Vector[byte, 48],
     cluster_id: Bytes32,
     operator_id: uint64,
-    share_public_key: List[byte, MAX_SHARE_PUBLIC_KEY_BYTES],
-    encrypted_share_bytes: List[byte, MAX_ENCRYPTED_SHARE_BYTES],
+    share_public_key: Vector[byte, 48],
+    encrypted_share_bytes: Vector[byte, 256],
 ]
 ```
 
-`MAX_ENCRYPTED_SHARE_RECORDS`, `MAX_SHARE_PUBLIC_KEY_BYTES`, and `MAX_ENCRYPTED_SHARE_BYTES` are also consensus constants for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
+`MAX_ENCRYPTED_SHARE_RECORDS` is also a consensus constant for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
+
+A ValidatorAdded log derives encrypted share records from the event `shares` bytes using the v1 share blob grammar below. Let `n = len(operatorIds)`. The `operatorIds` array in a ValidatorAdded log must be nonempty and strictly ascending, and every operator id must refer to an operator record present in the fold before the event. Duplicate ids, descending ids, or missing operators make the ValidatorAdded event malformed after the owner nonce transition defined in section 1.
+
+```text
+ValidatorAddedSharesV1 =
+    validator_signature: Vector[byte, 96]
+    share_public_keys: Vector[byte, 48] * n
+    encrypted_share_bytes: Vector[byte, 256] * n
+```
+
+The expected `shares` length is `96 + n * 48 + n * 256` bytes. The `share_public_keys` entry at index i and the `encrypted_share_bytes` entry at index i are assigned to the `operatorIds` entry at index i from the event. This event order mapping is used only to form records; the final `ShareSetV1.shares` list is then sorted by the v1 record ordering above. No Snappy decompression, ABI decode inside the `shares` value, JSON decode, or local database layout is part of this grammar.
+
+The `validator_signature` is checked before any validator record, cluster update, or encrypted share record is created. The signature is a 96 byte BLS signature by `validator_public_key` over:
+
+```text
+validator_registration_message_v1 =
+    keccak256(utf8(owner_eip55_hex ++ ":" ++ decimal_next_validator_nonce))
+```
+
+`owner_eip55_hex` is the EIP-55 address text with `0x` prefix derived from the event owner address. `decimal_next_validator_nonce` is the base 10 nonce text with no leading zero, except that zero is encoded as `0`. This text form is used only for the existing validator registration signature. Addresses in the SSZ records and roots still use raw 20 byte values.
+
+After the owner nonce is read and advanced, a ValidatorAdded event is malformed if the validator public key is not a 48 byte BLS public key, the operator id array is invalid under the rules above, the `shares` length does not match the v1 formula, or `validator_signature` does not verify. A malformed ValidatorAdded event leaves the nonce advance in place and creates no validator record, cluster update, or encrypted share records.
+
+V1 does not decrypt `encrypted_share_bytes`, verify plaintext shares, or check that a ciphertext matches its `share_public_key`. The canonical fold commits to the public ciphertext bytes from the accepted event. A client may later fail to decrypt its own encrypted share and decide that the share is unusable locally, but that local outcome is outside the canonical fold and must not change `state_root` or `share_set_root`.
 
 The v1 SSZ container for log set hashes is:
 
@@ -231,7 +255,7 @@ share_public_key
 encrypted_share_bytes
 ```
 
-The `cluster_id` is derived from owner and the sorted operator set as defined in section 1. SSZ list framing defines the boundary of `encrypted_share_bytes`, whose size is variable. This root proves share completeness and byte integrity for bootstrap; it does not require signers to decrypt shares.
+The `cluster_id` is derived from owner and the sorted operator set as defined in section 1. The share blob grammar in section 2 defines the boundary of each encrypted share before it is inserted into `EncryptedShareRecordV1`. This root proves share completeness and byte integrity for bootstrap; it does not require signers to decrypt shares.
 
 **Checkpoint production paths.** The protocol is defined by the records and roots, not by a particular client's database. A process can produce a checkpoint only if it can enumerate the canonical public state and active encrypted share records at block B. That process may be a normal client that retained those records, a client with added retention, a dedicated materializer, or an archive indexer.
 
@@ -319,7 +343,7 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 The canonical spec is only useful if it is enforced. The following checks do that, and they would have caught #972.
 
-**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted.
+**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorAdded with 4 operators and with 7 operators, ValidatorAdded with unsorted or duplicate operator ids, ValidatorAdded with a bad share blob length, ValidatorAdded with a bad validator signature, ValidatorAdded with ciphertext bytes that are structurally valid but do not decrypt for one operator, ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted.
 
 **Full replay audit run.** An audit implementation can start at the deployment block, fold all history, and emit at every sampling point (every N blocks) a tuple:
 
