@@ -286,6 +286,7 @@ The checkpoint bundle may include an optional `snapshot_digest` outside the sign
 | share_set_root | Canonical root of the active encrypted share set |
 | delta_log_set_hash | `LogSetV1` hash of the exact ordered list of relevant SSV events consumed after the parent checkpoint, or the all zero `Bytes32` value for an initial checkpoint |
 | signer_set_id | Identifier of the signer set that may certify this message |
+| signer_set_hash | Hash of the trusted signer metadata for signer_set_id |
 | scheme_version | Identifier of the signature scheme used by certificates |
 
 ```text
@@ -302,6 +303,7 @@ CheckpointCertificateMessageV1 = Container[
     share_set_root: Bytes32,
     delta_log_set_hash: Bytes32,
     signer_set_id: uint64,
+    signer_set_hash: Bytes32,
     scheme_version: uint64,
 ]
 ```
@@ -312,15 +314,64 @@ The canonical_spec_version is distinct from schema_version: schema_version versi
 
 **4. Certificates**
 
-A certificate is a signature over `certificate_message_hash` by a member of the signer set.
+A checkpoint carries a certificate message and one or more signature records. A signature record identifies the signer and carries a signature over `certificate_message_hash` by that signer.
+
+```text
+CheckpointSignatureV1 = Container[
+    signer_id: uint64,
+    signature: List[byte, MAX_CHECKPOINT_SIGNATURE_BYTES],
+]
+```
+
+`MAX_CHECKPOINT_SIGNATURE_BYTES` is a consensus constant for `scheme_version = 1`.
+
+`scheme_version = 1` uses individual signature records. Any future aggregate signature scheme must still expose the signer ids covered by the aggregate before applying the same counting rules.
+
+**Trusted signer set.** `signer_set_id` is not trusted by itself. An importer resolves it to a locally trusted `TrustedSignerSetV1`, shipped with the client or operator configuration before checkpoint import. The certificate message also commits to `signer_set_hash = keccak256(ssz_serialize(TrustedSignerSetV1))`, so signer set rotation cannot reuse an id with different metadata without changing the signed message.
+
+```text
+TrustedSignerSetV1 = Container[
+    signer_set_id: uint64,
+    scheme_version: uint64,
+    threshold: uint64,
+    min_controller_count: uint64,
+    implementation_quorums: List[ImplementationQuorumV1, MAX_CHECKPOINT_IMPLEMENTATIONS],
+    signers: List[TrustedSignerV1, MAX_CHECKPOINT_SIGNERS],
+]
+
+ImplementationQuorumV1 = Container[
+    implementation_id: uint64,
+    min_signers: uint64,
+]
+
+TrustedSignerV1 = Container[
+    signer_id: uint64,
+    implementation_id: uint64,
+    controller_id: uint64,
+    public_key: List[byte, MAX_SIGNER_PUBLIC_KEY_BYTES],
+    valid_from_block: uint64,
+    valid_to_block: uint64,
+]
+```
+
+`MAX_CHECKPOINT_IMPLEMENTATIONS`, `MAX_CHECKPOINT_SIGNERS`, and `MAX_SIGNER_PUBLIC_KEY_BYTES` are consensus constants for `scheme_version = 1`. `implementation_quorums` are ordered by ascending implementation_id, and signers are ordered by ascending signer_id before computing `signer_set_hash`. Duplicate implementation ids, duplicate signer ids, duplicate public keys, `threshold = 0`, or an implementation quorum with `min_signers = 0` make the trusted signer set invalid. `valid_to_block = 0` means the signer has no configured retirement block. Otherwise, a signer is active for block B only when `valid_from_block <= B <= valid_to_block`. `threshold` is the minimum number of unique active signer ids required. `min_controller_count = 0` disables controller diversity; otherwise the counted signer set must contain at least that many distinct `controller_id` values.
+
+V1 defines these implementation ids:
+
+```text
+1 = Anchor
+2 = go-ssv
+```
+
+For v1, importers reject a `TrustedSignerSetV1` whose `implementation_quorums` do not include `(implementation_id = 1, min_signers = 1)` and `(implementation_id = 2, min_signers = 1)`. A future `scheme_version` may add more implementations or change these minimums, but `scheme_version = 1` keeps both minima.
 
 **Required meaning.** A certificate attests that the signer independently materialized the canonical public state and active encrypted share set at block B, without trusting the payload being signed, and computed this same `state_root` and `share_set_root` using one of the production paths in section 3. For a child checkpoint, it also attests that the signer consumed the exact ordered event delta identified by `delta_log_set_hash`. A certificate is not an attestation that a downloaded checkpoint file parsed or that a particular payload encoding or hosting path is trustworthy.
 
-**Acceptance rule.** A checkpoint is accepted only when at least X of the Y signers in the signer set produce matching certificates over the same certificate message. X and Y are a parameter of the signer set; this SIP does not fix them here (for example, 3 of 4). At least one matching certificate must come from a signer running client A, and at least one from a signer running client B. Today those clients are Anchor and go-ssv. This mitigates a shared reconstruction bug in one implementation, such as #972. When implementations disagree on the roots for a block, no checkpoint is published and the disagreement is investigated.
+**Acceptance rule.** A checkpoint is accepted only when one set of unique active signer ids signs the same certificate message and satisfies every rule in `TrustedSignerSetV1`: at least `threshold` unique signers, every required implementation quorum, and `min_controller_count` when nonzero. Duplicate signature records for the same signer_id count once. A signature record whose signer_id is unknown, retired for block B, associated with a different scheme, or invalid for the configured public key is ignored. This mitigates a shared reconstruction bug in one implementation, such as #972, because the same counted signer set must include both Anchor and go-ssv signers. When implementations disagree on the roots for a block, no checkpoint is published and the disagreement is investigated.
 
 This rule makes the mechanism intentionally inert until at least two implementations independently compute the same canonical root and validate it against the shared conformance vectors of section 6 at a common block. When signer infrastructure and a second conforming implementation are ready is an onboarding matter (see Out of Scope).
 
-**Swapping the signature scheme later.** The certificate message records `scheme_version` and `signer_set_id` so a future version can change the signature scheme or rotate the signer set without changing the certificate message format. This includes a move to a post-quantum signature such as ML-DSA. Post-quantum signatures are not mandated for v1. Agility needs a floor; see the downgrade discussion in Security Considerations.
+**Swapping the signature scheme later.** The certificate message records `scheme_version`, `signer_set_id`, and `signer_set_hash` so a future version can change the signature scheme or rotate the signer set without ambiguity. This includes a move to a post-quantum signature such as ML-DSA. Post-quantum signatures are not mandated for v1. Agility needs a floor; see the downgrade discussion in Security Considerations.
 
 **Dedicated keys.** The signer keys must be separate keys created only for signing checkpoints. They must not reuse an operator's existing key. Reusing operator keys saves no distribution step, because a bootstrapping node needs the signer public keys before it has any state, so those keys ship with the client or its configuration regardless. They must also use a distinct signing context (domain separation) so a checkpoint signature can never be mistaken for, or replayed as, any other kind of signature.
 
@@ -330,20 +381,20 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 1. Confirm the certificate message network_id and ssv_contract_address match the node's configured network and contract. Reject on mismatch. Reject if canonical_spec_version is one the node does not implement, since a root is only meaningful under the canonical state definition that produced it.
 2. Confirm block B is finalized according to the node's consensus data source. Reject if finality cannot be established. A finalized block can no longer be reverted by a chain reorganization (reorg), so the state at B is permanent. Confirm block_hash matches the finalized block.
-3. Verify the certificates: each is a valid signature over `certificate_message_hash` under scheme_version, the signers belong to a signer_set_id the node currently trusts, scheme_version is at or above the node's minimum accepted version, there are at least X matching certificates over the same certificate message, and the agreeing set spans both client implementations.
+3. Resolve `signer_set_id` to a locally trusted `TrustedSignerSetV1`. Reject if the set is unknown, if its `scheme_version` differs from the certificate message, if `scheme_version` is below the node's minimum accepted version, or if `keccak256(ssz_serialize(TrustedSignerSetV1))` differs from `signer_set_hash`. Verify each signature record against the public key for its signer_id and count each valid active signer_id at most once. Reject unless the counted set satisfies `threshold`, every configured implementation quorum, and `min_controller_count` when nonzero.
 4. Parse the received payloads. If the bundle includes an optional snapshot_digest, confirm it for download integrity, but do not treat it as a signed trust anchor.
 5. Reconstruct the canonical record set and active encrypted share set from the payloads. Materialize `CanonicalStateV1` and `ShareSetV1`, recompute `state_root` and `share_set_root` from their SSZ serializations, and confirm both roots match the certificate message.
 6. Freshness: reject if block B is older than the maximum acceptable age (see below).
 7. Monotonicity: reject if B is not newer than the node's current state. A node never imports a checkpoint older than what it already has.
 8. On success, populate storage from the snapshot, locating and decrypting the node's own shares from the active encrypted share set, and continue normal sync after block B.
 
-**Freshness and monotonicity.** Signatures cannot stop replay of an old but valid checkpoint. The defenses are a maximum acceptable age, enforced by the importing node, a finality requirement on B, and the rule that a node never imports a checkpoint older than its current state. Monotonicity protects only a resync, where the node already has state to compare against. A first syncing node has no current state, so monotonicity gives it nothing; its protections are the maximum age, the finality requirement, and the X of Y threshold across implementations.
+**Freshness and monotonicity.** Signatures cannot stop replay of an old but valid checkpoint. The defenses are a maximum acceptable age, enforced by the importing node, a finality requirement on B, and the rule that a node never imports a checkpoint older than its current state. Monotonicity protects only a resync, where the node already has state to compare against. A first syncing node has no current state, so monotonicity gives it nothing; its protections are the maximum age, the finality requirement, and the trusted signer set threshold plus implementation quorums.
 
 **6. Conformance and Testing**
 
 The canonical spec is only useful if it is enforced. The following checks do that, and they would have caught #972.
 
-**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorAdded with 4 operators and with 7 operators, ValidatorAdded with unsorted or duplicate operator ids, ValidatorAdded with a bad share blob length, ValidatorAdded with a bad validator signature, ValidatorAdded with ciphertext bytes that are structurally valid but do not decrypt for one operator, ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted.
+**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorAdded with 4 operators and with 7 operators, ValidatorAdded with unsorted or duplicate operator ids, ValidatorAdded with a bad share blob length, ValidatorAdded with a bad validator signature, ValidatorAdded with ciphertext bytes that are structurally valid but do not decrypt for one operator, ValidatorRemoved omission, removed operators that remain referenced by active membership, removed operators that become unreferenced and are omitted, and certificate acceptance cases for duplicate signer ids, missing implementation quorum, retired signer, signer_set_hash mismatch, and controller diversity when enabled.
 
 **Full replay audit run.** An audit implementation can start at the deployment block, fold all history, and emit at every sampling point (every N blocks) a tuple:
 
@@ -382,21 +433,21 @@ The following are operational, not protocol, and are out of scope for this SIP: 
 
 **Security Considerations**  
 
-**Trust assumption.** An importing node that skips the fold trusts the signer set, not whoever published the checkpoint payloads. The publisher is untrusted; a malicious publisher can at most serve payloads that fail to reconstruct the signed `state_root` or `share_set_root`. The acceptance rule in section 4 assumes enough honest signers to prevent a dishonest quorum from reaching X while spanning both implementations.
+**Trust assumption.** An importing node that skips the fold trusts the signer set, not whoever published the checkpoint payloads. The publisher is untrusted; a malicious publisher can at most serve payloads that fail to reconstruct the signed `state_root` or `share_set_root`. The acceptance rule in section 4 assumes enough honest signers to prevent a dishonest counted set from satisfying the threshold, implementation quorum, and controller rules.
 
 **Completeness versus correctness.** Agreement across implementations catches omitted records only because the root commits to the record set itself, not to counters. It does not prove the shared event scope or canonical spec is correct; section 6 describes why eth_call and the full fold audit remain complementary.
 
-**Reconstruction bug risk.** Two signers running the same client share that client's reconstruction bugs and would sign the same wrong roots. The acceptance rule across implementations mitigates this by requiring at least one certificate from each implementation, and the canonical application semantics in section 1 reduce the space for legitimate root differences.
+**Reconstruction bug risk.** Two signers running the same client share that client's reconstruction bugs and would sign the same wrong roots. The acceptance rule across implementations mitigates this by requiring the counted signer set to satisfy the implementation quorums, and the canonical application semantics in section 1 reduce the space for legitimate root differences.
 
-**Equivocation and signer dishonesty.** If enough signers collude to reach X and span both implementations, they can sign wrong roots that are internally consistent. Nothing in the format binds a block number B to a single certificate message, so a dishonest quorum or publisher could serve two well formed certificate messages for the same block B and partition nodes onto divergent state. Equivocation is detectable out of band but is not prevented by the format alone. A recommended mitigation is for signers to publish each (block_number, certificate message) into an append only transparency record, so two conflicting signatures over the same block are publicly attributable.
+**Equivocation and signer dishonesty.** If enough signers collude to satisfy the threshold, implementation quorum, and controller rules, they can sign wrong roots that are internally consistent. Nothing in the format binds a block number B to a single certificate message, so a dishonest quorum or publisher could serve two well formed certificate messages for the same block B and partition nodes onto divergent state. Equivocation is detectable out of band but is not prevented by the format alone. A recommended mitigation is for signers to publish each (block_number, certificate message) into an append only transparency record, so two conflicting signatures over the same block are publicly attributable.
 
 **Replay of stale checkpoints.** Signatures over an old but valid certificate message stay valid forever, so signatures alone cannot stop replay. Section 5 defines the defenses: maximum acceptable age, finality, and monotonicity where a node already has current state.
 
-**Downgrade and version attacks.** Cryptographic agility introduces several valid scheme_version, signer_set_id, and schema_version values over time. Without a floor, that enables downgrade: after a post-quantum migration an attacker could replay a checkpoint certified under the old, now weak classical scheme; after key rotation an attacker could replay certificates from a retired signer set. The maximum age rule only partly helps, since an old certificate message under a weak scheme within the age window would still pass. The importing node must therefore enforce a minimum acceptable scheme_version and reject retired signer_set_ids, so a checkpoint signed under a deprecated scheme or a retired signer set is rejected even when its signatures are cryptographically valid and it is within the age window. Agility without a floor is a downgrade vector.
+**Downgrade and version attacks.** Cryptographic agility introduces several valid scheme_version, signer_set_id, signer_set_hash, and schema_version values over time. Without a floor, that enables downgrade: after a post-quantum migration an attacker could replay a checkpoint certified under the old, now weak classical scheme; after key rotation an attacker could replay certificates from a retired signer set. The maximum age rule only partly helps, since an old certificate message under a weak scheme within the age window would still pass. The importing node must therefore enforce a minimum acceptable scheme_version and reject retired signer sets, so a checkpoint signed under a deprecated scheme or a retired signer set is rejected even when its signatures are cryptographically valid and it is within the age window. Agility without a floor is a downgrade vector.
 
-**Signer key compromise.** A compromised signing key can sign a wrong certificate message. The true threshold is governed by both X and the signer counts for each implementation, so those values must be sized together. Rotation is not instantaneous protection: a node keeps trusting a signer set until it receives a client or configuration update, so revocation latency is bounded by the client release and update cadence.
+**Signer key compromise.** A compromised signing key can sign a wrong certificate message. The true threshold is governed by the threshold, implementation quorums, and controller diversity rule, so those values must be sized together. Rotation is not instantaneous protection: a node keeps trusting a signer set until it receives a client or configuration update, so revocation latency is bounded by the client release and update cadence.
 
-**Supply chain dependency.** Signer public keys ship with the client or its configuration, because a bootstrapping node needs them before it has any state. The real root of trust is therefore client release integrity: the release channel delivers both the importer logic and the signer public keys, so a compromised release could defeat every check across implementations at once. This adds no new trust surface beyond trusting the client binary, but it raises the requirements on the release channel: reproducible builds, signed releases, and pinned, auditable signer set ids.
+**Supply chain dependency.** Signer public keys and signer metadata ship with the client or its configuration, because a bootstrapping node needs them before it has any state. The real root of trust is therefore client release integrity: the release channel delivers both the importer logic and the trusted signer sets, so a compromised release could defeat every check across implementations at once. This adds no new trust surface beyond trusting the client binary, but it raises the requirements on the release channel: reproducible builds, signed releases, and pinned, auditable signer set ids and hashes.
 
 **Establishing finality.** The block_hash and finality checks in import step 2 are only as trustworthy as the node's beacon and execution data source. A node trusting a malicious RPC for finality could be shown a chain that is not canonical where B and block_hash look consistent. This is an existing trust assumption inherited from normal operation, not one introduced here; a consensus light client that would remove it is out of scope. Normal v1 acceptance requires finality; a node that cannot establish finality rejects the checkpoint.
 
