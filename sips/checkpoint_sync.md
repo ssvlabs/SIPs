@@ -51,7 +51,7 @@ The block number is a reference point that records when the state was taken. It 
 | Record | Fields |
 | ------ | ------ |
 | Operator | operator_id (sequential, assigned by the contract), canonical_public_key, owner address, removed status |
-| Validator | validator public key (BLS), owner address, cluster it belongs to |
+| Validator | validator public key (BLS), owner address; the pair is the validator identity, cluster_id |
 | Cluster | cluster_id (derived, see below), owner address, sorted member operator_ids, liquidated flag |
 | Owner | owner address, fee_recipient, next_validator_nonce |
 
@@ -69,12 +69,13 @@ ValidatorExited is also excluded. It is a beacon chain signal: it announces that
 
 The operator fee and the Cluster accounting fields carried by each event (balance, validatorCount, networkFeeIndex, index, and the active flag) are also excluded: they are mutable contract bookkeeping that varies over time, not part of the canonical state for validator clients, and committing to accumulators that advance on nearly every interaction would change the root far more often than the logical membership state does. Cluster liquidation status is derived from the ClusterLiquidated and ClusterReactivated events, not from the Cluster.active field. In v1, those events update only an included cluster record. If no cluster record is included for that owner and operator set, the event changes no canonical record. A cluster created later starts with `liquidated = false` unless a later ClusterLiquidated event changes it.
 
-**Removal representation.** V1 pins removal per entity. A ValidatorRemoved event removes the validator record from `state_root` and removes the validator's encrypted share records from `share_set_root`. If that was the last active validator in a cluster, the cluster record is also omitted. An OperatorRemoved event sets `removed = true` for that operator while any active cluster still references it. A removed operator with no active cluster reference is omitted from the canonical record set. Active operators are included even if they are not members of an active cluster.
+**Removal representation.** V1 pins removal per entity. A ValidatorRemoved event removes the validator record identified by the event owner and validator public key from `state_root` and removes the encrypted share records for that same owner and validator public key from `share_set_root`. If that was the last active validator in a cluster, the cluster record is also omitted. An OperatorRemoved event sets `removed = true` for that operator while any active cluster still references it. A removed operator with no active cluster reference is omitted from the canonical record set. Active operators are included even if they are not members of an active cluster.
 
 **Canonical encoding and ordering.** The following choices are pinned.
 
 - Operator identity. Operators are keyed by `operator_id` only. The canonical fold must not deduplicate operators by raw event bytes, decoded RSA key bytes, PEM text, owner address, or any other key. If two OperatorAdded events assign two different operator ids but decode to the same RSA public key, v1 still has two operator records.
 - Operator public key. OperatorAdded publicKey bytes have appeared in more than one layout, so v1 defines `canonical_public_key` explicitly. First, try to decode the field as the SSV operator public key wrapper, equivalent to ABI decoding one dynamic `bytes` value. If that succeeds and the decoded bytes parse as the expected base64 PEM RSA public key payload, those decoded bytes are the canonical bytes. If wrapper decoding fails, the raw event bytes are accepted only if they parse directly as the same base64 PEM RSA public key payload. Otherwise the OperatorAdded event is rejected as malformed. The canonical bytes are hashed exactly as bytes; clients must not reserialize the key into a different PEM, DER, JSON, or text layout before hashing. If a client cannot decode the key into this canonical form, it must stop or mark the event malformed according to the v1 fold, not silently skip the operator.
+- Validator identity. Validators are keyed by the pair `(validator_public_key, owner)`, matching the contract registration key. The canonical fold must not deduplicate validators by validator public key alone. If two accepted ValidatorAdded events use the same validator public key with different owners, v1 includes two validator records, and their encrypted share records remain separate by owner.
 - Cluster member set. Operator ids in a cluster are an unordered set in the contract. They are serialized in ascending operator_id order.
 - Addresses. All addresses are encoded as their 20 raw bytes when hashed. Any text rendering uses lowercase hex. EIP-55 checksum casing is not used in the hashed form.
 - Fee recipient fallback. If no Owner record exists for an owner, the fee recipient defaults to the owner address.
@@ -109,7 +110,7 @@ SSZ container field order is the order shown in this section. The fixed domains 
 Record ordering for the root is fully defined so the SSZ serialization is deterministic. These orderings at the top level are normative for v1 and must be covered by the conformance tests in section 6.
 
 - Operators are ordered by ascending operator_id.
-- Validators are ordered by their canonical BLS public key bytes, then by owner address bytes.
+- Validators are ordered by their canonical BLS public key bytes, then by owner address bytes; the owner comparison is the tie breaker when public keys match.
 - Clusters are ordered by their derived cluster_id bytes.
 - Owners are ordered by their address bytes.
 - Within a cluster, the member operator_ids are in ascending order, as in the cluster_id derivation.
@@ -318,7 +319,7 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 The canonical spec is only useful if it is enforced. The following checks do that, and they would have caught #972.
 
-**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, ValidatorAdded rejection after nonce advancement, ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted.
+**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted.
 
 **Full replay audit run.** An audit implementation can start at the deployment block, fold all history, and emit at every sampling point (every N blocks) a tuple:
 
