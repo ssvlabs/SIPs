@@ -233,13 +233,24 @@ The log set range is inclusive. `from_block_number` and `to_block_number` are pa
 
 **3. Checkpoint Format**
 
-A checkpoint is a certificate plus one or more untrusted payloads. The certificate signs canonical SSZ commitments to public state and active encrypted shares. The payloads carry the preimages needed by an importing node to rebuild those commitments without replaying old logs.
+A checkpoint distribution is untrusted. In v1 the mandatory interchange object is `CheckpointBundleV1`, which contains the certificate message, signature records, canonical public state, and active encrypted share set. The certificate signs canonical SSZ commitments to public state and active encrypted shares. The bundle carries the preimages needed by an importing node to rebuild those commitments without replaying old logs.
 
-The certificate does not sign one specific snapshot file, compression format, chunking scheme, or mirror. Any file layout is acceptable if the importing node can parse it, materialize `CanonicalStateV1` and `ShareSetV1`, and recompute the signed commitments from their SSZ serialization.
+Every conforming v1 importer must accept and verify the SSZ bundle format below:
 
-**Snapshot payload.** The snapshot carries the canonical global state at block B, with enough information to materialize `CanonicalStateV1`, so that an importing node can populate its storage without folding the logs.
+```text
+CheckpointBundleV1 = Container[
+    certificate_message: CheckpointCertificateMessageV1,
+    signatures: List[CheckpointSignatureV1, MAX_CHECKPOINT_SIGNATURE_RECORDS],
+    canonical_state: CanonicalStateV1,
+    share_set: ShareSetV1,
+]
+```
 
-The snapshot also carries the full active encrypted share set. Each ValidatorAdded event publishes, for every operator in the cluster, a share public key and an encrypted key share. Those ciphertexts are public event data, while the plaintext share remains protected by encryption to the operator's key. A fresh operator bootstrap needs its encrypted share, and client retention differs, so this set is not left to local storage. Therefore the certificate includes a mandatory `share_set_root`, separate from `state_root`.
+`MAX_CHECKPOINT_SIGNATURE_RECORDS` is a consensus constant for `scheme_version = 1`. The mandatory bundle is serialized with SSZ. Signature records are untrusted transport data until the importer verifies them against `certificate_message`. Other transport encodings may be offered, but they are not sufficient for v1 conformance unless they translate into the exact SSZ bytes of `CheckpointBundleV1` before any certificate, root, or storage decision. Compression, chunking, mirrors, and transport digests are outside the trust path.
+
+**Bundle contents.** The bundle carries the canonical global state at block B, with enough information to materialize `CanonicalStateV1`, so that an importing node can populate its storage without folding the logs.
+
+The bundle also carries the full active encrypted share set. Each ValidatorAdded event publishes, for every operator in the cluster, a share public key and an encrypted key share. Those ciphertexts are public event data, while the plaintext share remains protected by encryption to the operator's key. A fresh operator bootstrap needs its encrypted share, and client retention differs, so this set is not left to local storage. Therefore the certificate includes a mandatory `share_set_root`, separate from `state_root`.
 
 `state_root` commits to the public validator client registry state. `share_set_root` commits to the encrypted share records for validators active at block B. It does not commit to encrypted shares for validators that were added and removed before B, because those shares are not needed to bootstrap the current state.
 
@@ -257,6 +268,23 @@ encrypted_share_bytes
 
 The `cluster_id` is derived from owner and the sorted operator set as defined in section 1. The share blob grammar in section 2 defines the boundary of each encrypted share before it is inserted into `EncryptedShareRecordV1`. This root proves share completeness and byte integrity for bootstrap; it does not require signers to decrypt shares.
 
+**Bundle validation.** A v1 importer validates `CheckpointBundleV1` as canonical data before any storage mutation. It parses exactly one `certificate_message`, one `canonical_state`, and one `share_set`, recomputes `state_root` and `share_set_root` from those SSZ containers, and rejects if either root differs from the certificate message. After the roots match, the importer still rejects the bundle if the canonical sets are not internally consistent:
+
+- duplicate operator records by operator_id;
+- duplicate validator records by `(validator_public_key, owner)`;
+- duplicate cluster records by cluster_id;
+- duplicate owner records by owner address;
+- duplicate encrypted share records by `(validator_public_key, owner, operator_id)`;
+- any validator whose cluster_id does not resolve to a cluster record;
+- any validator whose owner differs from the referenced cluster owner;
+- any cluster member operator_id that does not resolve to an operator record;
+- any encrypted share whose `(validator_public_key, owner)` does not resolve to a validator record;
+- any encrypted share whose cluster_id differs from the referenced validator's cluster_id;
+- any encrypted share whose operator_id is not a member of the referenced cluster;
+- any active validator that does not have exactly one encrypted share for each operator_id in its cluster.
+
+These checks make extra shares for unknown validators, removed validators, and nonmember operators invalid. They also make conflicting duplicate records invalid even if one duplicate alone would hash to a valid root. A v1 importer must populate storage only from the verified `CanonicalStateV1` and `ShareSetV1` records in `CheckpointBundleV1`. It must not populate storage from transport metadata, side tables, file names, indexes, caches, or any alternate representation that is not part of those verified SSZ containers.
+
 **Checkpoint production paths.** The protocol is defined by the records and roots, not by a particular client's database. A process can produce a checkpoint only if it can enumerate the canonical public state and active encrypted share records at block B. That process may be a normal client that retained those records, a client with added retention, a dedicated materializer, or an archive indexer.
 
 For the initial checkpoint, where `parent_checkpoint_hash` is the all zero `Bytes32` value, there are two valid production paths:
@@ -268,7 +296,7 @@ A client whose current state does not retain all active encrypted share cipherte
 
 For every checkpoint with a nonzero `parent_checkpoint_hash`, producers start from the parent checkpoint state and apply only the relevant SSV logs from the block after the parent through B. They update the public records and active encrypted share records, compute the new roots, and include `delta_log_set_hash` for that bounded event range. The `delta_log_set_hash` is computed from `LogSetV1` with domain `DELTA_LOG_SET_V1`, `from_block_number = parent.block_number + 1`, and `to_block_number = B`.
 
-The checkpoint bundle may include an optional `snapshot_digest` outside the signed certificate for download integrity, caching, or mirror comparison. That digest is not a trust anchor; import step 4 treats it only as a transport check.
+Checkpoint distribution may include an optional `snapshot_digest` outside `CheckpointBundleV1` for download integrity, caching, or mirror comparison. That digest is not a trust anchor; import step 1 treats it only as a transport check.
 
 **Certificate message.** The certificate message is the small object signers sign. In v1 the object is the SSZ container `CheckpointCertificateMessageV1`, and signers sign `certificate_message_hash = keccak256(ssz_serialize(CheckpointCertificateMessageV1))` under the signature scheme identified by `scheme_version`.
 
@@ -365,7 +393,7 @@ V1 defines these implementation ids:
 
 For v1, importers reject a `TrustedSignerSetV1` whose `implementation_quorums` do not include `(implementation_id = 1, min_signers = 1)` and `(implementation_id = 2, min_signers = 1)`. A future `scheme_version` may add more implementations or change these minimums, but `scheme_version = 1` keeps both minima.
 
-**Required meaning.** A certificate attests that the signer independently materialized the canonical public state and active encrypted share set at block B, without trusting the payload being signed, and computed this same `state_root` and `share_set_root` using one of the production paths in section 3. For a child checkpoint, it also attests that the signer consumed the exact ordered event delta identified by `delta_log_set_hash`. A certificate is not an attestation that a downloaded checkpoint file parsed or that a particular payload encoding or hosting path is trustworthy.
+**Required meaning.** A certificate attests that the signer independently materialized the canonical public state and active encrypted share set at block B, without trusting the bundle being signed, and computed this same `state_root` and `share_set_root` using one of the production paths in section 3. For a child checkpoint, it also attests that the signer consumed the exact ordered event delta identified by `delta_log_set_hash`. A certificate is not an attestation that a downloaded checkpoint file parsed or that a particular bundle encoding or hosting path is trustworthy.
 
 **Acceptance rule.** A checkpoint is accepted only when one set of unique active signer ids signs the same certificate message and satisfies every rule in `TrustedSignerSetV1`: at least `threshold` unique signers, every required implementation quorum, and `min_controller_count` when nonzero. Duplicate signature records for the same signer_id count once. A signature record whose signer_id is unknown, retired for block B, associated with a different scheme, or invalid for the configured public key is ignored. This mitigates a shared reconstruction bug in one implementation, such as #972, because the same counted signer set must include both Anchor and go-ssv signers. When implementations disagree on the roots for a block, no checkpoint is published and the disagreement is investigated.
 
@@ -379,14 +407,14 @@ This rule makes the mechanism intentionally inert until at least two implementat
 
 When a node imports a checkpoint it performs the following checks. A first syncing node, or a node whose last sync is older than the maximum acceptable age, trusts the state itself; it cannot verify completeness without folding the logs, which is the work it is trying to skip. The checks below are the cheap bindings it can still enforce.
 
-1. Confirm the certificate message network_id and ssv_contract_address match the node's configured network and contract. Reject on mismatch. Reject if canonical_spec_version is one the node does not implement, since a root is only meaningful under the canonical state definition that produced it.
-2. Confirm block B is finalized according to the node's consensus data source. Reject if finality cannot be established. A finalized block can no longer be reverted by a chain reorganization (reorg), so the state at B is permanent. Confirm block_hash matches the finalized block.
-3. Resolve `signer_set_id` to a locally trusted `TrustedSignerSetV1`. Reject if the set is unknown, if its `scheme_version` differs from the certificate message, if `scheme_version` is below the node's minimum accepted version, or if `keccak256(ssz_serialize(TrustedSignerSetV1))` differs from `signer_set_hash`. Verify each signature record against the public key for its signer_id and count each valid active signer_id at most once. Reject unless the counted set satisfies `threshold`, every configured implementation quorum, and `min_controller_count` when nonzero.
-4. Parse the received payloads. If the bundle includes an optional snapshot_digest, confirm it for download integrity, but do not treat it as a signed trust anchor.
-5. Reconstruct the canonical record set and active encrypted share set from the payloads. Materialize `CanonicalStateV1` and `ShareSetV1`, recompute `state_root` and `share_set_root` from their SSZ serializations, and confirm both roots match the certificate message.
+1. Parse exactly one `CheckpointBundleV1` from the received SSZ bytes. Reject malformed SSZ, trailing bytes, or any representation that cannot materialize that single container. If checkpoint distribution includes an optional snapshot_digest, confirm it for download integrity, but do not treat it as a signed trust anchor.
+2. Confirm the certificate message network_id and ssv_contract_address match the node's configured network and contract. Reject on mismatch. Reject if canonical_spec_version is one the node does not implement, since a root is only meaningful under the canonical state definition that produced it.
+3. Confirm block B is finalized according to the node's consensus data source. Reject if finality cannot be established. A finalized block can no longer be reverted by a chain reorganization (reorg), so the state at B is permanent. Confirm block_hash matches the finalized block.
+4. Resolve `signer_set_id` to a locally trusted `TrustedSignerSetV1`. Reject if the set is unknown, if its `scheme_version` differs from the certificate message, if `scheme_version` is below the node's minimum accepted version, or if `keccak256(ssz_serialize(TrustedSignerSetV1))` differs from `signer_set_hash`. Verify each signature record against the public key for its signer_id and count each valid active signer_id at most once. Reject unless the counted set satisfies `threshold`, every configured implementation quorum, and `min_controller_count` when nonzero.
+5. Validate `canonical_state` and `share_set` as the canonical record set and active encrypted share set. Recompute `state_root` and `share_set_root` from their SSZ serializations, confirm both roots match the certificate message, and enforce the bundle validation rules from section 3.
 6. Freshness: reject if block B is older than the maximum acceptable age (see below).
 7. Monotonicity: reject if B is not newer than the node's current state. A node never imports a checkpoint older than what it already has.
-8. On success, populate storage from the snapshot, locating and decrypting the node's own shares from the active encrypted share set, and continue normal sync after block B.
+8. On success, populate storage only from the verified `canonical_state` and `share_set`, locating and decrypting the node's own shares from the active encrypted share set, and continue normal sync after block B.
 
 **Freshness and monotonicity.** Signatures cannot stop replay of an old but valid checkpoint. The defenses are a maximum acceptable age, enforced by the importing node, a finality requirement on B, and the rule that a node never imports a checkpoint older than its current state. Monotonicity protects only a resync, where the node already has state to compare against. A first syncing node has no current state, so monotonicity gives it nothing; its protections are the maximum age, the finality requirement, and the trusted signer set threshold plus implementation quorums.
 
@@ -394,7 +422,42 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 The canonical spec is only useful if it is enforced. The following checks do that, and they would have caught #972.
 
-**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the state roots the canonical spec says it must produce. The expected roots are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice and asserts that its computed roots equal the recorded ones. This is fully automated. It covers only the history built into the test. The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorAdded with 4 operators and with 7 operators, ValidatorAdded with unsorted or duplicate operator ids, ValidatorAdded with a bad share blob length, ValidatorAdded with a bad validator signature, ValidatorAdded with ciphertext bytes that are structurally valid but do not decrypt for one operator, ValidatorRemoved omission, removed operators that remain referenced by active membership, removed operators that become unreferenced and are omitted, and certificate acceptance cases for duplicate signer ids, missing implementation quorum, retired signer, signer_set_hash mismatch, and controller diversity when enabled.
+**CI conformance vectors.** A conformance vector is a recorded slice of real chain history paired with the roots and import result the canonical spec says it must produce. The expected roots and expected import result are derived from the canonical spec, not from any one client. The vector file ships in the repository. Every conforming client replays the slice, computes the roots, parses the import vector, imports only the vector's bundle bytes, and asserts that its computed roots and import decision equal the recorded values. This is fully automated. It covers only the history built into the test.
+
+V1 import conformance vectors use this mandatory SSZ wrapper:
+
+```text
+CheckpointImportVectorV1 = Container[
+    case_id: List[byte, MAX_VECTOR_CASE_ID_BYTES],
+    expected_state_root: Bytes32,
+    expected_share_set_root: Bytes32,
+    expected_result: uint64,
+    trusted_signer_sets: List[TrustedSignerSetV1, MAX_VECTOR_SIGNER_SETS],
+    bundle_bytes: List[byte, MAX_VECTOR_BUNDLE_BYTES],
+    untrusted_side_data: List[byte, MAX_VECTOR_SIDE_DATA_BYTES],
+]
+```
+
+`MAX_VECTOR_CASE_ID_BYTES`, `MAX_VECTOR_SIGNER_SETS`, `MAX_VECTOR_BUNDLE_BYTES`, and `MAX_VECTOR_SIDE_DATA_BYTES` are consensus constants for the v1 test format. `bundle_bytes` is the exact byte input passed to the importer. Accepted cases encode one valid `CheckpointBundleV1`. Rejection cases may contain malformed SSZ, duplicate records, records outside canonical membership, bad certificate fields, or bad signatures. `expected_result` uses these v1 codes:
+
+```text
+0 = ACCEPT
+1 = REJECT_BAD_BUNDLE_SSZ
+2 = REJECT_BAD_CERTIFICATE
+3 = REJECT_UNKNOWN_SIGNER_SET
+4 = REJECT_SIGNER_SET_HASH_MISMATCH
+5 = REJECT_MISSING_IMPLEMENTATION_QUORUM
+6 = REJECT_DUPLICATE_CANONICAL_RECORD
+7 = REJECT_EXTRA_ENCRYPTED_SHARE
+8 = REJECT_MISSING_ENCRYPTED_SHARE
+9 = REJECT_NONMEMBER_ENCRYPTED_SHARE
+10 = REJECT_CLUSTER_MISMATCH
+11 = REJECT_UNTRUSTED_SIDE_DATA_USED
+```
+
+`untrusted_side_data` is never part of `CheckpointBundleV1`; it exists only to test that implementations do not populate storage from bytes outside the verified bundle. A conformance harness reports code 11 if an implementation reads or stores from `untrusted_side_data`; a production importer must never receive that field.
+
+The v1 vector set must include cases for the #972 operator public key layouts, two operator ids with the same canonical public key bytes, the same validator public key registered by two different owners, ValidatorAdded rejection after nonce advancement, ValidatorAdded with 4 operators and with 7 operators, ValidatorAdded with unsorted or duplicate operator ids, ValidatorAdded with a bad share blob length, ValidatorAdded with a bad validator signature, ValidatorAdded with ciphertext bytes that are structurally valid but do not decrypt for one operator, ValidatorRemoved omission, removed operators that remain referenced by active membership, removed operators that become unreferenced and are omitted, malformed `bundle_bytes`, duplicate operator, validator, cluster, owner, and encrypted share records in `CheckpointBundleV1`, extra shares for unknown or removed validators, shares for nonmember operators, cluster_id mismatch between validator and share records, missing share for a cluster member, conflicting duplicate entries, bundle bytes with correct roots and untrusted side data that must not be written to storage, and certificate acceptance cases for duplicate signer ids, missing implementation quorum, retired signer, signer_set_hash mismatch, and controller diversity when enabled.
 
 **Full replay audit run.** An audit implementation can start at the deployment block, fold all history, and emit at every sampling point (every N blocks) a tuple:
 
@@ -418,14 +481,13 @@ The diff tool first compares the parent checkpoint hash and `delta_log_set_hash`
 
 **Open Questions and Future Versions**
 
-The following questions are outside the v1 acceptance path. A v1 importer does not choose among these options; it follows the closed profile in sections 1 and 2.
+The following questions are outside the v1 acceptance path. A v1 importer does not choose among these options; it follows the closed profile in sections 1 through 5.
 
-- O1. Should the checkpoint payload be one combined file with state and shares, or separate payloads for public state and encrypted shares? This is a distribution and file format question only. Acceptance always verifies the mandatory `state_root` and `share_set_root` from the certificate message. Open.
-- O2. A future canonical spec version may replace the flat hash with a Merkle tree for inclusion proofs or Candidate B. That version must pin the exact tree shape, including leaf grouping, domain separation for leaves and internal nodes, and odd leaf handling.
-- O3. A future canonical spec version may include data derived from beacon state, such as validator index. V1 excludes it because it is not a deterministic function of the SSV logs.
-- O4. Post-quantum signature scheme for v1 or later. V1 keeps this optional behind the versioned scheme_version. Open.
-- O5. A future canonical spec version may revisit operator identity or public key normalization. V1 keys operators by `operator_id`, does not deduplicate by public key, and hashes the canonical public key bytes defined in section 1.
-- O6. A future canonical spec version may revisit tombstone policy. V1 omits removed validators, retains removed operators only while active clusters reference them, and omits clusters with no active validators.
+- O1. A future canonical spec version may replace the flat hash with a Merkle tree for inclusion proofs or Candidate B. That version must pin the exact tree shape, including leaf grouping, domain separation for leaves and internal nodes, and odd leaf handling.
+- O2. A future canonical spec version may include data derived from beacon state, such as validator index. V1 excludes it because it is not a deterministic function of the SSV logs.
+- O3. Post-quantum signature scheme for v1 or later. V1 keeps this optional behind the versioned scheme_version. Open.
+- O4. A future canonical spec version may revisit operator identity or public key normalization. V1 keys operators by `operator_id`, does not deduplicate by public key, and hashes the canonical public key bytes defined in section 1.
+- O5. A future canonical spec version may revisit tombstone policy. V1 omits removed validators, retains removed operators only while active clusters reference them, and omits clusters with no active validators.
 
 **Out of Scope**
 
@@ -433,7 +495,7 @@ The following are operational, not protocol, and are out of scope for this SIP: 
 
 **Security Considerations**  
 
-**Trust assumption.** An importing node that skips the fold trusts the signer set, not whoever published the checkpoint payloads. The publisher is untrusted; a malicious publisher can at most serve payloads that fail to reconstruct the signed `state_root` or `share_set_root`. The acceptance rule in section 4 assumes enough honest signers to prevent a dishonest counted set from satisfying the threshold, implementation quorum, and controller rules.
+**Trust assumption.** An importing node that skips the fold trusts the signer set, not whoever published the checkpoint bundle. The publisher is untrusted; a malicious publisher can at most serve a bundle that fails to reconstruct the signed `state_root` or `share_set_root`. The acceptance rule in section 4 assumes enough honest signers to prevent a dishonest counted set from satisfying the threshold, implementation quorum, and controller rules.
 
 **Completeness versus correctness.** Agreement across implementations catches omitted records only because the root commits to the record set itself, not to counters. It does not prove the shared event scope or canonical spec is correct; section 6 describes why eth_call and the full fold audit remain complementary.
 
