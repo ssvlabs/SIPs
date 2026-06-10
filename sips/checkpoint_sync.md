@@ -156,7 +156,7 @@ OwnerRecordV1 = Container[
 ]
 ```
 
-`MAX_OPERATORS`, `MAX_VALIDATORS`, `MAX_CLUSTERS`, `MAX_OWNERS`, `MAX_OPERATOR_PUBLIC_KEY_BYTES`, and `MAX_CLUSTER_OPERATORS` are consensus constants for `canonical_spec_version = 1`. They must be high enough to cover every state that can exist under the SSV contract and must be identical across implementations. A client rejects a v1 state that cannot be represented within these limits. The concrete values are part of the v1 conformance vectors.
+`MAX_OPERATORS`, `MAX_VALIDATORS`, `MAX_CLUSTERS`, `MAX_OWNERS`, `MAX_OPERATOR_PUBLIC_KEY_BYTES`, and `MAX_CLUSTER_OPERATORS` are fixed SIP constants for `canonical_spec_version = 1`. They set checkpoint encoding limits and must be high enough to cover every state that can exist under the SSV contract. They must be identical across implementations. A client rejects a v1 state that cannot be represented within these limits. The concrete values are part of the v1 conformance vectors.
 
 The v1 SSZ container for the active encrypted share set is:
 
@@ -179,7 +179,7 @@ EncryptedShareRecordV1 = Container[
 ]
 ```
 
-`MAX_ENCRYPTED_SHARE_RECORDS` is also a consensus constant for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
+`MAX_ENCRYPTED_SHARE_RECORDS` is also a fixed SIP constant for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
 
 A ValidatorAdded log derives encrypted share records from the event `shares` bytes using the v1 share blob grammar below. Let `n = len(operatorIds)`. The `operatorIds` array in a ValidatorAdded log must be nonempty and strictly ascending, and every operator id must refer to an operator record present in the fold before the event. Duplicate ids, descending ids, or missing operators make the ValidatorAdded event malformed after the owner nonce transition defined in section 1.
 
@@ -229,7 +229,7 @@ RelevantSsvLogV1 = Container[
 ]
 ```
 
-The log set range is inclusive. `from_block_number` and `to_block_number` are part of the hash preimage even when the `events` list is empty. The `events` list contains the raw Ethereum logs for the relevant SSV events from section 1, emitted by `ssv_contract_address`, ordered by ascending `(block_number, transaction_index, log_index)`. `address` must equal `ssv_contract_address`, and `topics` and `data` are the exact bytes returned by the execution data source for that log. `MAX_LOG_EVENTS`, `MAX_LOG_TOPICS`, and `MAX_LOG_DATA_BYTES` are consensus constants for v1.
+The log set range is inclusive. `from_block_number` and `to_block_number` are part of the hash preimage even when the `events` list is empty. The `events` list contains the raw Ethereum logs for the relevant SSV events from section 1, emitted by `ssv_contract_address`, ordered by ascending `(block_number, transaction_index, log_index)`. `address` must equal `ssv_contract_address`, and `topics` and `data` are the exact bytes returned by the execution data source for that log. `MAX_LOG_EVENTS`, `MAX_LOG_TOPICS`, and `MAX_LOG_DATA_BYTES` are fixed SIP constants for v1.
 
 **3. Checkpoint Format**
 
@@ -246,7 +246,7 @@ CheckpointBundleV1 = Container[
 ]
 ```
 
-`MAX_CHECKPOINT_SIGNATURE_RECORDS` is a consensus constant for `scheme_version = 1`. The mandatory bundle is serialized with SSZ. Signature records are untrusted transport data until the importer verifies them against `certificate_message`. Other transport encodings may be offered, but they are not sufficient for v1 conformance unless they translate into the exact SSZ bytes of `CheckpointBundleV1` before any certificate, root, or storage decision. Compression, chunking, mirrors, and transport digests are outside the trust path.
+`MAX_CHECKPOINT_SIGNATURE_RECORDS` is a fixed SIP constant for `scheme_version = 1`. The mandatory bundle is serialized with SSZ. Signature records are untrusted transport data until the importer verifies them against `certificate_message`. Other transport encodings may be offered, but they are not sufficient for v1 conformance unless they translate into the exact SSZ bytes of `CheckpointBundleV1` before any certificate, root, or storage decision. Compression, chunking, mirrors, and transport digests are outside the trust path.
 
 **Bundle contents.** The bundle carries the canonical global state at block B, with enough information to materialize `CanonicalStateV1`, so that an importing node can populate its storage without folding the logs.
 
@@ -351,7 +351,7 @@ CheckpointSignatureV1 = Container[
 ]
 ```
 
-`MAX_CHECKPOINT_SIGNATURE_BYTES` is a consensus constant for `scheme_version = 1`.
+`MAX_CHECKPOINT_SIGNATURE_BYTES` is a fixed SIP constant for `scheme_version = 1`.
 
 `scheme_version = 1` uses individual signature records. Any future aggregate signature scheme must still expose the signer ids covered by the aggregate before applying the same counting rules.
 
@@ -382,7 +382,7 @@ TrustedSignerV1 = Container[
 ]
 ```
 
-`MAX_CHECKPOINT_IMPLEMENTATIONS`, `MAX_CHECKPOINT_SIGNERS`, and `MAX_SIGNER_PUBLIC_KEY_BYTES` are consensus constants for `scheme_version = 1`. `implementation_quorums` are ordered by ascending implementation_id, and signers are ordered by ascending signer_id before computing `signer_set_hash`. Duplicate implementation ids, duplicate signer ids, duplicate public keys, `threshold = 0`, or an implementation quorum with `min_signers = 0` make the trusted signer set invalid. `valid_to_block = 0` means the signer has no configured retirement block. Otherwise, a signer is active for block B only when `valid_from_block <= B <= valid_to_block`. `threshold` is the minimum number of unique active signer ids required. `min_controller_count = 0` disables controller diversity; otherwise the counted signer set must contain at least that many distinct `controller_id` values.
+`MAX_CHECKPOINT_IMPLEMENTATIONS`, `MAX_CHECKPOINT_SIGNERS`, and `MAX_SIGNER_PUBLIC_KEY_BYTES` are fixed SIP constants for `scheme_version = 1`. `implementation_quorums` are ordered by ascending implementation_id, and signers are ordered by ascending signer_id before computing `signer_set_hash`. Duplicate implementation ids, duplicate signer ids, duplicate public keys, `threshold = 0`, or an implementation quorum with `min_signers = 0` make the trusted signer set invalid. `valid_to_block = 0` means the signer has no configured retirement block. Otherwise, a signer is active for block B only when `valid_from_block <= B <= valid_to_block`. `threshold` is the minimum number of unique active signer ids required. `min_controller_count = 0` disables controller diversity; otherwise the counted signer set must contain at least that many distinct `controller_id` values.
 
 V1 defines these implementation ids:
 
@@ -438,7 +438,7 @@ CheckpointImportVectorV1 = Container[
 ]
 ```
 
-`MAX_VECTOR_CASE_ID_BYTES`, `MAX_VECTOR_SIGNER_SETS`, `MAX_VECTOR_BUNDLE_BYTES`, and `MAX_VECTOR_SIDE_DATA_BYTES` are consensus constants for the v1 test format. `bundle_bytes` is the exact byte input passed to the importer. Accepted cases encode one valid `CheckpointBundleV1`. Rejection cases may contain malformed SSZ, duplicate records, records outside canonical membership, bad certificate fields, or bad signatures. `expected_result` uses these v1 codes:
+`MAX_VECTOR_CASE_ID_BYTES`, `MAX_VECTOR_SIGNER_SETS`, `MAX_VECTOR_BUNDLE_BYTES`, and `MAX_VECTOR_SIDE_DATA_BYTES` are fixed test format constants for v1. `bundle_bytes` is the exact byte input passed to the importer. Accepted cases encode one valid `CheckpointBundleV1`. Rejection cases may contain malformed SSZ, duplicate records, records outside canonical membership, bad certificate fields, or bad signatures. `expected_result` uses these v1 codes:
 
 ```text
 0 = ACCEPT
