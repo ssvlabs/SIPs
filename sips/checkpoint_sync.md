@@ -51,7 +51,7 @@ The block number is a reference point that records when the state was taken. It 
 | Record | Fields |
 | ------ | ------ |
 | Operator | operator_id (sequential, assigned by the contract), canonical_public_key, owner address, removed status |
-| Validator | validator public key (BLS), cluster it belongs to |
+| Validator | validator public key (BLS), owner address, cluster it belongs to |
 | Cluster | cluster_id (derived, see below), owner address, sorted member operator_ids, liquidated flag |
 | Owner | owner address, fee_recipient, next_validator_nonce |
 
@@ -80,7 +80,7 @@ The operator fee and the Cluster accounting fields carried by each event (balanc
 - Fee recipient fallback. If no Owner record exists for an owner, the fee recipient defaults to the owner address.
 - Owner nonce. Owner records serialize `next_validator_nonce`, the nonce value to use for the next ValidatorAdded by that owner. It starts at 0. Every ValidatorAdded log for the owner advances it exactly once before validation, including a malformed or rejected ValidatorAdded.
 - BLS public key. Validator public keys are encoded as their raw compressed bytes when hashed.
-- Root domain. The root serialization begins with a domain header containing `STATE_ROOT_V1`, `canonical_spec_version = 1`, `network_id`, and `ssv_contract_address` from the certificate message. This prevents a state root from one network or SSV contract from being reused under another.
+- Root domain. The SSZ containers below include a fixed domain field, `canonical_spec_version = 1`, `network_id`, and `ssv_contract_address` from the certificate message. This prevents a state root from one network or SSV contract from being reused under another.
 
 **Cluster id derivation.** The cluster id is derived, not stored, and must match across implementations:
 
@@ -94,36 +94,103 @@ cluster_id = keccak256(
 
 **2. State Root Construction**
 
-V1 `state_root` is `keccak256` over the v1 root domain header followed by the canonical serialization of all records from section 1. This is the only `state_root` construction accepted under `canonical_spec_version = 1`. keccak256 is chosen to align with Ethereum tooling and with the cluster_id derivation already defined in section 1.
+V1 uses SimpleSerialize (SSZ) serialization as the canonical byte encoding for root inputs and certificate messages. V1 roots are still computed with keccak256 over those SSZ bytes, rather than SSZ `hash_tree_root`, because inclusion proofs are not part of v1. A future canonical spec version may replace this with a tree root, but v1 accepts only the constructions below.
 
-Record ordering for the root is fully defined so the serialization is deterministic. These orderings at the top level are normative for v1 and must be covered by the conformance tests in section 6.
+```text
+state_root = keccak256(ssz_serialize(CanonicalStateV1))
+share_set_root = keccak256(ssz_serialize(ShareSetV1))
+certificate_message_hash = keccak256(ssz_serialize(CheckpointCertificateMessageV1))
+```
+
+SSZ container field order is the order shown in this section. The fixed domains are 32 byte values derived by right padding the ASCII labels `STATE_ROOT_V1`, `SHARE_SET_ROOT_V1`, and `CHECKPOINT_CERT_V1` with zero bytes. `ssv_contract_address` is `Vector[byte, 20]`. All roots, hashes, and block hashes are `Bytes32`. All numeric fields are SSZ `uint64` unless this SIP explicitly gives a narrower or wider type.
+
+Record ordering for the root is fully defined so the SSZ serialization is deterministic. These orderings at the top level are normative for v1 and must be covered by the conformance tests in section 6.
 
 - Operators are ordered by ascending operator_id.
-- Validators are ordered by their canonical BLS public key bytes.
+- Validators are ordered by their canonical BLS public key bytes, then by owner address bytes.
 - Clusters are ordered by their derived cluster_id bytes.
 - Owners are ordered by their address bytes.
 - Within a cluster, the member operator_ids are in ascending order, as in the cluster_id derivation.
 
-Two framing rules are normative for any construction below, because keccak256 over a bare concatenation of heterogeneous records is ambiguous: an address with 20 bytes followed by an id with 8 bytes is identical at the byte level to a single field with 28 bytes. The rules:
+The v1 SSZ containers for the public state root are:
 
-- Length prefixes. Every field with variable length and every record is prefixed with its length so its boundaries are unambiguous. Fields with fixed width (the address with 20 bytes, the 8 byte big endian operator_id, the compressed BLS key) may be written raw because their width is fixed and documented.
-- Domain separation by record kind. Each record kind (Operator, Validator, Cluster, Owner) carries a fixed kind tag in its serialization, so bytes of one kind can never be interpreted again as another kind at the same root.
+```text
+CanonicalStateV1 = Container[
+    domain: Bytes32,
+    canonical_spec_version: uint64,
+    network_id: uint64,
+    ssv_contract_address: Vector[byte, 20],
+    operators: List[OperatorRecordV1, MAX_OPERATORS],
+    validators: List[ValidatorRecordV1, MAX_VALIDATORS],
+    clusters: List[ClusterRecordV1, MAX_CLUSTERS],
+    owners: List[OwnerRecordV1, MAX_OWNERS],
+]
 
-These are not tree shape details; they are required even for the flat hash. A Merkle tree for inclusion proofs is a future canonical spec version because its exact shape must be specified before it can produce a protocol root.
+OperatorRecordV1 = Container[
+    operator_id: uint64,
+    canonical_public_key: List[byte, MAX_OPERATOR_PUBLIC_KEY_BYTES],
+    owner: Vector[byte, 20],
+    removed: boolean,
+]
+
+ValidatorRecordV1 = Container[
+    validator_public_key: Vector[byte, 48],
+    owner: Vector[byte, 20],
+    cluster_id: Bytes32,
+]
+
+ClusterRecordV1 = Container[
+    cluster_id: Bytes32,
+    owner: Vector[byte, 20],
+    operator_ids: List[uint64, MAX_CLUSTER_OPERATORS],
+    liquidated: boolean,
+]
+
+OwnerRecordV1 = Container[
+    owner: Vector[byte, 20],
+    fee_recipient: Vector[byte, 20],
+    next_validator_nonce: uint64,
+]
+```
+
+`MAX_OPERATORS`, `MAX_VALIDATORS`, `MAX_CLUSTERS`, `MAX_OWNERS`, `MAX_OPERATOR_PUBLIC_KEY_BYTES`, and `MAX_CLUSTER_OPERATORS` are consensus constants for `canonical_spec_version = 1`. They must be high enough to cover every state that can exist under the SSV contract and must be identical across implementations. A client rejects a v1 state that cannot be represented within these limits. The concrete values are part of the v1 conformance vectors.
+
+The v1 SSZ container for the active encrypted share set is:
+
+```text
+ShareSetV1 = Container[
+    domain: Bytes32,
+    canonical_spec_version: uint64,
+    network_id: uint64,
+    ssv_contract_address: Vector[byte, 20],
+    shares: List[EncryptedShareRecordV1, MAX_ENCRYPTED_SHARE_RECORDS],
+]
+
+EncryptedShareRecordV1 = Container[
+    owner: Vector[byte, 20],
+    validator_public_key: Vector[byte, 48],
+    cluster_id: Bytes32,
+    operator_id: uint64,
+    share_public_key: List[byte, MAX_SHARE_PUBLIC_KEY_BYTES],
+    encrypted_share_bytes: List[byte, MAX_ENCRYPTED_SHARE_BYTES],
+]
+```
+
+`MAX_ENCRYPTED_SHARE_RECORDS`, `MAX_SHARE_PUBLIC_KEY_BYTES`, and `MAX_ENCRYPTED_SHARE_BYTES` are also consensus constants for v1. Encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id.
 
 **3. Checkpoint Format**
 
-A checkpoint is a certificate plus one or more untrusted payloads. The certificate signs canonical commitments to public state and active encrypted shares. The payloads carry the preimages needed by an importing node to rebuild those commitments without replaying old logs.
+A checkpoint is a certificate plus one or more untrusted payloads. The certificate signs canonical SSZ commitments to public state and active encrypted shares. The payloads carry the preimages needed by an importing node to rebuild those commitments without replaying old logs.
 
-The certificate does not sign one specific snapshot file, compression format, chunking scheme, mirror, or JSON or SSZ layout. Any file layout is acceptable if the importing node can parse it and recompute the signed canonical commitments from its contents.
+The certificate does not sign one specific snapshot file, compression format, chunking scheme, or mirror. Any file layout is acceptable if the importing node can parse it, materialize `CanonicalStateV1` and `ShareSetV1`, and recompute the signed commitments from their SSZ serialization.
 
-**Snapshot payload.** The snapshot carries the canonical global state at block B, serialized in the canonical form of section 1, so that an importing node can populate its storage without folding the logs.
+**Snapshot payload.** The snapshot carries the canonical global state at block B, with enough information to materialize `CanonicalStateV1`, so that an importing node can populate its storage without folding the logs.
 
 The snapshot also carries the full active encrypted share set. Each ValidatorAdded event publishes, for every operator in the cluster, a share public key and an encrypted key share. Those ciphertexts are public event data, while the plaintext share remains protected by encryption to the operator's key. A fresh operator bootstrap needs its encrypted share, and client retention differs, so this set is not left to local storage. Therefore the certificate includes a mandatory `share_set_root`, separate from `state_root`.
 
 `state_root` commits to the public validator client registry state. `share_set_root` commits to the encrypted share records for validators active at block B. It does not commit to encrypted shares for validators that were added and removed before B, because those shares are not needed to bootstrap the current state.
 
-The `share_set_root` uses the same framing rules as section 2, with its own root domain header and record kind tag. Its domain header contains `SHARE_SET_ROOT_V1`, `canonical_spec_version = 1`, `network_id`, and `ssv_contract_address` from the certificate message. V1 encrypted share records are ordered by validator public key bytes and then by ascending operator_id. Each record contains:
+The `share_set_root` uses the `ShareSetV1` SSZ container from section 2. Its domain field is `SHARE_SET_ROOT_V1`, and the container includes `canonical_spec_version = 1`, `network_id`, and `ssv_contract_address` from the certificate message. V1 encrypted share records are ordered by validator public key bytes, owner address bytes, and then by ascending operator_id. Each record contains:
 
 ```text
 ENCRYPTED_SHARE_RECORD_V1
@@ -135,7 +202,7 @@ share_public_key
 encrypted_share_bytes
 ```
 
-The `cluster_id` is derived from owner and the sorted operator set as defined in section 1. The `encrypted_share_bytes` field carries a length prefix because its size is variable. This root proves share completeness and byte integrity for bootstrap; it does not require signers to decrypt shares.
+The `cluster_id` is derived from owner and the sorted operator set as defined in section 1. SSZ list framing defines the boundary of `encrypted_share_bytes`, whose size is variable. This root proves share completeness and byte integrity for bootstrap; it does not require signers to decrypt shares.
 
 **Checkpoint production paths.** The protocol is defined by the records and roots, not by a particular client's database. A process can produce a checkpoint only if it can enumerate the canonical public state and active encrypted share records at block B. That process may be a normal client that retained those records, a client with added retention, a dedicated materializer, or an archive indexer.
 
@@ -150,10 +217,11 @@ For every checkpoint with a nonzero `parent_checkpoint_hash`, producers start fr
 
 The checkpoint bundle may include an optional `snapshot_digest` outside the signed certificate for download integrity, caching, or mirror comparison. That digest is not a trust anchor; import step 4 treats it only as a transport check.
 
-**Certificate message.** The certificate message is the small object signers sign.
+**Certificate message.** The certificate message is the small object signers sign. In v1 the object is the SSZ container `CheckpointCertificateMessageV1`, and signers sign `certificate_message_hash = keccak256(ssz_serialize(CheckpointCertificateMessageV1))` under the signature scheme identified by `scheme_version`.
 
 | Field | Meaning |
 | ----- | ------- |
+| domain | Fixed domain `CHECKPOINT_CERT_V1` |
 | schema_version | Version of the certificate message format |
 | canonical_spec_version | Version of the canonical state definition: the included event set and the application and encoding semantics of section 1 that determine the root |
 | network_id | Network and chain id the state belongs to |
@@ -167,13 +235,31 @@ The checkpoint bundle may include an optional `snapshot_digest` outside the sign
 | signer_set_id | Identifier of the signer set that may certify this message |
 | scheme_version | Identifier of the signature scheme used by certificates |
 
+```text
+CheckpointCertificateMessageV1 = Container[
+    domain: Bytes32,
+    schema_version: uint64,
+    canonical_spec_version: uint64,
+    network_id: uint64,
+    ssv_contract_address: Vector[byte, 20],
+    block_number: uint64,
+    block_hash: Bytes32,
+    parent_checkpoint_hash: Bytes32,
+    state_root: Bytes32,
+    share_set_root: Bytes32,
+    delta_log_set_hash: Bytes32,
+    signer_set_id: uint64,
+    scheme_version: uint64,
+]
+```
+
 For a checkpoint with a parent, `delta_log_set_hash` binds the certificate message to the exact events consumed between the parent checkpoint and B, so that a later comparison or audit can confirm both parties read the same delta logs. For an initial checkpoint, `delta_log_set_hash` is zero. A producer may publish optional audit metadata that records a full historical log hash, but importers do not require it and it is not part of the certificate message.
 
 The canonical_spec_version is distinct from schema_version: schema_version versions the certificate message format, while canonical_spec_version versions the canonical state definition that determines the root. The root is meaningful only under the definition that produced it, so a future SSV contract upgrade that adds an event that changes state or changes application semantics is a new canonical state generation that bumps canonical_spec_version and requires regenerating the conformance vectors of section 6. An importer rejects a canonical_spec_version it does not implement (import step 1) rather than comparing roots across generations.
 
 **4. Certificates**
 
-A certificate is a signature over the certificate message by a member of the signer set.
+A certificate is a signature over `certificate_message_hash` by a member of the signer set.
 
 **Required meaning.** A certificate attests that the signer independently materialized the canonical public state and active encrypted share set at block B, without trusting the payload being signed, and computed this same `state_root` and `share_set_root` using one of the production paths in section 3. For a child checkpoint, it also attests that the signer consumed the exact ordered event delta identified by `delta_log_set_hash`. A certificate is not an attestation that a downloaded checkpoint file parsed or that a particular payload encoding or hosting path is trustworthy.
 
@@ -191,9 +277,9 @@ When a node imports a checkpoint it performs the following checks. A first synci
 
 1. Confirm the certificate message network_id and ssv_contract_address match the node's configured network and contract. Reject on mismatch. Reject if canonical_spec_version is one the node does not implement, since a root is only meaningful under the canonical state definition that produced it.
 2. Confirm block B is finalized according to the node's consensus data source. Reject if finality cannot be established. A finalized block can no longer be reverted by a chain reorganization (reorg), so the state at B is permanent. Confirm block_hash matches the finalized block.
-3. Verify the certificates: each is a valid signature over this certificate message under scheme_version, the signers belong to a signer_set_id the node currently trusts, scheme_version is at or above the node's minimum accepted version, there are at least X matching certificates over the same certificate message, and the agreeing set spans both client implementations.
+3. Verify the certificates: each is a valid signature over this SSZ encoded certificate message under scheme_version, the signers belong to a signer_set_id the node currently trusts, scheme_version is at or above the node's minimum accepted version, there are at least X matching certificates over the same certificate message, and the agreeing set spans both client implementations.
 4. Parse the received payloads. If the bundle includes an optional snapshot_digest, confirm it for download integrity, but do not treat it as a signed trust anchor.
-5. Reconstruct the canonical record set and active encrypted share set from the payloads. Recompute `state_root` and `share_set_root` using their canonical serializations. Confirm both roots match the certificate message.
+5. Reconstruct the canonical record set and active encrypted share set from the payloads. Materialize `CanonicalStateV1` and `ShareSetV1`, recompute `state_root` and `share_set_root` from their SSZ serializations, and confirm both roots match the certificate message.
 6. Freshness: reject if block B is older than the maximum acceptable age (see below).
 7. Monotonicity: reject if B is not newer than the node's current state. A node never imports a checkpoint older than what it already has.
 8. On success, populate storage from the snapshot, locating and decrypting the node's own shares from the active encrypted share set, and continue normal sync after block B.
