@@ -19,3 +19,4 @@
 | [15](./sips/network_topics_minhash.md)                    | Network Topics MinHash                                 | networking | spec-merged         | 2024-03-06 |
 | [16](./sips/epoch_aware_round_robin_proposer.md)          | Epoch-Aware Round-Robin Proposer                       | core       | spec-merged         | 2025-12-13 |
 | [17](./sips/aggregator_committee_consensus.md)            | Aggregator Committee Duties                            | core       | spec-merged         | 2025-05-12 |
+| [18](./sips/checkpoint_sync.md)                           | Canonical State Root and Checkpoint Sync               | core       | open-for-discussion | 2026-06-09 |
