@@ -207,7 +207,7 @@ ValidatorAddedSharesV1 =
 
 The expected `shares` length is `96 + n * 48 + n * 256` bytes. The `share_public_keys` entry at index i and the `encrypted_share_bytes` entry at index i are assigned to the `operatorIds` entry at index i from the event. This event order mapping is used only to form records; the final `ShareSetV1.shares` list is then sorted by the v1 record ordering above. No Snappy decompression, ABI decode inside the `shares` value, JSON decode, or local database layout is part of this grammar.
 
-The `validator_signature` is checked before any validator record, cluster update, or encrypted share record is created. The signature is a 96 byte BLS signature by `validator_public_key` over:
+The `validator_signature` is checked before any validator record, cluster update, or encrypted share record is created. The validator public key and signature must pass the existing SSV validator registration BLS procedure: canonical compressed BLS12-381 G1 public key and G2 signature encodings, correct subgroups, not the point at infinity, and no new DST, hash mode, wrapper, derivation rule, or domain separator. The 96 byte signature is by `validator_public_key` over:
 
 ```text
 validator_registration_message_v1 =
@@ -216,9 +216,9 @@ validator_registration_message_v1 =
 
 `owner_eip55_hex` is the EIP-55 address text with `0x` prefix derived from the event owner address. `decimal_next_validator_nonce` is the base 10 nonce text with no leading zero, except that zero is encoded as `0`. This text form is used only for the existing validator registration signature. Addresses in the SSZ records and roots still use raw 20 byte values.
 
-After the owner nonce is read and advanced, a ValidatorAdded event is malformed if the validator public key is not a 48 byte BLS public key, the operator id array is invalid under the rules above, the `shares` length does not match the v1 formula, or `validator_signature` does not verify. A malformed ValidatorAdded event leaves the nonce advance in place and creates no validator record, cluster update, or encrypted share records.
+After the owner nonce is read and advanced, a ValidatorAdded event is malformed if the validator public key is not valid under the BLS rules above, the operator id array is invalid under the rules above, the `shares` length does not match the v1 formula, or `validator_signature` does not verify. A malformed ValidatorAdded event leaves the nonce advance in place and creates no validator record, cluster update, or encrypted share records.
 
-V1 does not decrypt `encrypted_share_bytes`, verify plaintext shares, or check that a ciphertext matches its `share_public_key`. The canonical fold commits to the public ciphertext bytes from the accepted event. A client may later fail to decrypt its own encrypted share and decide that the share is unusable locally, but that local outcome is outside the canonical fold and must not change `state_root` or `share_set_root`.
+V1 does not decrypt `encrypted_share_bytes`, verify plaintext shares, check that a ciphertext matches its `share_public_key`, require share public keys to pass BLS validity checks, or require them to reconstruct `validator_public_key`. The fold commits to the `share_public_key` bytes and ciphertext bytes from the accepted event. A client may later fail to decrypt its own encrypted share and decide that the share is unusable locally, but that outcome is outside the fold and must not change `state_root` or `share_set_root`.
 
 The v1 SSZ container for log set hashes is:
 
