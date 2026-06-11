@@ -40,6 +40,8 @@ This version defines a closed v1 canonical profile. A checkpoint accepted under 
 
 To build the canonical global state at block B, start with empty state and apply every relevant SSV event in block order, from the deployment block through block B. The result is the canonical global state at B. The relevant events are OperatorAdded, OperatorRemoved, ValidatorAdded, ValidatorRemoved, ClusterLiquidated, ClusterReactivated, and FeeRecipientAddressUpdated. ValidatorExited is deliberately not in this set; see Excluded from the state root.
 
+**Event identity.** V1 uses the SSV Network registry ABI for the configured `network_id` and `ssv_contract_address`. A log is in scope only when its `address` equals `ssv_contract_address`, its event name is in the relevant set above, and its `topic0` equals `keccak256` of that event's canonical Solidity signature. Indexed fields are interpreted exactly as defined by that ABI. Network contract addresses, deployment blocks, and ABI source commits are conformance profile inputs for a network, not checkpoint bundle fields.
+
 The canonical state root is a pure function of this fold. It is defined over the record set included in scope in canonical form, not over any client's database or representation in memory. A conforming implementation must be able to materialize the full canonical record set before hashing, no matter what it keeps at runtime. Storage choices are explicitly outside the hashed state: whether a client retains only its own shares, whether it deletes a removed record or keeps a flagged tombstone, and similar optimizations must not change the root.
 
 The block number is a reference point that records when the state was taken. It is not part of the hashed state itself.
