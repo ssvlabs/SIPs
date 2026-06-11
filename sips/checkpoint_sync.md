@@ -337,6 +337,16 @@ CheckpointSignatureV1 = Container[
 
 `scheme_version = 1` uses individual signature records. Any future aggregate signature scheme must still expose the signer ids covered by the aggregate before applying the same counting rules.
 
+**Scheme version 1 signatures.** `scheme_version = 1` uses the same RSA public key format and RSA with SHA-256 signature procedure used for SSV operator messages.
+
+For v1, `TrustedSignerV1.public_key` is the ASCII byte string of the SSV operator public key format: the base64 encoding of a PEM RSA public key, with the same header and footer normalization used for OperatorAdded `canonical_public_key`. The decoded key must parse as a 2048 bit RSA public key. The key format is reused; the signing key itself must still be dedicated to checkpoint signing.
+
+For v1, `MAX_CHECKPOINT_SIGNATURE_BYTES = 256`, and every `CheckpointSignatureV1.signature` must contain exactly 256 bytes. A different length makes the signature record invalid and ignored for signer counting.
+
+The signed message bytes are exactly the 32 bytes of `certificate_message_hash`. The v1 signature is RSASSA-PKCS1-v1_5 with SHA-256 over those bytes. Equivalently, an implementation signs and verifies the byte string `certificate_message_hash` with the same RSA and SHA-256 procedure used for existing SSV signed messages. No text encoding, hex encoding, EIP-191 wrapper, or additional prefix is applied.
+
+An importer verifies a signature by resolving the signer id to an active `TrustedSignerV1`, decoding `public_key` under the v1 key rules above, and verifying the signature over the certificate message hash. If public key decoding fails, the signer is not usable. If signature verification fails, that signature record is ignored. A signer id is counted only once, even if the bundle contains several valid signature records for it.
+
 **Trusted signer set.** `signer_set_id` is not trusted by itself. An importer resolves it to a locally trusted `TrustedSignerSetV1`, shipped with the client or operator configuration before checkpoint import. The certificate message also commits to `signer_set_hash = keccak256(ssz_serialize(TrustedSignerSetV1))`, so signer set rotation cannot reuse an id with different metadata without changing the signed message.
 
 ```text
@@ -446,7 +456,7 @@ The v1 vector set must cover these categories:
 - removal representation: ValidatorRemoved omission, removed operators that remain referenced by active membership, and removed operators that become unreferenced and are omitted;
 - bundle consistency: malformed `bundle_bytes`, duplicate canonical records, duplicate encrypted share records, extra shares for unknown or removed validators, shares for nonmember operators, cluster_id mismatch, missing shares for cluster members, and conflicting duplicate entries;
 - storage safety: bundle bytes with correct roots plus untrusted side data that must not be written to storage;
-- certificate acceptance: duplicate signer ids, missing implementation quorum, retired signer, signer_set_hash mismatch, and controller diversity when enabled.
+- certificate acceptance: valid v1 RSA signatures, invalid signer public key encoding, wrong signature length, signatures over the wrong message bytes, duplicate signer ids, missing implementation quorum, retired signer, signer_set_hash mismatch, and controller diversity when enabled.
 
 **Production and audit evidence.** An audit implementation can start at the deployment block, fold all history, and emit at every sampling point:
 
