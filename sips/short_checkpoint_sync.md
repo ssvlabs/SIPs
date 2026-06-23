@@ -179,7 +179,17 @@ The certificate message MUST include:
 - signer set hash;
 - signature scheme version.
 
-For a child checkpoint, `delta_log_set_hash` MUST commit to the exact ordered relevant SSV logs from `parent.block_number + 1` through `B`.
+For a child checkpoint, `delta_log_set_hash` MUST equal
+`keccak256(ssz_serialize(LogSetV1))` with domain `DELTA_LOG_SET_V1`,
+`from_block_number = parent.block_number + 1`, and `to_block_number = B`.
+The range is inclusive. `from_block_number` and `to_block_number` are part of
+the preimage even when `events` is empty.
+
+`events` MUST contain the raw Ethereum logs for the relevant SSV events emitted
+by `ssv_contract_address` in the range, ordered by ascending `(block_number,
+transaction_index, log_index)`. Each event `address` MUST equal
+`ssv_contract_address`; `topics` and `data` MUST be the exact bytes returned by
+the execution data source.
 
 ```text
 CheckpointCertificateMessageV1 = Container[
