@@ -175,8 +175,6 @@ The certificate message MUST include:
 - `state_root`;
 - `share_set_root`;
 - delta log set hash, or zero for an initial checkpoint;
-- signer set id;
-- signer set hash;
 - signature scheme version.
 
 For a child checkpoint, `delta_log_set_hash` MUST equal
@@ -204,8 +202,6 @@ CheckpointCertificateMessageV1 = Container[
     state_root: Bytes32,
     share_set_root: Bytes32,
     delta_log_set_hash: Bytes32,
-    signer_set_id: uint64,
-    signer_set_hash: Bytes32,
     scheme_version: uint64,
 ]
 
@@ -232,7 +228,7 @@ RelevantSsvLogV1 = Container[
 
 **Signatures**
 
-A checkpoint is accepted only if enough unique active trusted signers sign the same `certificate_message_hash`.
+A checkpoint is accepted only if enough unique locally trusted signer public keys sign the same `certificate_message_hash`.
 
 V1 signature rules:
 
@@ -240,49 +236,18 @@ V1 signature rules:
 - use the SSV RSA public key format;
 - sign the 32 byte `certificate_message_hash`;
 - use RSASSA-PKCS1-v1_5 with SHA-256;
-- count each signer id at most once;
-- ignore unknown, inactive, duplicate, malformed, wrong-scheme, or invalid signatures.
+- count each signer public key at most once;
+- ignore unknown, duplicate, malformed, wrong-scheme, or invalid signatures.
 
-The locally trusted signer set MUST define:
-
-- signer set id;
-- scheme version;
-- threshold;
-- optional minimum controller count;
-- implementation quorum requirements;
-- signer ids, implementation ids, controller ids, public keys, and validity block ranges.
-
-The certificate message `signer_set_hash` MUST equal `keccak256(ssz_serialize(TrustedSignerSetV1))`.
-
-For v1, the accepted signer set MUST include at least one Anchor signer and at least one go-ssv signer.
+Each SSV node MUST define its locally trusted checkpoint signer public keys and
+the minimum number of valid signatures required for import. A signature counts
+only if its public key is present in the node's local trusted configuration and
+the signature verifies against `certificate_message_hash`.
 
 ```text
 CheckpointSignatureV1 = Container[
-    signer_id: uint64,
-    signature: List[byte, MAX_CHECKPOINT_SIGNATURE_BYTES],
-]
-
-TrustedSignerSetV1 = Container[
-    signer_set_id: uint64,
-    scheme_version: uint64,
-    threshold: uint64,
-    min_controller_count: uint64,
-    implementation_quorums: List[ImplementationQuorumV1, MAX_CHECKPOINT_IMPLEMENTATIONS],
-    signers: List[TrustedSignerV1, MAX_CHECKPOINT_SIGNERS],
-]
-
-ImplementationQuorumV1 = Container[
-    implementation_id: uint64,
-    min_signers: uint64,
-]
-
-TrustedSignerV1 = Container[
-    signer_id: uint64,
-    implementation_id: uint64,
-    controller_id: uint64,
     public_key: List[byte, MAX_SIGNER_PUBLIC_KEY_BYTES],
-    valid_from_block: uint64,
-    valid_to_block: uint64,
+    signature: List[byte, MAX_CHECKPOINT_SIGNATURE_BYTES],
 ]
 ```
 
@@ -294,8 +259,8 @@ A node importing a checkpoint MUST:
 2. Reject unsupported `canonical_spec_version` or `scheme_version`.
 3. Verify `network_id` and `ssv_contract_address` match local configuration.
 4. Verify `block_hash` belongs to finalized block `B`.
-5. Resolve the trusted signer set locally and verify `signer_set_hash`.
-6. Verify certificate signatures and signer threshold rules.
+5. Verify certificate signatures against locally trusted checkpoint signer public keys.
+6. Reject unless the number of unique valid trusted signer public keys meets the local threshold.
 7. Recompute `state_root` and `share_set_root` from the bundle contents.
 8. Reject if either recomputed root differs from the certificate message.
 9. Reject duplicate or inconsistent canonical records.
@@ -340,13 +305,13 @@ Implementations SHOULD include conformance vectors for:
 - root mismatch;
 - duplicate and inconsistent canonical records;
 - missing, extra, duplicate, nonmember, and mismatched encrypted shares;
-- valid and invalid signer sets;
-- invalid signatures, duplicate signer ids, retired signers, and missing implementation quorum;
+- valid and invalid local signer configurations;
+- invalid signatures, duplicate signer public keys, unknown signer public keys, and insufficient threshold;
 - monotonicity and maximum age rejection.
 
 **Security Requirements**
 
-The checkpoint publisher is untrusted. Trust is only in finalized chain data, local importer rules, local trusted signer metadata, and valid threshold signatures over the certificate message.
+The checkpoint publisher is untrusted. Trust is only in finalized chain data, local importer rules, local trusted signer public keys, and valid threshold signatures over the certificate message.
 
 Checkpoint sync MUST NOT include plaintext validator shares.
 
