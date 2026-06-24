@@ -319,3 +319,18 @@ The checkpoint publisher is untrusted. Trust is only in finalized chain data, lo
 Checkpoint sync MUST NOT include plaintext validator shares.
 
 A checkpoint certificate proves agreement on the signed roots. It does not prove the canonical spec is correct, that all signers are honest, or that full historical audit is unnecessary.
+
+**Open Questions**
+
+- **Signature scheme.** V1 currently specifies the SSV RSA operator key format
+  with RSASSA-PKCS1-v1_5 / SHA-256. Which signing scheme should checkpoint
+  certificates actually use?
+  - Reuse the existing scheme operators already sign with (RSA, despite its
+    drawbacks): no new key management, but inherits RSA's weaknesses.
+  - Use GPG: mature tooling and key distribution, at the cost of a heavier
+    dependency and format.
+  - Choose an independent scheme of our own (e.g. an EC signature scheme):
+    smaller keys and signatures, but new key management for signers.
+  - Be post-quantum proof from the start (e.g. a lattice-based scheme): future
+    resistance against quantum attacks, at the cost of larger signatures, less
+    mature tooling, and added complexity now.
