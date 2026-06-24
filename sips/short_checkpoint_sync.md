@@ -1,6 +1,6 @@
 | Author | Title | Category | Status | Dependency SIP | Date |
 | ------ | ----- | -------- | ------ | -------------- | ---- |
-| Diego Marin Santos ([@diegomrsantos](https://github.com/diegomrsantos)) | Canonical State Root and Checkpoint Sync - Short Spec | Core | open-for-discussion | (none) | 2026-06-09 |
+| Diego Marin Santos ([@diegomrsantos](https://github.com/diegomrsantos)), Gal Rogozinski ([@GalRogozinski](https://github.com/GalRogozinski)) | Canonical State Root and Checkpoint Sync - Short Spec | Core | open-for-discussion | (none) | 2026-06-09 |
 
 [Discussion](https://github.com/ssvlabs/SIPs/discussions/93)
 
