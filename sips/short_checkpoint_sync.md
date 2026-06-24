@@ -56,6 +56,9 @@ Removed validators and their encrypted shares MUST be omitted. Removed operators
 
 V1 MUST use SSZ serialization for canonical containers and `keccak256(ssz_serialize(container))` for roots.
 
+Fixed domains are `Bytes32` values made by right-padding the ASCII domain label
+with zero bytes.
+
 The checkpoint MUST define fixed SSZ limits for all lists. A client MUST reject data that cannot fit those limits.
 
 Ordering MUST be deterministic:
