@@ -1,9 +1,9 @@
 
-| Author      | Title     | Category | Status |
-|-------------|-----------|----------|--------|
-| Alon Muroch | QBFT Sync | Core     | Deprecated  |
+| Author      | Title     | Category | Status     | Date       |
+|-------------|-----------|----------|------------|------------|
+| Alon Muroch | QBFT Sync | Core     | Deprecated | 2022-09-04 |
 
-[Discussion] (https://github.com/bloxapp/SIPs/discussions/12)
+[Discussion] (https://github.com/ssvlabs/SIPs/discussions/12)
 
 **Summary**  
 Describes when QBFT requires syncing with other nodes and what type of syncing.   

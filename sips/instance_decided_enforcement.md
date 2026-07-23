@@ -1,6 +1,6 @@
-| Author      | Title                        | Category | Status |
-|-------------|------------------------------|----------|--------|
-| Alon Muroch | Instance Decided Enforcement | Core     | open-for-discussion  |
+| Author      | Title                        | Category | Status              | Date       |
+|-------------|------------------------------|----------|---------------------|------------|
+| Alon Muroch | Instance Decided Enforcement | Core     | open-for-discussion | 2023-09-14 |
 
 **Summary**
 

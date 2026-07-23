@@ -1,6 +1,6 @@
-| Author      | Title                          | Category | Status |
-|-------------|--------------------------------|----------|--------|
-| Alon Muroch | Voluntary Exit | Core     | Draft  |
+| Author      | Title          | Category | Status | Date       |
+|-------------|----------------|----------|--------|------------|
+| Alon Muroch | Voluntary Exit | Core     | Draft  | 2023-08-30 |
 
 
 **Summary**
@@ -11,7 +11,7 @@ Describes how zero coordination voluntary exit works.
 **Specification**
 
 **Contract**  
-Adds a new function accessible only by the validator's owner, pushes a voluntray exit event. 
+Adds a new function accessible only by the validator's owner, pushes a voluntary exit event. 
 Can be called multiple times.
 
 _Why a contract interaction?_ Enable contract based applications to do contract->contract zero coordination exits.

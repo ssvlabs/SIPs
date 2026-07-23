@@ -1,8 +1,8 @@
-| Author      | Title                          | Category | Status   |
-|-------------|--------------------------------|----------|----------|
-| Alon Muroch | Messages structure and encoding | Core     | spec-merged |
+| Author      | Title                           | Category | Status      | Date       |
+|-------------|---------------------------------|----------|-------------|------------|
+| Alon Muroch | Messages structure and encoding | Core     | spec-merged | 2022-07-26 |
 
-[Discussion](https://github.com/bloxapp/SIPs/discussions/8)
+[Discussion](https://github.com/ssvlabs/SIPs/discussions/8)
 
 **Summary**  
 Describes consensus and post consensus message structure and encoding for the SSV.Network.

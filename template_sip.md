@@ -11,3 +11,6 @@ Explain the rational behind writing this SIP, what were the design goals set for
 **Specification**  
 Under this section all relevant technical details for the SIP should be written, including: code, equations, testing, etc.  
 The specification section should fully explain how to implement the SIP, test it (if relevant) and in general explained in a technical way.
+
+**Security Considerations**  
+Discuss the security implications of the proposed change. Identify new attack surfaces, assumptions the design relies on (e.g. honest majority, synchrony), and how the change interacts with slashing, consensus safety, and liveness. If the SIP has no security impact, state so explicitly and explain why.
