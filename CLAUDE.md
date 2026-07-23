@@ -15,7 +15,10 @@ Each SIP SHOULD include:
 - rationale and design goals: why this change is needed and what constraints it
   optimizes for;
 - specification: normative behavior, formats, algorithms, validation rules, and
-  test expectations.
+  test expectations;
+- security considerations: new attack surfaces, trust assumptions, and
+  interactions with slashing, consensus safety, and liveness; state
+  explicitly if there is no security impact.
 
 ## Write For Compatible Implementations
 
