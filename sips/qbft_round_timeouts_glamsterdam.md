@@ -114,7 +114,8 @@ Glamsterdam also moves the attestation, sync-message, aggregate and contribution
 - *Consensus safety.* QBFT safety does not depend on timeout values; round-change justification and message validation semantics are unchanged. No impact.
 - *Liveness.* A shorter round-1 window tolerates a slower honest leader less. The bound is empirical: 350ms above the slowest round-1 success observed in 30 days across 24,984 round-1 decisions, with simulated newly induced round changes of ~1–2 per month network-wide. Round 2 remains available. Under mixed versions liveness is bounded below by today's behaviour.
 - *Slashing.* Unchanged. An instance decides at most one value and the block is signed only after the decision; a round change never yields a second signed block for the same slot.
-- *Message validation surface.* For proposer messages the allowed round advances 25% faster with time, so a validator accepts marginally more distinct rounds per second; the cap of round 6 and the existing per-round duplicate limits are unchanged. Negligible.
+- *Message validation surface.* None. This SIP no longer changes any message-validation rule: ssv exempts the proposer from the round-spread check, and the round cap is unchanged.
+- *Residual risk.* The whole change is a 500ms-narrower round-1 window. The margin is empirical: the slowest round-1 success observed in 30 days was 1,148ms, so a 1500ms timer leaves 352ms of headroom and never fires on a round 1 that would have succeeded. A 1000ms timer would have fired on 5–12 real duties a month, which is why the value is not lower.
 - *Operator incentives.* The instance-start anchor keeps `ProposerDelay` an operator choice. Under a 3s deadline a delayed cluster that round-changes misses regardless of this SIP (`~2.0s + 1.5s > 3s`); operators SHOULD keep `ProposerDelay` at or below the existing 1s cap.
 
 **Alternatives Considered** (non-normative)
