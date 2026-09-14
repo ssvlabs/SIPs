@@ -6,7 +6,7 @@
 
 Glamsterdam (ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)) moves the beacon attestation deadline from 4s to 3s into the slot. The proposer duty's QBFT round timeout is 2s from instance start ([SIP-6](./constant_qbft_timeout.md)), and a proposer instance starts only after RANDAO pre-consensus and block retrieval, typically 1.1–1.5s into the slot. Under the new deadline a round change therefore starts round 2 after attesters have already voted: a round change (~0.18% of proposer duties) goes from usually recoverable to usually fatal, roughly tripling missed proposals (0.056% → 0.166%).
 
-This SIP lowers the proposer duty's quick round timeout from 2000ms to 1500ms and keeps the timer anchored at instance start. For the other duties, whose timers are slot-anchored, it re-anchors the round-1 head start to the Glamsterdam deadline constants — 4s to 3s for the committee duty, 8s to 6s for aggregator and sync-committee contribution — and changes nothing else. No message-validation rule changes.
+This SIP lowers the proposer duty's quick round timeout from 2000ms to 1500ms and keeps the timer anchored at instance start. It changes nothing else: no message-validation rule changes, and the other duties' timers are out of scope.
 
 **Rational & Design Goals**
 
@@ -91,45 +91,6 @@ This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which took onl
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
 - A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
 
-*Other duties*
-
-The non-proposer timers are slot-anchored, not instance-anchored: round `r` expires at `slot_start + head_start(role) + 2s × r` ([`roundtimer/timer.go`](https://github.com/ssvlabs/ssv/blob/main/protocol/v2/qbft/roundtimer/timer.go)). The head start is the time the round-1 leader is given before its own timer starts, and today it is exactly the role's beacon deadline:
-
-| Role | Head start today | Equals |
-| ---- | ---------------: | ------ |
-| Committee (attester + sync committee message) | `SLOT_DURATION / 3` = 4s | old attestation / sync-message deadline |
-| Aggregator, sync committee contribution | `SLOT_DURATION × 2/3` = 8s | old aggregate / contribution deadline |
-
-Glamsterdam moves those deadlines but leaves the head starts pinned to the old ones, so round 1 would expire well after the duty is already late. The minimal change is therefore to keep the rule and let the new constants supply the values — no new numbers are introduced:
-
-```go
-// headStart returns the time on top of round 1's own quick timeout that round 1
-// is allowed to run for. It tracks the role's beacon deadline.
-func headStart(role types.RunnerRole, slotDuration time.Duration) time.Duration {
-    switch role {
-    case types.RoleCommittee:
-        return slotDuration * ATTESTATION_DUE_BPS_GLOAS / 10000 // 3s, was SLOT_DURATION/3 = 4s
-    case types.RoleAggregator, types.RoleSyncCommitteeContribution:
-        return slotDuration * AGGREGATE_DUE_BPS_GLOAS / 10000   // 6s, was SLOT_DURATION*2/3 = 8s
-    default:
-        return 0 // proposer: instance-anchored, no head start
-    }
-}
-```
-
-Resulting timers, with `quickTimeout` unchanged at 2s for these roles:
-
-| Duty | Today | Glamsterdam | Round 1 expires |
-| ---- | ----- | ----------- | --------------: |
-| Committee (attester + sync committee message) | `slot_start + 4s + 2s × round` | `slot_start + 3s + 2s × round` | 5s |
-| Aggregator | `slot_start + 8s + 2s × round` | `slot_start + 6s + 2s × round` | 8s |
-| Sync committee contribution | `slot_start + 8s + 2s × round` | `slot_start + 6s + 2s × round` | 8s |
-| Validator registration, voluntary exit | no QBFT | no QBFT | — |
-
-Round 1 for the committee duty then expires at 5s, still inside the 6s aggregation window, where under the unchanged head start it would expire at 6s — at the window's edge, leaving a round change no room. Aggregator and sync-contribution round 1 expires at 8s against a 9s payload-attestation deadline.
-
-This is a deliberate minimum: it re-anchors the existing rule to the new constants and changes nothing else. It does not revisit `quickTimeout` for these roles, which is a separate question that wants the same kind of measurement the proposer number got.
-
 *Compatibility and rollout*
 
 - No message, signature or domain change. Pre-upgrade and post-upgrade operators MAY coexist in one cluster.
@@ -155,7 +116,7 @@ This is a deliberate minimum: it re-anchors the existing rule to the new constan
 **Open Questions**
 
 - ePBS replaces relay payload fetch with builder-bid selection; if consensus start drops well below 1s the slot-anchored alternative becomes attractive. Re-measure after the fork.
-- Should `quickTimeout` change for the non-proposer roles, beyond re-anchoring their head starts? Wants the same measurement the proposer number got.
+- The committee, aggregator and sync-committee-contribution timers are slot-anchored with a head start pinned to the old beacon deadlines, so Glamsterdam leaves them stale. Out of scope here; needs its own SIP.
 
 **Appendix A — Data sources** (non-normative)
 
