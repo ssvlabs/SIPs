@@ -10,7 +10,7 @@ This SIP lowers the proposer duty's quick round timeout from 2000ms to 1500ms, k
 
 **Rational & Design Goals**
 
-*Slot timing under Glamsterdam.* From the `gloas` consensus specs, durations are expressed in basis points of the 12s slot:
+*Slot timing under Glamsterdam.* From the `gloas` consensus specs ([`specs/gloas/validator.md`](https://github.com/ethereum/consensus-specs/blob/dev/specs/gloas/validator.md)), durations are expressed in basis points of the 12s slot. Constant names are verbatim from that file: the `_GLOAS` suffix marks constants that override an existing phase0 value, while `PAYLOAD_DUE_BPS` and `PAYLOAD_ATTESTATION_DUE_BPS` are new in gloas and have nothing to suffix. The "Today" column is derived as `SECONDS_PER_SLOT // INTERVALS_PER_SLOT`, not from bps constants, so the two columns are different kinds of value:
 
 | Event | Today | Glamsterdam | Spec constant |
 | ----- | ----: | ----------: | ------------- |
