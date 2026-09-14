@@ -56,8 +56,9 @@ The 1250ms and 1000ms rows are within the 95% interval of the 1500ms row (22–3
 
 *Definitions*
 
-- `slot_start(height)`: beacon genesis time plus `height × SECONDS_PER_SLOT`.
-- `round_entered_at(round)`: the operator's local time when its instance entered `round`. For `round = 1` this is the instance start; for `round > 1` it is the moment the instance advanced to that round (on timeout or on receiving `f+1` round-change messages for it).
+- `slot_start(height)`: **wall-clock** time, beacon genesis plus `height × SECONDS_PER_SLOT`. `height` is the message's `Height` field, which is the slot (ssv-spec [`ssv/runner.go`](https://github.com/ssvlabs/ssv-spec/blob/main/ssv/runner.go#L247), [`ssv/committee.go`](https://github.com/ssvlabs/ssv-spec/blob/main/ssv/committee.go#L200)).
+- `round_entered_at(round)`: a **monotonic** local clock reading taken when the instance entered `round`. For `round = 1` this is the instance start; for `round > 1` it is the moment the instance advanced to that round (on timeout, or on the `f+1` partial-quorum rule below). It MUST NOT be derived from wall-clock time, so that an NTP step cannot shorten or extend a running round. On process restart or mid-round re-sync the instance re-enters its current round and the timer restarts from the new `round_entered_at`.
+- *`f+1` partial-quorum round advance*: an instance that receives `RoundChange` messages for rounds above its own from `f+1` distinct operators adopts the lowest such round and re-arms its timer, without waiting for its own timeout. This is ssv-spec behaviour ([`qbft/round_change.go`](https://github.com/ssvlabs/ssv-spec/blob/main/qbft/round_change.go#L87-L112)), not a SIP; it is stated here because the mixed-version argument below depends on it.
 - `round_timeout(role, round)`: the duration after `round_entered_at(round)` at which the operator MUST broadcast a `RoundChange` for `round + 1` if it is still in `round` (the existing `UponRoundTimeout` behaviour; unchanged).
 
 *Proposer duty*
