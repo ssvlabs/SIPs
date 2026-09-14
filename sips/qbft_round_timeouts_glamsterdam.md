@@ -4,7 +4,7 @@
 
 **Summary**
 
-Glamsterdam (ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)) moves the beacon attestation deadline from 4s to 3s into the slot. The proposer duty's QBFT round timeout is 2s from instance start ([SIP-6](./constant_qbft_timeout.md)), and a proposer instance starts only after RANDAO pre-consensus and block retrieval, typically 1.1–1.5s into the slot. Under the new deadline a round change therefore starts round 2 after attesters have already voted, and a rare event (0.17% of proposer duties) becomes an almost certain missed proposal.
+Glamsterdam (ePBS, [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)) moves the beacon attestation deadline from 4s to 3s into the slot. The proposer duty's QBFT round timeout is 2s from instance start ([SIP-6](./constant_qbft_timeout.md)), and a proposer instance starts only after RANDAO pre-consensus and block retrieval, typically 1.1–1.5s into the slot. Under the new deadline a round change therefore starts round 2 after attesters have already voted: a round change (~0.18% of proposer duties) goes from usually recoverable to usually fatal, roughly tripling missed proposals (0.056% → 0.166%).
 
 This SIP lowers the proposer duty's quick round timeout from 2000ms to 1500ms, keeps the timer anchored at instance start, and makes the message-validation round estimate consistent with the new value. Round timeouts for the other duties under Glamsterdam slot timing are listed as **TBD** and will be specified in a revision of this SIP.
 
