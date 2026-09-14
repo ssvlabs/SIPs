@@ -106,7 +106,8 @@ Glamsterdam also moves the attestation, sync-message, aggregate and contribution
 
 - No message, signature or domain change. Pre-upgrade and post-upgrade operators MAY coexist in one cluster.
 - Round-change quorum in a mixed cluster: upgraded operators broadcast `RoundChange(2)` at `start + 1.5s`, non-upgraded at `start + 2s`. Once `f + 1` operators in a cluster are upgraded, the existing partial-quorum rule advances the rest at 1.5s; before that the cluster behaves as today. The change is never worse than the status quo during rollout.
-- The change MUST be active on a majority of mainnet operators before the Glamsterdam activation epoch. Fork assignment: **TBD** (see `forks/`).
+- This is **not a fork**. Per [SIP-7](./fork_support.md) a fork is a non-backwards-compatible change, and there is none here: no message, signature or domain change, and a mixed cluster stays live throughout. No fork assignment is required.
+- Rollout condition instead: the change SHOULD be active on a majority of mainnet operators before the Glamsterdam activation epoch. A cluster that is only partly upgraded behaves as it does today.
 
 **Security Considerations**
 
