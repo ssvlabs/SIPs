@@ -33,7 +33,7 @@ The 6s slot proposal (EIP-7782) was declined for Glamsterdam; this SIP assumes a
 | Fastest clusters (local block building) | 0.5–0.9s |
 | Clusters with `ProposerDelay ≈ 0.9s` | ~2.0s |
 
-With a 2s round-1 timeout, round 2 begins at `start + 2s`, i.e. after 3.1s for a typical cluster. Today a round-2 block that decides by ~3.5s still lands two thirds of the time; after Glamsterdam it lands never. Projected effect, same duty distribution, deadline moved to 3s (model calibrated to reproduce today's 14 misses):
+With a 2s round-1 timeout, round 2 begins at `start + 2s`, i.e. after 3.1s for a typical cluster. Today a round-2 block deciding in the 3.0–3.5s band still lands ~98% of the time (1.9% miss rate, Appendix A); after Glamsterdam it lands never. Projected effect, same duty distribution, deadline moved to 3s (model calibrated to reproduce today's 14 misses):
 
 | Scenario | Missed proposals / month | Share of proposer duties | Round-change duties missed (of ~45) |
 | -------- | -----------------------: | -----------------------: | ----------------------------------: |
