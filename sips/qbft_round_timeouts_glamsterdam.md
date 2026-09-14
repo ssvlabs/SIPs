@@ -106,7 +106,6 @@ Glamsterdam also moves the attestation, sync-message, aggregate and contribution
 
 - No message, signature or domain change. Pre-upgrade and post-upgrade operators MAY coexist in one cluster.
 - Round-change quorum in a mixed cluster: upgraded operators broadcast `RoundChange(2)` at `start + 1.5s`, non-upgraded at `start + 2s`. Once `f + 1` operators in a cluster are upgraded, the existing partial-quorum rule advances the rest at 1.5s; before that the cluster behaves as today. The change is never worse than the status quo during rollout.
-- Pre-upgrade validators estimating rounds with 2000ms accept every post-upgrade proposer message for rounds 1–5. A round-6 message is dropped by them only if the instance started before 0.5s into the slot; a round-6 proposal cannot produce a canonical block in any case.
 - The change MUST be active on a majority of mainnet operators before the Glamsterdam activation epoch. Fork assignment: **TBD** (see `forks/`).
 
 **Security Considerations**
