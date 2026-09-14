@@ -88,6 +88,7 @@ This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which took onl
 
 - An operator running a proposer instance MUST arm a timer of `RoundTimeout(RoleProposer, round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if it is still in `round`.
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
+- A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
 
 *Other duties* — **TBD**
 
@@ -123,7 +124,6 @@ Glamsterdam also moves the attestation, sync-message, aggregate and contribution
 
 **Open Questions**
 
-- Should the proposer instance stop at a lower round (`CutoffRound`, `MAX_ROUND`) given no round after 2 can land a block under a 3s deadline?
 - ePBS replaces relay payload fetch with builder-bid selection; if consensus start drops well below 1s the slot-anchored alternative becomes attractive. Re-measure after the fork.
 - Fill in the TBD rows for committee, aggregator and sync-contribution duties.
 
