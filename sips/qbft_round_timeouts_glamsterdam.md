@@ -62,27 +62,32 @@ The 1250ms and 1000ms rows are within the 95% interval of the 1500ms row (22–3
 
 *Proposer duty*
 
-```python
-QUICK_TIMEOUT_THRESHOLD    = 8        # unchanged (SIP-6)
-SLOW_TIMEOUT_MS            = 120_000  # unchanged (SIP-6)
-PROPOSER_QUICK_TIMEOUT_MS  = 1_500    # was 2_000
+```go
+var (
+    quickTimeoutThreshold = Round(8)            // unchanged (SIP-6)
+    quickTimeout          = 2 * time.Second     // unchanged (SIP-6)
+    proposerQuickTimeout  = 1500 * time.Millisecond // new: was quickTimeout
+    slowTimeout           = 2 * time.Minute     // unchanged (SIP-6)
+)
 
-def round_timeout_ms(role, round):
-    if role == PROPOSER:
-        quick = PROPOSER_QUICK_TIMEOUT_MS
-    else:
-        quick = 2_000                 # other roles: unchanged, see TBD table
-    if round <= QUICK_TIMEOUT_THRESHOLD:
-        return quick
-    return SLOW_TIMEOUT_MS
-
-def round_deadline_ms(role, round, round_entered_at_ms):
-    return round_entered_at_ms + round_timeout_ms(role, round)
+// RoundTimeout returns the duration until the next timeout for a given role and
+// round. The timer is armed on entering a round and is relative to that entry,
+// not to slot start.
+func RoundTimeout(role types.RunnerRole, r Round) time.Duration {
+    if r > quickTimeoutThreshold {
+        return slowTimeout
+    }
+    if role == types.RoleProposer {
+        return proposerQuickTimeout
+    }
+    return quickTimeout
+}
 ```
 
-- An operator running a proposer instance MUST arm a timer of `round_timeout_ms(PROPOSER, round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if still in `round`.
+This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which took only a round and returned `quickTimeout` for every role.
+
+- An operator running a proposer instance MUST arm a timer of `RoundTimeout(RoleProposer, round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if it is still in `round`.
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
-- Rounds above `QUICK_TIMEOUT_THRESHOLD` keep the 2-minute slow timeout. Whether a proposer instance should stop earlier is an open question (below), not part of this SIP.
 
 *Other duties* — **TBD**
 
