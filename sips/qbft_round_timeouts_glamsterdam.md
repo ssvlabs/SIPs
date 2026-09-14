@@ -84,42 +84,6 @@ def round_deadline_ms(role, round, round_entered_at_ms):
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
 - Rounds above `QUICK_TIMEOUT_THRESHOLD` keep the 2-minute slow timeout. Whether a proposer instance should stop earlier is an open question (below), not part of this SIP.
 
-*Message validation*
-
-Nodes reject consensus messages whose round is too far ahead of the round they estimate from time since slot start. The estimate MUST use the role's quick timeout:
-
-```python
-ALLOWED_ROUNDS_IN_FUTURE = 1          # unchanged
-MAX_ROUND = {PROPOSER: 6, SYNC_COMMITTEE_CONTRIBUTION: 6, COMMITTEE: 12, AGGREGATOR: 12}  # unchanged
-
-def estimated_round(role, since_slot_start_ms):
-    quick = round_timeout_ms(role, 1)   # 1_500 for PROPOSER, 2_000 otherwise
-    quick_span = QUICK_TIMEOUT_THRESHOLD * quick
-    if since_slot_start_ms < quick_span:
-        return 1 + since_slot_start_ms // quick
-    return 1 + QUICK_TIMEOUT_THRESHOLD + (since_slot_start_ms - quick_span) // SLOW_TIMEOUT_MS
-
-def round_allowed(role, msg_round, since_slot_start_ms):
-    if msg_round > MAX_ROUND[role]:
-        return False
-    return msg_round <= estimated_round(role, max(0, since_slot_start_ms)) + ALLOWED_ROUNDS_IN_FUTURE
-```
-
-Because an instance cannot start before `slot_start`, a round-`r` proposer message is sent no earlier than `slot_start + 1500ms × (r − 1)`, at which point `estimated_round ≥ r`. A compliant operator's messages are therefore never rejected by a compliant validator.
-
-*Conformance cases* (proposer role, `since_slot_start` measured at receipt):
-
-| since slot start | message round | estimated round | highest allowed | result |
-| ---------------: | ------------: | --------------: | --------------: | ------ |
-| 1.4s | 2 | 1 | 2 | accept |
-| 1.4s | 3 | 1 | 2 | reject |
-| 2.9s | 3 | 2 | 3 | accept |
-| 3.0s | 3 | 3 | 4 | accept |
-| 4.4s | 5 | 3 | 4 | reject |
-| 7.0s | 7 | 5 | 6 | reject (`MAX_ROUND`) |
-
-Timer cases (proposer role): entering round 1 at `t0` arms a timer expiring at `t0 + 1500ms` and broadcasts `RoundChange(2)`; entering round 8 arms 1500ms and broadcasts `RoundChange(9)`; entering round 9 arms 120s. Committee, aggregator and sync-contribution timer cases are unchanged until the TBD sections below are specified.
-
 *Other duties* — **TBD**
 
 Glamsterdam also moves the attestation, sync-message, aggregate and contribution deadlines. Their timers are slot-anchored in the current node implementation and MAY need new base offsets. Values below are placeholders for review and MUST be filled before this SIP leaves `draft`.
