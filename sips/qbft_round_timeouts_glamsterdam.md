@@ -1,6 +1,6 @@
-| Author | Title | Category | Status | Dependency SIP | Date |
-| ------ | ----- | -------- | ------ | -------------- | ---- |
-| Gal Rogozinski ([@GalRogozinski](https://github.com/GalRogozinski)) | QBFT Round Timeouts for Glamsterdam | Core | draft | (none) | 2026-09-06 |
+| Author | Title | Category | Status | Date |
+| ------ | ----- | -------- | ------ | ---- |
+| Gal Rogozinski ([@GalRogozinski](https://github.com/GalRogozinski)) | QBFT Round Timeouts for Glamsterdam | Core | draft | 2026-09-06 |
 
 **Summary**
 
