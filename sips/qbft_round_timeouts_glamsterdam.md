@@ -43,7 +43,7 @@ With a 2s round-1 timeout, round 2 begins at `start + 2s`, i.e. after 3.1s for a
 | Glamsterdam, 1250ms | ~23 | 0.091% | — |
 | Glamsterdam, 1000ms | ~22 | 0.087% | — |
 
-The 1250ms and 1000ms rows are within the 95% interval of the 1500ms row (22–32/month). Round 1, when it succeeds, is fast: median 59ms, p99 191ms, slowest success in 30 days 1,148ms. A 1500ms timer never fires on a round 1 that was going to succeed; a 1000ms timer would fire on 5–12 real duties a month.
+The 1250ms and 1000ms rows are within the 95% interval of the 1500ms row (22–32/month). Round 1, when it succeeds, is fast: median 59ms, p99 191ms, slowest success in 30 days 1,148ms. A 1500ms timer never fires on a round 1 whose own duration would have fit (352ms of headroom above the observed maximum); a 1000ms timer would fire on 5–12 real duties a month. Start drift across operators still induces an estimated 1–2 round changes a month at 1500ms — see Security Considerations.
 
 *Design goals, in priority order:*
 
@@ -114,10 +114,10 @@ Cases 2 and 3 arm the same duration from different instants: each round's timer 
 **Security Considerations**
 
 - *Consensus safety.* QBFT safety does not depend on timeout values; round-change justification and message validation semantics are unchanged. No impact.
-- *Liveness.* A shorter round-1 window tolerates a slower honest leader less. The bound is empirical: 350ms above the slowest round-1 success observed in 30 days across 24,984 round-1 decisions, with simulated newly induced round changes of ~1–2 per month network-wide. Round 2 remains available. Under mixed versions liveness is bounded below by today's behaviour.
+- *Liveness.* A shorter round-1 window tolerates a slower honest leader less. The bound is empirical: 352ms above the slowest round-1 success observed in 30 days across 24,984 round-1 decisions, with simulated newly induced round changes of ~1–2 per month network-wide. Round 2 remains available. Under mixed versions liveness is bounded below by today's behaviour.
 - *Slashing.* Unchanged. An instance decides at most one value and the block is signed only after the decision; a round change never yields a second signed block for the same slot.
 - *Message validation surface.* None. This SIP no longer changes any message-validation rule: ssv exempts the proposer from the round-spread check, and the round cap is unchanged.
-- *Residual risk.* The whole change is a 500ms-narrower round-1 window. The margin is empirical: the slowest round-1 success observed in 30 days was 1,148ms, so a 1500ms timer leaves 352ms of headroom and never fires on a round 1 that would have succeeded. A 1000ms timer would have fired on 5–12 real duties a month, which is why the value is not lower.
+- *Residual risk.* The whole change is a 500ms-narrower round-1 window. The margin is empirical: the slowest round-1 success observed in 30 days was 1,148ms, so a 1500ms timer leaves 352ms of headroom and never fires on a round 1 whose own duration would have fit. That is a statement about round-1 duration, not about the duty as a whole — per-operator start drift still induces an estimated 1–2 round changes a month that a 2000ms timer would not have, which the liveness bullet above quantifies. A 1000ms timer would additionally have fired on 5–12 round 1s a month that did succeed, which is why the value is not lower.
 - *Operator incentives.* The instance-start anchor keeps `ProposerDelay` an operator choice. Under a 3s deadline a delayed cluster that round-changes misses regardless of this SIP (`~2.0s + 1.5s > 3s`); operators SHOULD keep `ProposerDelay` at or below the existing 1s cap.
 
 **Alternatives Considered** (non-normative)
