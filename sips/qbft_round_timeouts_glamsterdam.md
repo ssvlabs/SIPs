@@ -59,35 +59,36 @@ The 1250ms and 1000ms rows are within the 95% interval of the 1500ms row (22–3
 - `slot_start(height)`: **wall-clock** time, beacon genesis plus `height × SECONDS_PER_SLOT`. `height` is the message's `Height` field, which is the slot (ssv-spec [`ssv/runner.go`](https://github.com/ssvlabs/ssv-spec/blob/main/ssv/runner.go#L247), [`ssv/committee.go`](https://github.com/ssvlabs/ssv-spec/blob/main/ssv/committee.go#L200)).
 - `round_entered_at(round)`: a **monotonic** local clock reading taken when the instance entered `round`. For `round = 1` this is the instance start; for `round > 1` it is the moment the instance advanced to that round (on timeout, or on the `f+1` partial-quorum rule below). It MUST NOT be derived from wall-clock time, so that an NTP step cannot shorten or extend a running round. On process restart or mid-round re-sync the instance re-enters its current round and the timer restarts from the new `round_entered_at`.
 - *`f+1` partial-quorum round advance*: an instance that receives `RoundChange` messages for rounds above its own from `f+1` distinct operators adopts the lowest such round and re-arms its timer, without waiting for its own timeout. This is ssv-spec behaviour ([`qbft/round_change.go`](https://github.com/ssvlabs/ssv-spec/blob/main/qbft/round_change.go#L87-L112)), not a SIP; it is stated here because the mixed-version argument below depends on it.
-- `RoundTimeout(role, round)`: the duration after `round_entered_at(round)` at which the operator MUST broadcast a `RoundChange` for `round + 1` if it is still in `round` (the existing `UponRoundTimeout` behaviour; unchanged). Defined below.
+- `ProposerRoundTimeout(round)`: the duration after `round_entered_at(round)` at which a proposer instance MUST act on expiry (the existing `UponRoundTimeout` behaviour; unchanged). Defined below.
 
 *Proposer duty*
 
 ```go
 var (
-    quickTimeoutThreshold = Round(8)            // unchanged (SIP-6)
-    quickTimeout          = 2 * time.Second     // unchanged (SIP-6)
-    proposerQuickTimeout  = 1500 * time.Millisecond // new: was quickTimeout
-    slowTimeout           = 2 * time.Minute     // unchanged (SIP-6)
+    quickTimeoutThreshold = Round(8)                // unchanged (SIP-6)
+    proposerQuickTimeout  = 1500 * time.Millisecond // new: was quickTimeout (2s)
+    slowTimeout           = 2 * time.Minute         // unchanged (SIP-6)
 )
 
-// RoundTimeout returns the duration until the next timeout for a given role and
-// round. The timer is armed on entering a round and is relative to that entry,
-// not to slot start.
-func RoundTimeout(role types.RunnerRole, r Round) time.Duration {
+// ProposerRoundTimeout returns the duration until the next timeout for a
+// proposer round. The timer is armed on entering the round and is relative to
+// that entry, not to slot start.
+//
+// Only the proposer role is specified here. The committee, aggregator and
+// sync-committee-contribution timers are slot-anchored — round r expires at
+// slot_start + head_start(role) + quickTimeout * r — and are unchanged by this
+// SIP; see Open Questions.
+func ProposerRoundTimeout(r Round) time.Duration {
     if r > quickTimeoutThreshold {
         return slowTimeout
     }
-    if role == types.RoleProposer {
-        return proposerQuickTimeout
-    }
-    return quickTimeout
+    return proposerQuickTimeout
 }
 ```
 
-This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which took only a round and returned `quickTimeout` for every role.
+This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which returned `quickTimeout` for every role. SIP-6's value is retained for the roles this SIP does not cover.
 
-- An operator running a proposer instance MUST arm a timer of `RoundTimeout(RoleProposer, round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if it is still in `round`.
+- An operator running a proposer instance MUST arm a timer of `ProposerRoundTimeout(round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if it is still in `round`.
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
 - A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
 
