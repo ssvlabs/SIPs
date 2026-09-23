@@ -93,6 +93,17 @@ This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which returned
 - A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
 - On round-2 expiry the instance MUST NOT broadcast `RoundChange(3)` and MUST NOT arm a further timer. It remains in round 2 until it decides or the duty ends.
 
+*Timer cases* (proposer role)
+
+| # | Situation | Timer armed | On expiry |
+| - | --------- | ----------- | --------- |
+| 1 | Instance starts round 1 at `t0` | expires `t0 + 1500ms` | broadcast `RoundChange(2)`, enter round 2 |
+| 2 | Round 2 entered on round-1 timeout at `t1` | expires `t1 + 1500ms` | no `RoundChange(3)`; stay in round 2 |
+| 3 | Round 2 entered at `t2` on `f+1` `RoundChange(2)` from other operators, before this node's own round-1 timer fired | expires `t2 + 1500ms` | no `RoundChange(3)`; stay in round 2 |
+
+Cases 2 and 3 arm the same duration from different instants: each round's timer is measured from that operator's own `round_entered_at`, so a node dragged into round 2 early by case 3 also leaves round 2 early. Neither case re-arms after expiry.
+
+
 *Compatibility and rollout*
 
 - No message, signature or domain change. Pre-upgrade and post-upgrade operators MAY coexist in one cluster.
