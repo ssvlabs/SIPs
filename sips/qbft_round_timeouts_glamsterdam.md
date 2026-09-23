@@ -88,9 +88,10 @@ func ProposerRoundTimeout(r Round) time.Duration {
 
 This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which returned `quickTimeout` for every role. SIP-6's value is retained for the roles this SIP does not cover.
 
-- An operator running a proposer instance MUST arm a timer of `ProposerRoundTimeout(round)` upon entering each round and MUST broadcast `RoundChange(round + 1)` on expiry if it is still in `round`.
+- An operator running a proposer instance MUST arm a timer of `ProposerRoundTimeout(round)` upon entering each round. On expiry, if it is still in `round` and `round < 2`, it MUST broadcast `RoundChange(round + 1)`.
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
 - A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
+- On round-2 expiry the instance MUST NOT broadcast `RoundChange(3)` and MUST NOT arm a further timer. It remains in round 2 until it decides or the duty ends.
 
 *Compatibility and rollout*
 
