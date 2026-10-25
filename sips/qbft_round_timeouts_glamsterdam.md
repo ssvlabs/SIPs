@@ -77,7 +77,7 @@ var (
 // Only the proposer role is specified here. The committee, aggregator and
 // sync-committee-contribution timers are slot-anchored — round r expires at
 // slot_start + head_start(role) + quickTimeout * r — and are unchanged by this
-// SIP; see Open Questions.
+// SIP; see SIPs#105.
 func ProposerRoundTimeout(r Round) time.Duration {
     if r > quickTimeoutThreshold {
         return slowTimeout
@@ -130,7 +130,6 @@ Cases 2 and 3 arm the same duration from different instants: each round's timer 
 **Open Questions**
 
 - ePBS replaces relay payload fetch with builder-bid selection; if consensus start drops well below 1s the slot-anchored alternative becomes attractive. Re-measure after the fork.
-- The committee, aggregator and sync-committee-contribution timers are slot-anchored with a head start pinned to the old beacon deadlines, so Glamsterdam leaves them stale. Out of scope here; needs its own SIP.
 
 **Appendix A — Data sources** (non-normative)
 
