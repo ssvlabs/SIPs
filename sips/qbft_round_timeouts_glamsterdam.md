@@ -88,7 +88,7 @@ func ProposerRoundTimeout(r Round) time.Duration {
 
 This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which returned `quickTimeout` for every role. SIP-6's value is retained for the roles this SIP does not cover.
 
-- An operator running a proposer instance MUST arm a timer of `ProposerRoundTimeout(round)` upon entering each round. On expiry, if it is still in `round` and `round < 2`, it MUST broadcast `RoundChange(round + 1)`.
+- An operator running a proposer instance MUST arm a timer of `ProposerRoundTimeout(round)` upon entering each round (2000ms instead of 1500ms when the rollback setting below is enabled). On expiry, if it is still in `round` and `round < 2`, it MUST broadcast `RoundChange(round + 1)`.
 - The proposer timer MUST be anchored at `round_entered_at`, never at `slot_start`.
 - A proposer instance MUST NOT progress past round 2. No round after 2 can land a block under a 3s attestation deadline, and ssv message validation has capped proposer messages at round 2 since v2.4.3 ([ssv#2807](https://github.com/ssvlabs/ssv/pull/2807)), so higher rounds are unreachable for this role in any case. `slowTimeout` is therefore dead code for the proposer.
 - On round-2 expiry the instance gives up: it MUST NOT broadcast `RoundChange(3)`, MUST NOT arm a further timer, and stops processing messages for this instance. A decided message (a commit quorum) for the height still completes it. This is the ssv-spec [`CutoffRound`](https://github.com/ssvlabs/ssv-spec/blob/v1.2.2/qbft/timeout.go#L18) give-up applied with a per-role cutoff of 3 for the proposer, without the final round-change broadcast, and matches ssv since v2.5.0 ([ssv#3041](https://github.com/ssvlabs/ssv/pull/3041)). Contributing to round 2 after this point buys nothing: every round-2 timer expires at least ~3.5s into the slot (fastest start ~0.5s, plus 1.5s, plus 1.5s), already past the 3s deadline.
@@ -97,20 +97,21 @@ This amends [SIP-6](./constant_qbft_timeout.md)'s `RoundTimeout`, which returned
 
 | # | Situation | Timer armed | On expiry |
 | - | --------- | ----------- | --------- |
-| 1 | Instance starts round 1 at `t0` | expires `t0 + 1500ms` | broadcast `RoundChange(2)`, enter round 2 |
-| 2 | Round 2 entered on round-1 timeout at `t1` | expires `t1 + 1500ms` | no `RoundChange(3)`; give up |
-| 3 | Round 2 entered at `t2` on `f+1` `RoundChange(2)` from other operators, before this node's own round-1 timer fired | expires `t2 + 1500ms` | no `RoundChange(3)`; give up |
+| 1 | Instance starts round 1 at `t0` | expires `t0 + ProposerRoundTimeout(1)` | broadcast `RoundChange(2)`, enter round 2 |
+| 2 | Round 2 entered on round-1 timeout at `t1` | expires `t1 + ProposerRoundTimeout(2)` | no `RoundChange(3)`; give up |
+| 3 | Round 2 entered at `t2` on `f+1` `RoundChange(2)` from other operators, before this node's own round-1 timer fired | expires `t2 + ProposerRoundTimeout(2)` | no `RoundChange(3)`; give up |
 
-Cases 2 and 3 arm the same duration from different instants: each round's timer is measured from that operator's own `round_entered_at`, so a node dragged into round 2 early by case 3 also gives up early, at its own `t2 + 1500ms`. Neither case re-arms after expiry.
+Cases 2 and 3 arm the same duration from different instants: each round's timer is measured from that operator's own `round_entered_at`, so a node dragged into round 2 early by case 3 also gives up early, at its own `t2 + ProposerRoundTimeout(2)`. Neither case re-arms after expiry.
 
 
 *Compatibility and rollout*
 
 - No message, signature or domain change. Pre-upgrade and post-upgrade operators MAY coexist in one cluster.
-- Round-change quorum in a mixed cluster: upgraded operators broadcast `RoundChange(2)` at `start + 1.5s`, non-upgraded at `start + 2s`. Once `f + 1` operators in a cluster are upgraded, the existing partial-quorum rule advances the rest at 1.5s; before that the cluster behaves as today. The change is never worse than the status quo during rollout.
+- Round-change quorum in a mixed cluster: operators on 1500ms broadcast `RoundChange(2)` at `start + 1.5s`, operators on 2000ms at `start + 2s`. Once `f + 1` operators in a cluster run 1500ms, the existing partial-quorum rule advances the rest at 1.5s. With at most `f` on 1500ms, those operators leave round 1 at 1.5s while the rest wait until 2s; round 1 can then decide only from the 2000ms operators alone, so if one of them is down, a round 1 that would have decided between 1.5s and 2s is lost and round 2 starts at 2s as today. That is the whole cost of a mixed cluster, during rollout or rollback, and it is bounded by the residual-risk bullet below.
 - This is **not a fork**. Per [SIP-7](./fork_support.md) a fork is a non-backwards-compatible change, and there is none here: no message, signature or domain change, and a mixed cluster stays live throughout. No fork assignment is required.
 - The two clients reach that conclusion by different routes, and both are needed for the claim to hold network-wide. **ssv** skips the round-spread check for the proposer entirely ([`consensus_validation.go`](https://github.com/ssvlabs/ssv/blob/main/message/validation/consensus_validation.go#L529-L531)), so an early `RoundChange(2)` is never round-checked. **Anchor** applies the check to all roles, and is safe because a `RoundChange(2)` sent at 1.5s still falls inside round 1's estimate plus its future-round slack; later rounds are unreachable for the proposer and would be ignored rather than rejected in any case (per @MatheusFranco99 and @petarjuki7 on this PR — the ssv half is verified here, the Anchor half is theirs).
 - Rollout condition instead: the change SHOULD be active on a majority of mainnet operators before the Glamsterdam activation epoch. A cluster that is only partly upgraded behaves as it does today.
+- Implementations MAY offer an operator setting that restores the 2000ms budget. The setting changes only the duration `ProposerRoundTimeout` returns for rounds at or below `quickTimeoutThreshold`; the `round_entered_at` anchor, the round-2 cap and the give-up rule above are unchanged. It is a temporary rollback lever against the empirical 1500ms bound (a round 1 that would have decided between 1500ms and 2000ms), not against deadline misses, and SHOULD be removed once 1500ms has proven out. It is a committee-wide parameter: operators of a shared committee SHOULD set it the same way, and under the `f+1` rule a rollback only takes effect once at most `f` operators of the committee still run 1500ms. (Non-normative: ssv ships it as `LegacyProposerRoundTimeout` since v2.5.0, Anchor as `--legacy-proposer-round-timeout` since v1.4.1.)
 
 **Security Considerations**
 
